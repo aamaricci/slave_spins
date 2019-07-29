@@ -5,13 +5,13 @@ FC=mpif90
 PLAT=gnu
 
 ##$ SET THE LOCATION OF YOU PROGRAM DRIVER (default is ./drivers)
-DIR =./drivers
+DIR =.
 
 ##$ SET THE TARGET DIRECTORY WHERE TO PUT THE EXECUTABLE (default if $HOME/.bin in the PATH)
 DIREXE=$(HOME)/.bin
 
 ##$ CHOOSE THE DRIVER CODE:
-EXE=ss_hm_2d
+EXE=test_sort
 
 ##$ SET INCLUDE AND LINK OPTIONS USING pkg-config
 INCARGS=$(shell pkg-config --cflags dmft_tools scifor)
@@ -54,7 +54,8 @@ endif
 #                        HERE STARTS THE REAL WORK
 ###############################################################################
 
-OBJS= indexx.o SS_SPARSE_MATRIX.o SS_VARS_GLOBAL.o SS_INPUT_VARS.o SS_SETUP.o SS_SOLVE_FERMION.o SS_SOLVE_SPIN.o SS_MAIN.o SLAVE_SPINS.o 
+OBJS=quicksort.o indexx.o
+
 
 all: all version compile completion
 debug: debug version compile completion

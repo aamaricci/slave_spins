@@ -24,115 +24,45 @@ MODULE SS_VARS_GLOBAL
 
 
 
-  ! !------------------ ABTRACT INTERFACES PROCEDURES ------------------!
-  ! !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
-  ! !dbleMat*dbleVec
-  ! abstract interface
-  !    subroutine dd_sparse_HxV(Nloc,v,Hv)
-  !      integer                 :: Nloc
-  !      real(8),dimension(Nloc) :: v
-  !      real(8),dimension(Nloc) :: Hv
-  !    end subroutine dd_sparse_HxV
-  ! end interface
-
-
-
-  !SIZE OF THE PROBLEM
-  !=========================================================
-  integer,save                                       :: Ns       !Number of levels per spin
-  integer,save                                       :: Nsectors !Number of sectors
-
-
-  !local part of the Hamiltonian
-  !INTERNAL USE (accessed thru functions)
-  !=========================================================
-  real(8),dimension(:,:,:,:),allocatable             :: impHloc           !local hamiltonian
-
-
-  !Some maps between sectors and full Hilbert space (pointers)
-  !PRIVATE:
-  !=========================================================
-  integer,allocatable,dimension(:)                   :: getDim             ! [Nsectors]
-
-
-
-  ! !Variables for DIAGONALIZATION
-  ! !PRIVATE
-  ! !=========================================================  
-  ! type(sparse_matrix_csr)                            :: spH0d !diagonal part
-  ! type(sparse_matrix_csr),dimension(:),allocatable   :: spH0ups,spH0dws !reduced UP and DW parts
-  ! !
-  ! procedure(dd_sparse_HxV),pointer                   :: spHtimesV_p=>null()
+  !------------------ ABTRACT INTERFACES PROCEDURES ------------------!
+  !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
+  !dbleMat*dbleVec
+  abstract interface
+     subroutine dd_sparse_HxV(Nloc,v,Hv)
+       integer                 :: Nloc
+       real(8),dimension(Nloc) :: v
+       real(8),dimension(Nloc) :: Hv
+     end subroutine dd_sparse_HxV
+  end interface
 
 
 
 
 
-  !Impurity Green's function and Self-Energies: (Nspin,Nspin,Norb,Norb,:)
-  !PRIVATE (now public but accessible thru routine)
-  !=========================================================
-  complex(8),allocatable,dimension(:,:,:,:,:)        :: impSmats
-  complex(8),allocatable,dimension(:,:,:,:,:)        :: impSreal
-  complex(8),allocatable,dimension(:,:,:,:,:)        :: impGmats
-  complex(8),allocatable,dimension(:,:,:,:,:)        :: impGreal
+
+  integer,save                            :: Ns       !Number of levels = 2*Norb
+  integer                                 :: Nk
+  !
+  real(8),dimension(:),allocatable        :: ss_lambda    !lambda_{m\sigma}
+  real(8),dimension(:),allocatable        :: ss_zeta      !zeta_{m\sigma}
+  real(8),dimension(:),allocatable        :: ss_weiss     !4<S^x_{m\sigma}><E_fermion>
+  real(8),dimension(:),allocatable        :: ss_c
+  real(8),dimension(:),allocatable        :: ss_Sz
+  complex(8),dimension(:,:,:),allocatable :: ss_Hk
+  real(8),dimension(:),allocatable        :: ss_Wtk
+  real(8),dimension(:,:),allocatable      :: ss_Hloc           !local hamiltonian
+  real(8),dimension(:),allocatable        :: ss_dens ![Ns: 1:Norb_up, 1:Norb_dw]
+  logical                                 :: ss_Hdiag !
 
 
 
+  real(8) :: zeta_function
 
-  !Density and double occupancy
-  !PRIVATE (now public but accessible thru routines)
-  !=========================================================
-  real(8),dimension(:),allocatable                   ::  ss_dens
-  real(8),dimension(:),allocatable                   ::  ss_dens_up,ss_dens_dw
-  real(8),dimension(:),allocatable                   ::  ss_docc
-
-
-
-  !Local energies and generalized double occupancies
-  !PRIVATE (now public but accessible thru routine)
-  !=========================================================
-  real(8)                                            :: ss_Ekin
-  real(8)                                            :: ss_Epot
-  real(8)                                            :: ss_Eint
-  real(8)                                            :: ss_Ehartree
-  real(8)                                            :: ss_Eknot
-
-
-
-
-
+  
   !File suffixes for printing fine tuning.
   !=========================================================
-  character(len=32)                                  :: ss_file_suffix=""       !suffix string attached to the output files.
-  logical                                            :: Jhflag              !spin-exchange and pair-hopping flag.
-  logical                                            :: offdiag_gf_flag=.false.
-  character(len=200)                                 :: ss_input_file=""
-
-
-  !   !This is the internal Mpi Communicator and variables.
-  !   !=========================================================
-  ! #ifdef _MPI
-  !   integer                                            :: MpiComm_Global=MPI_COMM_NULL
-  !   integer                                            :: MpiComm=MPI_COMM_NULL
-  ! #endif
-  !   integer                                            :: MpiGroup_Global=MPI_GROUP_NULL
-  !   integer                                            :: MpiGroup=MPI_GROUP_NULL
-  !   logical                                            :: MpiStatus=.false.
-  !   logical                                            :: MpiMaster=.true.
-  !   integer                                            :: MpiRank=0
-  !   integer                                            :: MpiSize=1
-  !   integer,allocatable,dimension(:)                   :: MpiMembers
-  !   integer                                            :: mpiQup=0
-  !   integer                                            :: mpiRup=0
-  !   integer                                            :: mpiQdw=0
-  !   integer                                            :: mpiRdw=0
-  !   integer                                            :: mpiQ=0
-  !   integer                                            :: mpiR=0
-  !   integer                                            :: mpiIstart
-  !   integer                                            :: mpiIend
-  !   integer                                            :: mpiIshift
-  !   logical                                            :: mpiAllThreads=.true.
-
+  character(len=32)                      :: ss_file_suffix=""       !suffix string attached to the output files.
+  character(len=200)                     :: ss_input_file=""
 
 
   ! contains
