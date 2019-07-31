@@ -54,7 +54,7 @@ endif
 #                        HERE STARTS THE REAL WORK
 ###############################################################################
 
-OBJS= indexx.o SS_SPARSE_MATRIX.o SS_VARS_GLOBAL.o SS_INPUT_VARS.o SS_SETUP.o SS_SOLVE_FERMION.o SS_SOLVE_SPIN.o SS_MAIN.o SLAVE_SPINS.o 
+OBJS= SS_SPARSE_MATRIX.o SS_VARS_GLOBAL.o SS_INPUT_VARS.o SS_SETUP.o SS_SOLVE_FERMION.o SS_SOLVE_SPIN.o SS_MAIN.o SLAVE_SPINS.o 
 
 all: all version compile completion
 debug: debug version compile completion
@@ -62,7 +62,7 @@ debug: debug version compile completion
 all: FPPFLAG+=-D_
 
 debug: FFLAG=$(DFLAG)
-debug: FPPFLAG+=-D_
+debug: FPPFLAG+=-D_DEBUG
 
 
 compile: $(OBJS)

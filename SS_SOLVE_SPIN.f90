@@ -20,7 +20,7 @@ contains
     integer                                   :: Ndim,Ndegen
     integer,dimension(Ns)                     :: Ivec
     real(8),dimension(Ns)                     :: Sz
-    real(8),dimension(Nspin,Norb)             :: tSz
+    real(8),dimension(2,Norb)                 :: tSz
     real(8)                                   :: htmp
     !
     real(8),allocatable,dimension(:,:),target :: Evecs
@@ -99,8 +99,8 @@ contains
 
 
 
-    allocate(Evecs(Ndim,Ndim))
-    allocate(Evals(Ndim))
+    allocate(Evecs(Ndim,Ndim));Evecs=0d0
+    allocate(Evals(Ndim));Evals=0d0
     !
     call sp_dump_matrix(spHs,Evecs)
     call sp_delete_matrix(spHs)
@@ -112,6 +112,7 @@ contains
        if(abs(Evals(istate)-Evals(1))<= 1d-10)Ndegen=Ndegen+1
     end do
     zeta_function = dble(Ndegen)
+    print*,"Zf=",zeta_function
 
     avSz=0d0
     avOO=0d0
@@ -125,18 +126,18 @@ contains
           !
           Sz = 0.5d0 ; where(Ivec==0)Sz=-0.5d0
           !
-          avSz = avSz + Sz*gs_vec(istate)**2/zeta_function
+          avSz = avSz + Sz*gs_vec(istate)**2/zeta_function          
           !
           do io=1,Ns
              if(Sz(io)/=0.5d0)cycle
              call Sminus(io,Istate,Jstate)
-             htmp = ss_Weiss(io)
+             htmp = 1d0!ss_Weiss(io)
              avOO(io) = avOO(io) + gs_vec(Jstate)*htmp*gs_vec(Istate)/zeta_function
           enddo
           do io=1,Ns
              if(Sz(io)/=-0.5d0)cycle
              call Splus(io,Istate,Jstate)
-             htmp = ss_c(io)*ss_Weiss(io)
+             htmp = ss_c(io)!*ss_Weiss(io)
              avOO(io) = avOO(io) + gs_vec(Jstate)*htmp*gs_vec(Istate)/zeta_function
           enddo
        enddo
@@ -144,7 +145,7 @@ contains
     !
     ss_Sz = avSz
     ss_zeta = avOO**2
-    !
+    print*,"Z=",ss_zeta
     !
   end subroutine ss_solve_spins
 
@@ -171,8 +172,10 @@ contains
     integer,intent(in)    :: pos
     integer,intent(in)    :: in
     integer,intent(inout) :: out
-    if(.not.btest(in,pos-1))stop "S^- error: S^-_i|...dw_i...>"
-    out = ibclr(in,pos-1)
+    integer               :: in_
+    in_ = in-1
+    if(.not.btest(in_,pos-1))stop "S^- error: S^-_i|...dw_i...>"
+    out = ibclr(in_,pos-1)+1
   end subroutine Sminus
 
 
@@ -180,8 +183,10 @@ contains
     integer,intent(in)    :: pos
     integer,intent(in)    :: in
     integer,intent(inout) :: out
-    if(btest(in,pos-1))stop "S^+ error: S^+_i|...up_i...>"
-    out = ibset(in,pos-1)
+    integer               :: in_
+    in_ = in-1
+    if(btest(in_,pos-1))stop "S^+ error: S^+_i|...up_i...>"
+    out = ibset(in_,pos-1)+1
   end subroutine Splus
 
 
@@ -203,32 +208,14 @@ contains
   function bdecomp(i,Ntot) result(ivec)
     integer :: Ntot,ivec(Ntot),l,i
     logical :: busy
-    !this is the configuration vector |1,..,Ns,Ns+1,...,Ntot>
-    !obtained from binary decomposition of the state/number i\in 2^Ntot
+    !I = 0,...,2**Ns-1
     do l=0,Ntot-1
-       busy=btest(i,l)
+       busy=btest(i-1,l)
        ivec(l+1)=0
        if(busy)ivec(l+1)=1
     enddo
   end function bdecomp
 
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : input a vector ib(Nlevels) with the binary sequence 
-  ! and output the corresponding state |i>
-  !(corresponds to the recomposition of the number i-1)
-  !+------------------------------------------------------------------+
-  function bjoin(ib,Ntot) result(i)
-    integer                 :: Ntot
-    integer,dimension(Ntot) :: ib
-    integer                 :: i,j
-    i=0
-    do j=0,Ntot-1
-       i=i+ib(j+1)*2**j
-    enddo
-  end function bjoin
 
 
 

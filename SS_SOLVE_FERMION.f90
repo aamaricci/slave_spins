@@ -2,9 +2,9 @@ MODULE SS_SOLVE_FERMION
   USE SS_INPUT_VARS
   USE SS_SETUP
   !
-  USE SF_LINALG,  only: kron,eigh,diag,diagonal
+  USE SF_LINALG,  only: kron,eigh,diag,diagonal,operator(.x.)
   USE SF_SPECIAL, only: fermi
-  USE SF_MISC,    only: sort
+  USE SF_MISC,    only: quicksort
   implicit none
 
   private
@@ -19,7 +19,7 @@ contains
 
 
   subroutine ss_solve_fermions()
-    complex(8),dimension(Ns,Ns) :: Hk_f,Uk_f,Hk,Eweiss,Hloc
+    complex(8),dimension(Ns,Ns) :: Hk_f,Uk_f,Hk,Eweiss,Hloc,diagZ
     real(8),dimension(Ns)       :: sq_zeta,lambda
     integer                     :: ik,iorb,jorb,ispin,io,jo
     logical                     :: bool
@@ -42,6 +42,7 @@ contains
     !
     ss_dens = 0d0
 
+    diagZ = diag(sq_zeta)
     stride  = 0
     do ik = 1,Nk 
        select case(bool)
@@ -53,8 +54,7 @@ contains
           Hloc = kron(pauli_0,one*ss_Hloc)
        end select
        !
-       !Hk_f = (diag(sq_zeta).mat_product.Hk).mat_product.diag(sq_zeta)
-       Hk_f = matmul( matmul(diag(sq_zeta), Hk), diag(sq_zeta) ) !diag(sqrt(z)) . Htmp . diag(sqrt(z))
+       Hk_f = (diagZ.x.Hk) .x. diagZ !matmul( matmul(diag(sq_zeta), Hk), diag(sq_zeta) ) 
        !
        Uk_f = Hk_f + Hloc - diag(lambda)
        !
@@ -67,22 +67,17 @@ contains
        stride = stride+Ns
     enddo
 
-    call indexx(Nk*Ns,Ek_all,Ek_indx) !sort Ek_all
+    call quicksort(Ek_all,Ek_indx)!,Nk*Ns)
 
-    ! print*,"Nk =",Nk,Ns*Nk
-    ! print*,"filling*Nk",filling*Nk
     N_electrons = ceiling(filling*Nk)
-    print*,"N =",N_electrons
 
     Nall = 0d0
     get_dens: do ik=1,Nk*Ns
        Nall = Nall + 1d0!fermi(Ek_all(Ek_indx(ik)),beta)
        if(Nall > N_electrons)exit get_dens
     enddo get_dens
-    ! print*,"ciao",Nall,ik-1
 
     xmu = Ek_all(Ek_indx(ik-1)) !Ek_all(ik-1)
-
     print*,"mu=",xmu
 
     do ik = 1,Nk 
@@ -106,7 +101,7 @@ contains
        ss_dens= ss_dens+ diagonal(rhoK(:,:,ik))*ss_Wtk(ik)
        !
     enddo
-    print*,ss_dens,sum(ss_dens)
+    print*,"n=",sum(ss_dens)
 
 
     ! Get H_{a,s} = \sum_{b} sqrt(Z_{b,s})* sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
@@ -125,7 +120,7 @@ contains
     ! Get C = ( n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
     ss_c  = 1d0/(sqrt(ss_dens*(1d0-ss_dens))+mch) - 1d0
 
-    print*,ss_c
+    print*,"C=",ss_c
   end subroutine ss_solve_fermions
 
 
