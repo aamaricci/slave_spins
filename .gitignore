@@ -16,3 +16,4 @@ SS_SPARSE_MATRIX.o
 SS_VARS_GLOBAL.o
 indexx.o
 test
+revision.inc

@@ -27,16 +27,13 @@ contains
     real(8),allocatable,dimension(:)          :: Evals
     real(8),dimension(:),pointer              :: gs_vec
     real(8),dimension(Ns)                     :: avSz,avOO
-
-
+    !   
     Ndim = 2**Ns    
     call sp_init_matrix(spHs,Ndim)
-
-
-
+    !
     do istate=1,Ndim
        Ivec = Bdecomp(istate,Ns)
-
+       !
        Sz = 0.5d0 ; where(Ivec==0)Sz=-0.5d0
        do ispin=1,2
           do iorb=1,Norb
@@ -112,11 +109,9 @@ contains
        if(abs(Evals(istate)-Evals(1))<= 1d-10)Ndegen=Ndegen+1
     end do
     zeta_function = dble(Ndegen)
-    print*,"Zf=",zeta_function
-
+    !
     avSz=0d0
     avOO=0d0
-
     do Idegen=1,Ndegen
        gs_vec => Evecs(:,Idegen)
        !
@@ -145,7 +140,8 @@ contains
     !
     ss_Sz = avSz
     ss_zeta = avOO**2
-    print*,"Z=",ss_zeta
+    !
+    if(Nspin==1)call ss_spin_symmetry(ss_zeta)
     !
   end subroutine ss_solve_spins
 

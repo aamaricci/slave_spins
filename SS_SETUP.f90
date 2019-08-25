@@ -8,6 +8,7 @@ MODULE SS_SETUP
 
   public :: ss_setup_structure
   public :: ss_init_params
+  public :: ss_spin_symmetry
 
 contains
 
@@ -37,13 +38,13 @@ contains
     allocate(ss_Sz(Ns))
     ss_Sz = 0d0
     !
-    allocate(ss_Hk(Nspin*Norb,Nspin*Norb,Nk))
+    allocate(ss_Hk(Ns,Ns,Nk))
     ss_Hk = zero
     !
-    allocate(ss_Wtk(Nk))
+    allocate(ss_Wtk(Ns,Ns,Nk))
     ss_Wtk= 0d0
     !
-    allocate(ss_Hloc(Nspin*Norb,Nspin*Norb))
+    allocate(ss_Hloc(Ns,Ns))
     ss_Hloc = zero
     !
   end subroutine ss_setup_structure
@@ -60,8 +61,14 @@ contains
        ss_lambda = params(1:Ns)
        ss_zeta   = params(Ns+1:2*Ns)
     endif
-
   end subroutine ss_init_params
+
+
+
+  subroutine ss_spin_symmetry(array)
+    real(8),dimension(Ns) :: array
+    array(Norb+1:) = array(1:Norb)
+  end subroutine ss_spin_symmetry
 
 
 END MODULE SS_SETUP

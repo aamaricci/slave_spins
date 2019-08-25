@@ -37,15 +37,16 @@ contains
 
   function hk_model(kvec,N) result(hk)
     real(8),dimension(:)      :: kvec
-    integer                   :: N
+    integer                   :: N,i
     complex(8),dimension(N,N) :: Hk
     real(8)                   :: kx,ky,cx,cy
-
-    if(N>1)stop "minchia"
     kx = kvec(1)
     ky = kvec(2)
     cx = cos(kx)
     cy = cos(ky)
-    hk(1,1) = -2d0*ts*(cx+cy)
+    hk = zero
+    do i=1,N
+       hk(i,i) = -2d0*ts*(cx+cy)
+    enddo
   end function hk_model
 end program

@@ -3,8 +3,9 @@ MODULE SS_SOLVE_FERMION
   USE SS_SETUP
   !
   USE SF_LINALG,  only: kron,eigh,diag,diagonal,operator(.x.)
-  USE SF_SPECIAL, only: fermi
-  USE SF_MISC,    only: quicksort
+  USE SF_SPECIAL, only: fermi,heaviside,step
+  USE SF_MISC,    only: sort_array
+  USE SF_IOTOOLS, only: save_array
   implicit none
 
   private
@@ -13,50 +14,39 @@ MODULE SS_SOLVE_FERMION
   public :: ss_solve_fermions
 
 
-
-
 contains
 
 
   subroutine ss_solve_fermions()
-    complex(8),dimension(Ns,Ns) :: Hk_f,Uk_f,Hk,Eweiss,Hloc,diagZ
+    complex(8),dimension(Ns,Ns) :: Hk_f,Uk_f,Eweiss,diagZ,Wtk,diagR
     real(8),dimension(Ns)       :: sq_zeta,lambda
-    integer                     :: ik,iorb,jorb,ispin,io,jo
+    integer                     :: ik,iorb,jorb,ispin,io,jo,indx
     logical                     :: bool
     real(8),dimension(Ns,Nk)    :: eK
     real(8),dimension(Ns)       :: rhoDiag,Ek_f
     real(8),dimension(Ns,Ns,Nk) :: rhoK
     real(8),parameter           :: mch=1d-5
     real(8),dimension(Nk*Ns)    :: Ek_all
-    integer                     :: stride,N_electrons
+    integer                     :: stride,N_electrons,N_index
     integer,dimension(Nk*Ns)    :: Ek_indx
-    real(8)                     :: Nall
+    real(8)                     :: Efilling
+    integer                     :: Nall
     !
     bool = (Ns==Nspin*Norb)
-
-    lambda  = ss_lambda
-    print*,"lambda",lambda
-    sq_zeta = sqrt(ss_zeta)
-    print*,"ss_zeta",ss_zeta
-    Eweiss  = 0d0
     !
-    ss_dens = 0d0
-
-    diagZ = diag(sq_zeta)
+    if(Nspin==1)call ss_spin_symmetry(ss_zeta)
+    !
+    lambda  = ss_lambda
+    sq_zeta = sqrt(ss_zeta)
+    diagZ   = diag(sq_zeta)
+    !
     stride  = 0
+    Eweiss  = 0d0
+    ss_dens = 0d0
     do ik = 1,Nk 
-       select case(bool)
-       case(.true.)
-          Hk   = ss_Hk(:,:,ik)
-          Hloc = ss_Hloc
-       case(.false.)
-          Hk   = kron(pauli_0,ss_Hk(:,:,ik))
-          Hloc = kron(pauli_0,one*ss_Hloc)
-       end select
+       Hk_f = (diagZ.x.ss_Hk(:,:,ik)) .x. diagZ
        !
-       Hk_f = (diagZ.x.Hk) .x. diagZ !matmul( matmul(diag(sq_zeta), Hk), diag(sq_zeta) ) 
-       !
-       Uk_f = Hk_f + Hloc - diag(lambda)
+       Uk_f = Hk_f + ss_Hloc - diag(lambda)
        !
        call eigh(Uk_f,Ek_f)
        !
@@ -66,44 +56,50 @@ contains
        Ek_all(stride+1:stride+Ns) = Ek_f
        stride = stride+Ns
     enddo
+    !
+    !< Get chemical potential: two approaches if is_bethe=F,T
+    call sort_array(Ek_all,Ek_indx)
+    !
+    select case(is_bethe)
+    case(.true.)                !DOS like Bethe needs special treatment 
+       ! N_electrons = ceiling(filling*Nk)
+       Efilling = 0d0
+       ik_loop: do ik=1,Nk
+          do io=1,Ns
+             indx = io + (ik-1)*Ns
+             Efilling = Efilling + ss_Wtk(io,io,ik)
+             if(Efilling >= filling)exit ik_loop
+          enddo
+       enddo ik_loop
+       indx=indx-1
+    case (.false.)              !
+       indx = 2*ceiling(filling/Norb*Nk)
+    end select
 
-    call quicksort(Ek_all,Ek_indx)!,Nk*Ns)
+    print*,"Nall",indx,Nk*Ns
 
-    N_electrons = ceiling(filling*Nk)
-
-    Nall = 0d0
-    get_dens: do ik=1,Nk*Ns
-       Nall = Nall + 1d0!fermi(Ek_all(Ek_indx(ik)),beta)
-       if(Nall > N_electrons)exit get_dens
-    enddo get_dens
-
-    xmu = Ek_all(Ek_indx(ik-1)) !Ek_all(ik-1)
-    print*,"mu=",xmu
-
+    xmu = -Ek_all(indx)
+    print*,"Ef=",xmu
+    !
     do ik = 1,Nk 
-       !
+       ! rhoDiag = step(ek(:,ik)-xmu,.false.)
        rhoDiag = fermi(eK(:,ik)-xmu, beta)
+       diagR   = diag(rhoDiag)
        Uk_f    = rhoK(:,:,ik)
+       !
        select case(ss_Hdiag)
        case(.true.)
-          rhoK(:,:,ik) = diag(rhoDiag)
+          rhoK(:,:,ik) = diagR
        case(.false.)
-          rhoK(:,:,ik) = matmul( matmul(Uk_f, diag(rhoDiag)), conjg(transpose(Uk_f)) )
+          rhoK(:,:,ik) = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
        end select
        !
-       select case(bool)
-       case(.true.)
-          Hk = ss_Hk(:,:,ik)
-       case(.false.)
-          Hk = kron(pauli_0,ss_Hk(:,:,ik))
-       end select
-       Eweiss = Eweiss + Hk(:,:)*rhoK(:,:,ik)*ss_Wtk(ik)
-       ss_dens= ss_dens+ diagonal(rhoK(:,:,ik))*ss_Wtk(ik)
+       Eweiss = Eweiss + ss_Hk(:,:,ik)*rhoK(:,:,ik)*ss_Wtk(:,:,ik) !element wise product
+       ss_dens= ss_dens + diagonal(rhoK(:,:,ik)*ss_Wtk(:,:,ik)) !element wise product
        !
     enddo
-    print*,"n=",sum(ss_dens)
-
-
+    if(Nspin==1)call ss_spin_symmetry(ss_dens)
+    print*,"dens=",ss_dens,sum(ss_dens),filling
     ! Get H_{a,s} = \sum_{b} sqrt(Z_{b,s})* sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
     !             = \sum_{b} sqrt(Z_{b,s})* Eweiss_{a,s,b,s}
     ss_weiss= 0d0
@@ -116,11 +112,9 @@ contains
           enddo
        enddo
     enddo
-
     ! Get C = ( n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
     ss_c  = 1d0/(sqrt(ss_dens*(1d0-ss_dens))+mch) - 1d0
-
-    print*,"C=",ss_c
+    print*,"C = ",ss_c
   end subroutine ss_solve_fermions
 
 

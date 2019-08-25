@@ -26,7 +26,7 @@ MODULE SS_INPUT_VARS
   integer              :: nloop               !max convergence loop variables
   integer              :: Nsuccess            !
   integer              :: verbose          !
-
+  character(len=16)    :: solve_method     !Pick the solve method to be used in ss_solve: broyden, hybrd
   !Some parameters for function dimension:
   !=========================================================
   integer              :: Lmats
@@ -45,21 +45,9 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : READ THE INPUT FILE AND SETUP GLOBAL VARIABLES
   !+-------------------------------------------------------------------+
-  subroutine ss_read_input(INPUTunit,comm)
-#ifdef _MPI
-    USE MPI
-    USE SF_MPI
-#endif
+  subroutine ss_read_input(INPUTunit)
     character(len=*) :: INPUTunit
-    integer,optional :: comm
-    logical          :: master=.true.
-    integer          :: i,rank=0
-#ifdef _MPI
-    if(present(comm))then
-       master=get_Master_MPI(comm)
-       rank  =get_Rank_MPI(comm)
-    endif
-#endif
+    integer          :: i
     !
     !Store the name of the input file:
     ss_input_file=str(INPUTunit)
@@ -75,8 +63,6 @@ contains
     call parse_input_variable(Jp,"JP",INPUTunit,default=0.d0,comment="P-H coupling")
     call parse_input_variable(beta,"BETA",INPUTunit,default=1000.d0,comment="Inverse temperature, at T=0 is used as a IR cut-off.")
     call parse_input_variable(xmu,"XMU",INPUTunit,default=0.d0,comment="Chemical potential. If HFMODE=T, xmu=0 indicates half-filling condition.")
-    call parse_input_variable(nloop,"NLOOP",INPUTunit,default=100,comment="Max number of DMFT iterations.")
-    call parse_input_variable(nsuccess,"NSUCCESS",INPUTunit,default=1,comment="Number of successive iterations below threshold for convergence")
     call parse_input_variable(Lmats,"LMATS",INPUTunit,default=5000,comment="Number of Matsubara frequencies.")
     call parse_input_variable(Lreal,"LREAL",INPUTunit,default=5000,comment="Number of real-axis frequencies.")
     call parse_input_variable(wini,"WINI",INPUTunit,default=-5.d0,comment="Smallest real-axis frequency")
@@ -85,26 +71,13 @@ contains
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")
     call parse_input_variable(Pfile,"PFILE",INPUTunit,default="parameters",comment="File where to retrieve/store the parameters.")
     call parse_input_variable(verbose,"VERBOSE",INPUTunit,default=3,comment="Verbosity level: 0=almost nothing --> 5:all. Really: all")
-
-#ifdef _MPI
-    if(present(comm))then
-       if(.not.master)then
-          LOGfile=1000-rank
-          open(LOGfile,file="stdOUT.rank"//str(rank)//".ed")
-          do i=1,get_Size_MPI(comm)
-             if(i==rank)write(*,"(A,I0,A,I0)")"Rank ",rank," writing to unit: ",LOGfile
-          enddo
-       endif
-    endif
-#endif
+    call parse_input_variable(solve_method,"SOLVE_METHOD",INPUTunit,default="broyden",comment="Pick the solve method to be used in ss_solve: broyden, hybrd")
     !
     !
-    if(master)then
-       call print_input()
-       call save_input(INPUTunit)
-       call scifor_version()
-       call code_version(revision)
-    endif
+    call print_input()
+    call save_input(INPUTunit)
+    call scifor_version()
+    call code_version(revision)
     !Act on the input variable only after printing.
     !In the new parser variables are hard-linked into the list:
     !any change to the variable is immediately copied into the list... (if you delete .ed it won't be printed out)
