@@ -156,12 +156,22 @@ contains
 
 
   subroutine ss_solve()
+    real(8),dimension(Nspin*Norb) :: lambda
+    !
+    select case(Nspin)
+    case (1)
+       lambda = ss_lambda(:Norb)
+    case (2)
+       lambda = ss_lambda
+    case default
+       stop "ss_solve ERROR: Nspin>2"
+    end select
     !
     select case(solve_method)
     case ("broyden")       
-       call broyden1(ss_solve_function,ss_lambda)
+       call broyden1(ss_solve_function,lambda)
     case ("hybrd")
-       call fsolve(ss_solve_function,ss_lambda)
+       call fsolve(ss_solve_function,lambda)
     case default
        stop "ss_solve ERROR: solve_method not supported"
     end select
@@ -187,12 +197,17 @@ contains
       logical                         :: z_converged
       integer                         :: Nitermax=100,Nsuccess=0
       real(8)                         :: tol=1d-6
-      real(8) :: ss_zeta_prev(Ns)
+      real(8)                         :: ss_zeta_prev(Ns)
       !
-      if(size(lambda)/=Ns)stop "broyden_ss_solver ERROR: size(lambda)!=Ns"
-      !
-      ss_lambda=lambda
-      if(Nspin==1)call ss_spin_symmetry(ss_lambda)
+      select case(Nspin)
+      case (1)
+         ss_lambda(:Norb) = lambda 
+         call ss_spin_symmetry(ss_lambda)
+      case (2)
+         ss_lambda = lambda
+      case default
+         stop "ss_solve_function ERROR: Nspin>2"
+      end select
       !
       z_converged=.false. ; iter=0
       !

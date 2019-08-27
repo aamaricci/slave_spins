@@ -62,23 +62,22 @@ contains
     !
     select case(is_bethe)
     case(.true.)                !DOS like Bethe needs special treatment 
-       ! N_electrons = ceiling(filling*Nk)
        Efilling = 0d0
        ik_loop: do ik=1,Nk
           do io=1,Ns
              indx = io + (ik-1)*Ns
-             Efilling = Efilling + ss_Wtk(io,io,ik)
+             Efilling = Efilling + ss_Wtk(io,io,ik) !this does not include Hloc so it is onyl for degenerate bands
              if(Efilling >= filling)exit ik_loop
           enddo
        enddo ik_loop
        indx=indx-1
     case (.false.)              !
-       indx = 2*ceiling(filling/Norb*Nk)
+       indx = ceiling(filling*Nk)
     end select
 
-    print*,"Nall",indx,Nk*Ns
+    print*,"Indx=",indx,Nk*Ns
 
-    xmu = -Ek_all(indx)
+    xmu = Ek_all(indx)
     print*,"Ef=",xmu
     !
     do ik = 1,Nk 

@@ -66,7 +66,7 @@ contains
 
 
   subroutine ss_spin_symmetry(array)
-    real(8),dimension(Ns) :: array
+    real(8),dimension(Ns)    :: array
     array(Norb+1:) = array(1:Norb)
   end subroutine ss_spin_symmetry
 

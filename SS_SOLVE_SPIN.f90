@@ -141,6 +141,7 @@ contains
     ss_Sz = avSz
     ss_zeta = avOO**2
     !
+    print*,"Z_ss=",ss_zeta
     if(Nspin==1)call ss_spin_symmetry(ss_zeta)
     !
   end subroutine ss_solve_spins
