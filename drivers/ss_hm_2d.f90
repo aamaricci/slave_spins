@@ -7,11 +7,13 @@ program ss_bethe
   implicit none
   complex(8),allocatable,dimension(:,:,:) :: Hk
   real(8),allocatable,dimension(:)        :: Wkt
-  real(8)                                 :: ts
+  real(8)                                 :: ts(5)
+  real(8)                                 :: Mh(5)
   integer                                 :: Nkx,Nktot,Nso
-  
 
-  call parse_input_variable(ts,"ts","inputSS.conf",default=1d0)
+
+  call parse_input_variable(ts,"ts","inputSS.conf",default=[1d0,1d0,1d0,1d0,1d0])
+  call parse_input_variable(Mh,"Mh","inputSS.conf",default=[0d0,0d0,0d0,0d0,0d0])
   call parse_input_variable(Nkx,"Nkx","inputSS.conf",default=20)
   call ss_read_input('inputSS.conf')
 
@@ -46,7 +48,7 @@ contains
     cy = cos(ky)
     hk = zero
     do i=1,N
-       hk(i,i) = -2d0*ts*(cx+cy)
+       hk(i,i) = Mh(i)-2d0*ts(i)*(cx+cy)
     enddo
   end function hk_model
-end program
+end program ss_bethe

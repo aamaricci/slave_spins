@@ -24,13 +24,15 @@ contains
     call ss_setup_dimensions()
     !
     allocate(ss_lambda(Ns))
+    allocate(ss_lambda0(Ns))
     allocate(ss_zeta(Ns))
     allocate(ss_weiss(Ns))
     allocate(ss_c(Ns))
-    ss_lambda= 0d0
-    ss_zeta  = 1d0
-    ss_weiss = 0d0
-    ss_c     = 0d0
+    ss_lambda = 0d0
+    ss_lambda0= 0d0
+    ss_zeta   = 1d0
+    ss_weiss  = 0d0
+    ss_c      = 0d0
     !
     allocate(ss_dens(Ns))
     ss_dens  = 0d0

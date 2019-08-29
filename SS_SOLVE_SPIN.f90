@@ -141,8 +141,8 @@ contains
     ss_Sz = avSz
     ss_zeta = avOO**2
     !
-    print*,"Z_ss=",ss_zeta
     if(Nspin==1)call ss_spin_symmetry(ss_zeta)
+    if(verbose>2)write(*,"(A6,12G18.9)")"Z_ss =",ss_zeta
     !
   end subroutine ss_solve_spins
 

@@ -5,6 +5,7 @@ MODULE SS_MAIN
   USE SS_SOLVE_SPIN
 
   !
+  USE SF_TIMER, only: start_timer,stop_timer
   USE SF_LINALG, only: diag,diagonal,kron
   USE SF_OPTIMIZE, only: broyden1,fsolve
   USE SF_IOTOOLS,only: save_array
@@ -137,16 +138,20 @@ contains
        end select
     endif
     !
-    ss_Hdiag=.true.
-    allocate(Hcheck(Ns,Ns))
-    do ik=1,Nk
-       Hcheck = ss_Hk(:,:,ik) + ss_Hloc
-       if(sum(abs(Hcheck - diag(diagonal(Hcheck)))) > 1d-6)ss_Hdiag=.false.
-    enddo
-    deallocate(Hcheck)
+    ! ss_Hdiag=.true.
+    ! allocate(Hcheck(Ns,Ns))
+    ! do ik=1,Nk
+    !    Hcheck = ss_Hk(:,:,ik) + ss_Hloc
+    !    if(sum(abs(Hcheck - diag(diagonal(Hcheck)))) > 1d-6)ss_Hdiag=.false.
+    ! enddo
+    ! deallocate(Hcheck)
+    !
+    ! print*,ss_Hdiag
+    call ss_get_lambda0()
     !
     allocate(ss_lambda_init(Ns));ss_lambda_init=ss_lambda
     allocate(ss_zeta_init(Ns))  ;ss_zeta_init  =ss_zeta
+    !
   end subroutine ss_init_hk
 
 
@@ -171,7 +176,7 @@ contains
     case ("broyden")       
        call broyden1(ss_solve_function,lambda)
     case ("hybrd")
-       call fsolve(ss_solve_function,lambda)
+       call fsolve(ss_solve_function,lambda,tol=1d-6)
     case default
        stop "ss_solve ERROR: solve_method not supported"
     end select
@@ -193,10 +198,8 @@ contains
       real(8),dimension(:),intent(in) :: lambda
       real(8),dimension(size(lambda)) :: fss
       !
-      integer                         :: iter
+      integer                         :: iter,Nsuccess=0
       logical                         :: z_converged
-      integer                         :: Nitermax=100,Nsuccess=0
-      real(8)                         :: tol=1d-6
       real(8)                         :: ss_zeta_prev(Ns)
       !
       select case(Nspin)
@@ -211,29 +214,36 @@ contains
       !
       z_converged=.false. ; iter=0
       !
-      ! ss_zeta = ss_zeta_init
+      ss_zeta = ss_zeta_init
       !
-      do while(.not.z_converged.AND.iter<=Nitermax)
+      if(verbose>2)call start_timer()
+      do while(.not.z_converged.AND.iter<=zeta_Nitermax)
          iter=iter+1
-         call start_loop(iter,Nitermax,"Z-iter")         
+         call start_loop(iter,zeta_Nitermax,"Z-iter")         
          call ss_solve_fermions
          call ss_solve_spins
          !
-         ! if(iter>1)ss_zeta = 0.25d0*ss_zeta + 0.75d0*ss_zeta_prev
-         ! ss_zeta_prev = ss_zeta
+         if(iter>1)ss_zeta = zeta_Wmix*ss_zeta + (1d0-zeta_Wmix)*ss_zeta_prev
+         ss_zeta_prev = ss_zeta
          !
-         z_converged = check_convergence_local(ss_zeta,tol,Nsuccess,Nitermax)
-         print*,"Z=",ss_zeta
+         z_converged = check_convergence(ss_zeta,zeta_tolerance,Nsuccess,zeta_Nitermax)
          call end_loop()
       end do
       !
       !<constraint:
       fss = ss_Dens - (ss_Sz + 0.5d0)
-      print*,"Dens  =",ss_dens
-      print*,"Sz+1/2=",ss_Sz+0.5d0
-      print*,"Lambda=",lambda
-      print*,"F_ss  =",fss
-
+      if(verbose>1)then
+         write(*,"(A7,12G18.9)")"Dens  =",ss_dens
+         write(*,"(A7,12G18.9)")"Sz+1/2=",ss_Sz+0.5d0
+         write(*,*)""
+         write(*,"(A7,12G18.9)")"Lambda=",lambda
+         write(*,"(A7,12G18.9)")"F_ss  =",fss
+      endif
+      if(verbose>2)call stop_timer()
+      if(verbose>1)then
+         write(*,*)""
+         write(*,*)""
+      endif
     end function ss_solve_function
     !
   end subroutine ss_solve

@@ -11,6 +11,7 @@ MODULE SS_VARS_GLOBAL
   integer                                 :: Nk
   !
   real(8),dimension(:),allocatable        :: ss_lambda    !lambda_{m\sigma}
+  real(8),dimension(:),allocatable        :: ss_lambda0   !lambda^0_{m\sigma}
   real(8),dimension(:),allocatable        :: ss_zeta      !zeta_{m\sigma}
   real(8),dimension(:),allocatable        :: ss_weiss     !4<S^x_{m\sigma}><E_fermion>
   real(8),dimension(:),allocatable        :: ss_c
@@ -19,6 +20,7 @@ MODULE SS_VARS_GLOBAL
   real(8),dimension(:,:,:),allocatable    :: ss_Wtk
   real(8),dimension(:,:),allocatable      :: ss_Hloc           !local hamiltonian
   real(8),dimension(:),allocatable        :: ss_dens ![Ns: 1:Norb_up, 1:Norb_dw]
+
   logical                                 :: ss_Hdiag !
   !
   real(8)                                 :: zeta_function
