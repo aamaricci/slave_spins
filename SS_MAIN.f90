@@ -7,7 +7,7 @@ MODULE SS_MAIN
   !
   USE SF_TIMER, only: start_timer,stop_timer
   USE SF_LINALG, only: diag,diagonal,kron
-  USE SF_OPTIMIZE, only: broyden1,fsolve
+  USE SF_OPTIMIZE, only: broyden1,fsolve,broyden_mix
   USE SF_IOTOOLS,only: save_array
   USE SF_MISC,only: assert_shape
   !
@@ -200,7 +200,7 @@ contains
       !
       integer                         :: iter,Nsuccess=0
       logical                         :: z_converged
-      real(8)                         :: ss_zeta_prev(Ns)
+      real(8)                         :: zeta(Ns),Fzeta(Ns)
       !
       select case(Nspin)
       case (1)
@@ -219,12 +219,13 @@ contains
       if(verbose>2)call start_timer()
       do while(.not.z_converged.AND.iter<=zeta_Nitermax)
          iter=iter+1
-         call start_loop(iter,zeta_Nitermax,"Z-iter")         
+         call start_loop(iter,zeta_Nitermax,"Z-iter")
+         zeta = ss_zeta
          call ss_solve_fermions
          call ss_solve_spins
+         Fzeta= ss_zeta
          !
-         if(iter>1)ss_zeta = zeta_Wmix*ss_zeta + (1d0-zeta_Wmix)*ss_zeta_prev
-         ss_zeta_prev = ss_zeta
+         call broyden_mix(zeta,Fzeta,zeta_Wmix,5,iter)
          !
          z_converged = check_convergence(ss_zeta,zeta_tolerance,Nsuccess,zeta_Nitermax)
          call end_loop()
