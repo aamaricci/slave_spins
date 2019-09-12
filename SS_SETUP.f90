@@ -21,6 +21,9 @@ contains
 
   subroutine ss_setup_structure()
     !
+    if(Nspin>2)stop "ss_setup ERROR: Nspin>2"
+    if(Norb>5)stop "ss_setup ERROR: Norb>5 is not tested. Remove me at SS_SETUP.line24"
+    !
     call ss_setup_dimensions()
     !
     allocate(ss_lambda(Ns))
@@ -43,7 +46,7 @@ contains
     allocate(ss_Hk(Ns,Ns,Nk))
     ss_Hk = zero
     !
-    allocate(ss_Wtk(Ns,Ns,Nk))
+    allocate(ss_Wtk(Nk))
     ss_Wtk= 0d0
     !
     allocate(ss_Hloc(Ns,Ns))

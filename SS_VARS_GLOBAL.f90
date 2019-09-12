@@ -17,7 +17,7 @@ MODULE SS_VARS_GLOBAL
   real(8),dimension(:),allocatable        :: ss_c
   real(8),dimension(:),allocatable        :: ss_Sz
   complex(8),dimension(:,:,:),allocatable :: ss_Hk
-  real(8),dimension(:,:,:),allocatable    :: ss_Wtk
+  real(8),dimension(:),allocatable        :: ss_Wtk
   real(8),dimension(:,:),allocatable      :: ss_Hloc           !local hamiltonian
   real(8),dimension(:),allocatable        :: ss_dens ![Ns: 1:Norb_up, 1:Norb_dw]
 
