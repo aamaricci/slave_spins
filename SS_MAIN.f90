@@ -7,7 +7,7 @@ MODULE SS_MAIN
   !
   USE SF_TIMER, only: start_timer,stop_timer
   USE SF_LINALG, only: diag,diagonal,kron
-  USE SF_OPTIMIZE, only: broyden1,fsolve,broyden_mix
+  USE SF_OPTIMIZE, only: broyden1,fsolve,broyden_mix,linear_mix
   USE SF_IOTOOLS,only: save_array
   USE SF_MISC,only: assert_shape
   !
@@ -214,7 +214,7 @@ contains
       !
       z_converged=.false. ; iter=0
       !
-      ss_zeta = ss_zeta_init
+      if(zeta_restart_init)ss_zeta = ss_zeta_init
       !
       if(verbose>2)call start_timer()
       do while(.not.z_converged.AND.iter<=zeta_Nitermax)
@@ -225,9 +225,9 @@ contains
          call ss_solve_spins
          Fzeta= ss_zeta
          !
-         call broyden_mix(zeta,Fzeta,zeta_Wmix,5,iter)
+         call broyden_mix(zeta,Fzeta,zeta_Wmix,zeta_Nmix,iter)
          !
-         z_converged = check_convergence(ss_zeta,zeta_tolerance,Nsuccess,zeta_Nitermax)
+         z_converged = check_convergence(ss_zeta,zeta_tolerance,Nsuccess,zeta_Nitermax,reset=.false.)
          call end_loop()
       end do
       !

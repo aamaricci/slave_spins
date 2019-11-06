@@ -28,9 +28,11 @@ MODULE SS_INPUT_VARS
   integer              :: verbose             !
   character(len=16)    :: solve_method        !Pick the solve method to be used in ss_solve: broyden, hybrd
   real(8)              :: constraint_tolerance !Tolerance on the constraint fixing
-  real(8)              :: zeta_tolerance
-  real(8)              :: zeta_wmix
+  real(8)              :: zeta_tolerance       !
+  integer              :: zeta_Nmix       !
+  real(8)              :: zeta_Wmix
   integer              :: zeta_Nitermax
+  logical              :: zeta_restart_init   
   !Some parameters for function dimension:
   !=========================================================
   integer              :: Lmats
@@ -69,8 +71,10 @@ contains
     call parse_input_variable(xmu,"XMU",INPUTunit,default=0.d0,comment="Chemical potential. If HFMODE=T, xmu=0 indicates half-filling condition.")
     call parse_input_variable(constraint_tolerance,"constraint_tolerance",INPUTunit,default=1d-9,comment="Tolerance on the constraint fixing")
     call parse_input_variable(zeta_tolerance,"zeta_tolerance",INPUTunit,default=1d-6,comment="Tolerance on the zeta convergence error")
-    call parse_input_variable(zeta_wmix,"zeta_wmix",INPUTunit,default=1d0,comment="Mixing of the Wn + (1-W)n-1 zeta values")
+    call parse_input_variable(zeta_nmix,"zeta_nmix",INPUTunit,default=0,comment="Mixing number in the Broyden procedure. 0=linear mix [default]")
+    call parse_input_variable(zeta_wmix,"zeta_wmix",INPUTunit,default=1d0,comment="Weight for the linear or Broyden mixing procedure")
     call parse_input_variable(zeta_Nitermax,"zeta_Nitermax",INPUTunit,default=100,comment="Max number of iterations in the zeta convergence loop")
+    call parse_input_variable(zeta_restart_init,"zeta_restart_init",INPUTunit,default=.true.,comment="Restart the Zeta convergence loop from init Z_0 [T] or not (F)")
     call parse_input_variable(Lmats,"LMATS",INPUTunit,default=5000,comment="Number of Matsubara frequencies.")
     call parse_input_variable(Lreal,"LREAL",INPUTunit,default=5000,comment="Number of real-axis frequencies.")
     call parse_input_variable(wini,"WINI",INPUTunit,default=-5.d0,comment="Smallest real-axis frequency")

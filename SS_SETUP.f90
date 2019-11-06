@@ -21,6 +21,9 @@ contains
 
   subroutine ss_setup_structure()
     !
+    if(Nspin>2)stop "ss_setup error: Nspin>2"
+    if(Norb>5)stop "ss_setup error: Norb>5. Fix me at SS_SETUP.f90/line.25"
+    !
     call ss_setup_dimensions()
     !
     allocate(ss_lambda(Ns))
