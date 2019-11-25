@@ -1,14 +1,11 @@
 MODULE SS_VARS_GLOBAL
+  USE SS_INPUT_VARS
   USE SF_CONSTANTS
   implicit none
 
-
-
-
-
-
   integer,save                            :: Ns       !Number of levels = 2*Norb
   integer                                 :: Nk
+  integer                                 :: Nso
   !
   real(8),dimension(:),allocatable        :: ss_lambda    !lambda_{m\sigma}
   real(8),dimension(:),allocatable        :: ss_lambda0   !lambda^0_{m\sigma}
@@ -20,16 +17,14 @@ MODULE SS_VARS_GLOBAL
   real(8),dimension(:,:,:),allocatable    :: ss_Wtk
   real(8),dimension(:,:),allocatable      :: ss_Hloc           !local hamiltonian
   real(8),dimension(:),allocatable        :: ss_dens ![Ns: 1:Norb_up, 1:Norb_dw]
-
   logical                                 :: ss_Hdiag !
   !
   real(8)                                 :: zeta_function
-  logical                                 :: is_bethe=.false.
+  logical                                 :: is_dos=.false.
 
   !File suffixes for printing fine tuning.
   !=========================================================
   character(len=32)                      :: ss_file_suffix=""       !suffix string attached to the output files.
-  character(len=200)                     :: ss_input_file=""
 
 
 END MODULE SS_VARS_GLOBAL

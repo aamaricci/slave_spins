@@ -1,5 +1,5 @@
 MODULE SS_SETUP
-  USE SS_INPUT_VARS
+  USE SS_VARS_GLOBAL
   !
   USE SF_IOTOOLS
   implicit none
@@ -52,6 +52,8 @@ contains
     allocate(ss_Hloc(Ns,Ns))
     ss_Hloc = zero
     !
+    Nso = Nspin*Norb
+    !    
   end subroutine ss_setup_structure
 
 
@@ -65,6 +67,9 @@ contains
        call read_array(trim(Pfile)//trim(ss_file_suffix)//".restart",params)
        ss_lambda = params(1:Ns)
        ss_zeta   = params(Ns+1:2*Ns)
+    else
+       ss_lambda = -ss_lambda0
+       ss_zeta   = 1d0
     endif
   end subroutine ss_init_params
 

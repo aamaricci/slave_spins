@@ -1,5 +1,5 @@
 MODULE SS_SOLVE_SPIN
-  USE SS_INPUT_VARS
+  USE SS_VARS_GLOBAl
   USE SS_SETUP
   USE SS_SPARSE_MATRIX
   !
@@ -45,9 +45,10 @@ contains
        htmp = 0d0
        !
        !< sum_{m,s}lambda_{m,s}*(Sz_{m,s}+1/2)
-       do io=1,Ns
-          htmp = htmp + ss_lambda(io)*(Sz(io)+0.5d0)
-       enddo
+       ! do io=1,Ns
+       !    htmp = htmp + ss_lambda(io)*(Sz(io)+0.5d0)
+       ! enddo
+       htmp = htmp + sum(ss_lambda*(Sz+0.5d0))
        !
        !< Ust/2 * ( sum_{m,s}Sz_{m,s} )**2
        htmp = htmp + Ust/2*sum(Sz)**2
@@ -126,13 +127,13 @@ contains
           do io=1,Ns
              if(Sz(io)/=0.5d0)cycle
              call Sminus(io,Istate,Jstate)
-             htmp = 1d0!ss_Weiss(io)
+             htmp = 1d0
              avOO(io) = avOO(io) + gs_vec(Jstate)*htmp*gs_vec(Istate)/zeta_function
           enddo
           do io=1,Ns
              if(Sz(io)/=-0.5d0)cycle
              call Splus(io,Istate,Jstate)
-             htmp = ss_c(io)!*ss_Weiss(io)
+             htmp = ss_c(io)
              avOO(io) = avOO(io) + gs_vec(Jstate)*htmp*gs_vec(Istate)/zeta_function
           enddo
        enddo
@@ -142,7 +143,6 @@ contains
     ss_zeta = avOO**2
     !
     if(Nspin==1)call ss_spin_symmetry(ss_zeta)
-    if(verbose>2)write(*,"(A6,12G18.9)")"Z_ss =",ss_zeta
     !
   end subroutine ss_solve_spins
 
