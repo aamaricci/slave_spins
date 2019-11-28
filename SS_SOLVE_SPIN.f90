@@ -140,7 +140,9 @@ contains
     enddo
     !
     ss_Sz = avSz
+    print*,"avOO",avOO
     ss_zeta = avOO**2
+    print*,"ps Z",ss_zeta
     !
     if(Nspin==1)call ss_spin_symmetry(ss_zeta)
     !

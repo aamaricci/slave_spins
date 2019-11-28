@@ -8,7 +8,7 @@
      call start_loop(fiter,loop_Nitermax,"Fermion-iter")
      !
      lambda = ss_lambda(:Nspin*Norb)    !get a guess to start the Css: n=Sz+1/2 optimization
-     call ss_solve_fermions
+     call ss_solve_fermions_old
      if(verbose>3)write(*,"(A6,12G18.9)")"Ef   =",xmu
      if(verbose>3)write(*,"(A6,12G18.9)")"C    =",ss_c
      if(verbose>2)write(*,"(A6,12G18.9)")"N    =",ss_dens(:Nspin*Norb),sum(ss_dens),filling
@@ -18,13 +18,12 @@
      Xvec   = ss_zeta(:Nspin*Norb)
      call broyden1(solve_Hps,lambda,tolf=solve_tolerance)
      !call fsolve(solve_Hps,lambda,tol=constraint_tolerance,info=info)
-     Fvec   = ss_zeta(:Nspin*Norb)! - Xvec
+     Fvec   = ss_zeta(:Nspin*Norb) - Xvec
      !
-     ! call linear_mix(Xvec,Fvec,loop_Wmix)
+     call linear_mix(Xvec,Fvec,loop_Wmix)
      ! call adaptive_mix(Xvec,Fvec,loop_Wmix,fiter)
      ! call broyden_mix(Xvec,Fvec,loop_Wmix,loop_Nmix,fiter)
      ! ss_zeta(:Nspin*Norb)     = Xvec
-     ss_zeta(:Nspin*Norb) = loop_Wmix*ss_zeta(:Nspin*Norb) + (1d0-loop_Wmix)*Fvec
      if(verbose>2)write(*,"(A6,12G18.9,I4)")"Z_ss =",ss_zeta(:Nspin*Norb),info
      !
      fconverged = check_convergence(ss_zeta(:Nspin*Norb),loop_tolerance,Nsuccess,loop_Nitermax)

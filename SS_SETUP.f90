@@ -61,12 +61,15 @@ contains
   subroutine ss_init_params()
     logical                          :: IOfile
     real(8),dimension(:),allocatable :: params
+    integer                          :: Len
     inquire(file=trim(Pfile)//trim(ss_file_suffix)//".restart",exist=IOfile)
     if(IOfile)then
-       allocate(params(2*Ns))
+       len = file_length(trim(Pfile)//trim(ss_file_suffix)//".restart")
+       allocate(params(len))
        call read_array(trim(Pfile)//trim(ss_file_suffix)//".restart",params)
        ss_lambda = params(1:Ns)
        ss_zeta   = params(Ns+1:2*Ns)
+       if(size(params)==2*Ns+1)xmu=params(2*Ns+1)
     else
        ss_lambda = -ss_lambda0
        ss_zeta   = 1d0

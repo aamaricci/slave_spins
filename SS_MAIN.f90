@@ -23,12 +23,12 @@ MODULE SS_MAIN
   public :: ss_solve
 
 
-  real(8),dimension(:),allocatable :: ss_lambda_init
-  real(8),dimension(:),allocatable :: ss_zeta_init
+  real(8),dimension(:),allocatable     :: ss_lambda_init
+  real(8),dimension(:),allocatable     :: ss_zeta_init
 
-  integer,save             :: siter=0
-  integer                  :: fiter,info
-  logical                  :: fconverged
+  integer,save                         :: siter=0
+  integer                              :: fiter,info
+  logical                              :: fconverged
 
 contains
 
@@ -88,6 +88,7 @@ contains
        write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0
        write(*,"(A7,12G18.9)")"Lam   =",ss_lambda
        write(*,"(A7,12G18.9)")"Z     =",ss_zeta
+       write(*,*)" "
     endif
     !
     !< Internal use:
@@ -102,30 +103,52 @@ contains
 
 
   subroutine ss_solve()
-    real(8),dimension(Nso)   :: lambda
-    real(8),dimension(2*Nso) :: params
-    real(8),dimension(Nso)   :: Xvec,Fvec
+    real(8),dimension(Nso)     :: lambda
+    real(8),dimension(2*Nso)   :: params
+    real(8),dimension(Nso+1)   :: lambda1
+    real(8),dimension(2*Nso+1) :: params1
+    real(8),dimension(Nso)     :: Xvec,Fvec
     !
     select case(solve_method)
     case ("broyden")
-       params =  [ss_lambda(:Nso),ss_zeta(:Nso)]
-       call broyden1(ss_solve_full,params,tolf=solve_tolerance)
+       params  = [ss_lambda(:Nso),ss_zeta(:Nso)]
+       params1 = [params,xmu]
+       if(filling==0d0)then
+          call broyden1(ss_solve_full,params,tolf=solve_tolerance)
+       else
+          call broyden1(ss_solve_full,params1,tolf=solve_tolerance)
+       endif
        !
     case ("fsolve")
-       params =  [ss_lambda(:Nso),ss_zeta(:Nso)]
-       call fsolve(ss_solve_full,params,tol=solve_tolerance)
+       params  = [ss_lambda(:Nso),ss_zeta(:Nso)]
+       params1 = [params,xmu]
+       if(filling==0d0)then
+          call fsolve(ss_solve_full,params,tol=solve_tolerance)
+       else
+          call fsolve(ss_solve_full,params1,tol=solve_tolerance)
+       endif
        !
     case ("gg_broyden")
        lambda = ss_lambda(:Nso)
-       call broyden1(ss_solve_lambda,lambda,tolf=solve_tolerance)
-       !
+       lambda1= [lambda,xmu]
+       if(filling==0d0)then
+          call broyden1(ss_solve_lambda,lambda,tolf=solve_tolerance)
+       else
+          call broyden1(ss_solve_lambda,lambda1,tolf=solve_tolerance)
+       endif
     case ("gg_fsolve")
        lambda = ss_lambda(:Nso)
-       call fsolve(ss_solve_lambda,lambda,tol=solve_tolerance)
+       lambda1= [lambda,xmu]
+       if(filling==0d0)then
+          call fsolve(ss_solve_lambda,lambda,tol=solve_tolerance)
+       else
+          call fsolve(ss_solve_lambda,lambda1,tol=solve_tolerance)
+       endif
        !
     case ("lf_solve")       
        include "ss_main_lf_solve.h90"
     end select
+    !
     !
     open(100,file="ss_zeta.dat")
     write(100,*)uloc(1),ss_zeta
@@ -139,7 +162,7 @@ contains
     write(100,*)uloc(1),ss_dens
     close(100)
     !
-    call save_array(trim(Pfile)//trim(ss_file_suffix)//".restart",[ss_lambda,ss_zeta])
+    call save_array(trim(Pfile)//trim(ss_file_suffix)//".restart",[ss_lambda,ss_zeta,xmu])
     !
   end subroutine ss_solve
 
@@ -150,9 +173,13 @@ contains
     real(8),dimension(:),intent(in)  :: aparams !2*Nso
     real(8),dimension(size(aparams)) :: fss
     real(8)                          :: zeta(Nso)
+    logical                          :: bool
+    !
+    bool = size(aparams)==2*Nso+1
     !
     ss_lambda(1:Nso) = aparams(1:Nso)
-    ss_zeta(1:Nso)   = aparams(Nso+1:2*Nso)  
+    ss_zeta(1:Nso)   = aparams(Nso+1:2*Nso)
+    if(bool)xmu      = aparams(2*Nso+1)
     !
     zeta = ss_zeta(1:Nso)
     call ss_solve_fermions
@@ -161,16 +188,18 @@ contains
     if(verbose>3)write(*,"(A6,12G18.9)")"C    =",ss_c
     !
     !<constraint:
-    fss(1:Nso) = ss_Dens(1:Nso) - (ss_Sz(1:Nso) + 0.5d0)
-    fss(Nso+1:)= ss_zeta(1:Nso) - zeta
+    fss(1:Nso)  = ss_Dens(1:Nso) - (ss_Sz(1:Nso) + 0.5d0)
+    fss(Nso+1:) = ss_zeta(1:Nso) - zeta
+    if(bool)fss(2*Nso+1) = sum(ss_dens) - filling
     !
     if(verbose>1)then
        write(*,"(A7,12G18.9)")"N     =",ss_dens(:Nso),sum(ss_dens),filling
        write(*,"(A7,12G18.9)")"Lambda=",ss_lambda(:Nso)
-       write(*,"(A7,12G18.9)")"Z_ss  =",ss_zeta(:Nso)      
+       write(*,"(A7,12G18.9)")"Z_ss  =",ss_zeta(:Nso)
        write(*,"(A7,12G18.9)")"F_ss  =",fss
        write(*,*)""
     endif
+    !
     open(100,file="ss_zeta.dat")
     write(100,*)uloc(1),ss_zeta
     close(100)
@@ -185,15 +214,20 @@ contains
   end function ss_solve_full
 
 
+
+
   !< solve the SS problem and optmize ss_lambda using Broyden/Hybrd optimization
   function ss_solve_lambda(lambda) result(fss)
     real(8),dimension(:),intent(in) :: lambda
     real(8),dimension(size(lambda)) :: fss
     integer                         :: iter,Nsuccess=0
-    logical                         :: z_converged
+    logical                         :: z_converged,bool
     real(8)                         :: zeta(Ns),Fzeta(Ns)
     !
-    ss_lambda(:Nso) = lambda 
+    bool = size(lambda)==Nso+1
+    !
+    ss_lambda(:Nso) = lambda(1:Nso)
+    if(bool)xmu     = lambda(Nso+1)
     if(Nspin==1)call ss_spin_symmetry(ss_lambda)
     !
     if(zeta_restart_init)ss_zeta = ss_zeta_init
@@ -203,12 +237,13 @@ contains
     do while(.not.z_converged.AND.iter<=loop_Nitermax)
        iter=iter+1
        call start_loop(iter,loop_Nitermax,"Z-iter")
+       !
        zeta = ss_zeta
        call ss_solve_fermions
+       call ss_solve_spins
        if(verbose>3)write(*,"(A6,12G18.9)")"Ef   =",xmu
        if(verbose>3)write(*,"(A6,12G18.9)")"C    =",ss_c
        if(verbose>2)write(*,"(A6,12G18.9)")"N    =",ss_dens(:Nso),sum(ss_dens),filling
-       call ss_solve_spins
        if(verbose>2)write(*,"(A6,12G18.9)")"Z_ss =",ss_zeta(:Nso)
        Fzeta= ss_zeta - zeta
        !
@@ -227,6 +262,7 @@ contains
     !
     !<constraint:
     fss = ss_Dens - (ss_Sz + 0.5d0)
+    if(bool)fss(Nso+1) = sum(ss_Dens) - filling
     !
     open(100,file="ss_zeta.dat")
     write(100,*)uloc(1),ss_zeta
