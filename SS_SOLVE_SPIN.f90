@@ -45,9 +45,6 @@ contains
        htmp = 0d0
        !
        !< sum_{m,s}lambda_{m,s}*(Sz_{m,s}+1/2)
-       ! do io=1,Ns
-       !    htmp = htmp + ss_lambda(io)*(Sz(io)+0.5d0)
-       ! enddo
        htmp = htmp + sum(ss_lambda*(Sz+0.5d0))
        !
        !< Ust/2 * ( sum_{m,s}Sz_{m,s} )**2

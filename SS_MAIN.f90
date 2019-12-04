@@ -88,6 +88,7 @@ contains
        write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0
        write(*,"(A7,12G18.9)")"Lam   =",ss_lambda
        write(*,"(A7,12G18.9)")"Z     =",ss_zeta
+       write(*,"(A7,12G18.9)")"Ef    =",-xmu
        write(*,*)" "
     endif
     !
@@ -110,15 +111,6 @@ contains
     real(8),dimension(Nso)     :: Xvec,Fvec
     !
     select case(solve_method)
-    case ("broyden")
-       params  = [ss_lambda(:Nso),ss_zeta(:Nso)]
-       params1 = [params,xmu]
-       if(filling==0d0)then
-          call broyden1(ss_solve_full,params,tolf=solve_tolerance)
-       else
-          call broyden1(ss_solve_full,params1,tolf=solve_tolerance)
-       endif
-       !
     case ("fsolve")
        params  = [ss_lambda(:Nso),ss_zeta(:Nso)]
        params1 = [params,xmu]
@@ -126,27 +118,21 @@ contains
           call fsolve(ss_solve_full,params,tol=solve_tolerance)
        else
           call fsolve(ss_solve_full,params1,tol=solve_tolerance)
-       endif
-       !
+       end if
+    case ("broyden")
+       params  = [ss_lambda(:Nso),ss_zeta(:Nso)]
+       call broyden1(ss_solve_full,params,tolf=solve_tolerance)
     case ("gg_broyden")
        lambda = ss_lambda(:Nso)
-       lambda1= [lambda,xmu]
-       if(filling==0d0)then
-          call broyden1(ss_solve_lambda,lambda,tolf=solve_tolerance)
-       else
-          call broyden1(ss_solve_lambda,lambda1,tolf=solve_tolerance)
-       endif
+       call broyden1(ss_solve_lambda,lambda,tolf=solve_tolerance)
     case ("gg_fsolve")
        lambda = ss_lambda(:Nso)
-       lambda1= [lambda,xmu]
-       if(filling==0d0)then
-          call fsolve(ss_solve_lambda,lambda,tol=solve_tolerance)
-       else
-          call fsolve(ss_solve_lambda,lambda1,tol=solve_tolerance)
-       endif
-       !
+       call fsolve(ss_solve_lambda,lambda,tol=solve_tolerance)
     case ("lf_solve")       
        include "ss_main_lf_solve.h90"
+    case default
+       write(*,*)"ERROR in ss_solve(): no solve_method named as input *"//str(solve_method)//"*"
+       stop
     end select
     !
     !
@@ -184,12 +170,12 @@ contains
     zeta = ss_zeta(1:Nso)
     call ss_solve_fermions
     call ss_solve_spins
-    if(verbose>3)write(*,"(A6,12G18.9)")"Ef   =",xmu
+    if(verbose>3)write(*,"(A6,12G18.9)")"Ef   =",-xmu
     if(verbose>3)write(*,"(A6,12G18.9)")"C    =",ss_c
     !
     !<constraint:
-    fss(1:Nso)  = ss_Dens(1:Nso) - (ss_Sz(1:Nso) + 0.5d0)
-    fss(Nso+1:) = ss_zeta(1:Nso) - zeta
+    fss(1:Nso)       = ss_Dens(1:Nso) - (ss_Sz(1:Nso) + 0.5d0)
+    fss(Nso+1:2*Nso) = ss_zeta(1:Nso) - zeta
     if(bool)fss(2*Nso+1) = sum(ss_dens) - filling
     !
     if(verbose>1)then
@@ -212,6 +198,7 @@ contains
     write(100,*)uloc(1),ss_dens
     close(100)
   end function ss_solve_full
+
 
 
 
