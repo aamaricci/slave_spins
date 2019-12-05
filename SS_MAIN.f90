@@ -16,7 +16,7 @@ MODULE SS_MAIN
 
   interface ss_init
      module procedure :: ss_init_hk
-     ! module procedure :: ss_init_dos
+     module procedure :: ss_init_dos
   end interface ss_init
 
   public :: ss_init
@@ -31,10 +31,6 @@ MODULE SS_MAIN
   logical                              :: fconverged
 
 contains
-
-
-
-
 
 
   subroutine ss_init_hk(hk_user,wtk_user,hloc)
@@ -73,14 +69,6 @@ contains
        ss_Hloc = Htmp
     end select
     !
-    ss_Hdiag=.true.
-    allocate(Hcheck(Ns,Ns))
-    do ik=1,Nk
-       Hcheck = ss_Hk(:,:,ik) + ss_Hloc
-       if(sum(abs(Hcheck - diag(diagonal(Hcheck)))) > 1d-6)ss_Hdiag=.false.
-    enddo
-    deallocate(Hcheck)
-    !
     !< Init/Read the lambda/zeta input
     if(filling/=dble(Norb))call ss_get_lambda0()
     call ss_init_params()
@@ -100,6 +88,72 @@ contains
     return
   end subroutine ss_init_hk
 
+  subroutine ss_init_dos(Ebands,Dbands,Hloc)
+    real(8),dimension(:,:)                      :: Ebands  ![Nlso,Ne]
+    real(8),dimension(:,:)                      :: Dbands ![Nlso,Ne]
+    real(8),dimension(:)                        :: Hloc
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Htmp
+    real(8),dimension(Nspin*Norb,Nspin*Norb)    :: Wtmp
+    integer                                     :: ie,io
+    logical,save                                :: isetup=.true.
+    !
+    !< Init the SS structure + memory allocation
+    Nk = size(Ebands,2)
+    call assert_shape(Ebands,[Nspin*Norb,Nk],"ss_init_dos","Ebands")
+    call assert_shape(Dbands,[Nspin*Norb,Nk],"ss_init_dos","Dbands")
+    call assert_shape(Hloc,[Nspin*Norb],"ss_init_dos","Hloc")
+    !
+    if(isetup)call ss_setup_structure()
+    is_dos=.true.
+    !
+    ss_Hk = zero
+    ss_Wtk= 0d0
+    do ie=1,Nk
+       Htmp=zero
+       Wtmp=0d0
+       do io=1,Nspin*Norb
+          Htmp(io,io)  = one*Ebands(io,ie) - one*Hloc(io)
+          Wtmp(io,io)  = Dbands(io,ie)
+       end do
+       !
+       select case(Nspin)
+       case default
+          ss_Hk(:,:,ie)  = kron(pauli_0,Htmp)
+          ss_Wtk(:,:,ie) = kron(pauli_0,one*Wtmp)
+       case (2)
+          ss_Hk(:,:,ie)  = Htmp
+          ss_Wtk(:,:,ie) = Wtmp
+       end select
+    end do
+    !
+    select case(Nspin)
+    case default
+       ss_Hloc = kron(pauli_0,one*diag(Hloc))
+    case (2)
+       ss_Hloc = diag(Hloc)
+    end select
+    !
+    !< Init/Read the lambda/zeta input
+    if(filling/=dble(Norb))call ss_get_lambda0()
+    call ss_init_params()
+    if(verbose>2)then
+       write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0
+       write(*,"(A7,12G18.9)")"Lam   =",ss_lambda
+       write(*,"(A7,12G18.9)")"Z     =",ss_zeta
+       write(*,"(A7,12G18.9)")"Ef    =",ss_Ef
+       write(*,*)" "
+    endif
+    !
+    !< Internal use:
+    allocate(ss_lambda_init(Ns));ss_lambda_init=ss_lambda
+    allocate(ss_zeta_init(Ns))  ;ss_zeta_init  =ss_zeta
+    !
+    isetup=.false.
+    !
+    return
+  end subroutine ss_init_dos
+
+
 
 
 
@@ -110,6 +164,7 @@ contains
     real(8),dimension(2*Nso+1) :: params1
     real(8),dimension(Nso)     :: Xvec,Fvec
     !
+    call start_timer
     select case(solve_method)
     case ("fsolve")
        params  = [ss_lambda(:Nso),ss_zeta(:Nso)]
@@ -119,22 +174,35 @@ contains
        else
           call fsolve(ss_solve_full,params1,tol=solve_tolerance)
        end if
+       !
     case ("broyden")
        params  = [ss_lambda(:Nso),ss_zeta(:Nso)]
-       call broyden1(ss_solve_full,params,tolf=solve_tolerance)
+       params1 = [params,xmu]   !we use xmu here to keep it generic with respect to mu, fixed or varied.
+       if(filling==0d0)then
+          call broyden1(ss_solve_full,params,tolf=solve_tolerance)
+       else
+          call broyden1(ss_solve_full,params1,tolf=solve_tolerance)
+       endif
+       !
     case ("gg_broyden")
        lambda = ss_lambda(:Nso)
        call broyden1(ss_solve_lambda,lambda,tolf=solve_tolerance)
+       !
     case ("gg_fsolve")
        lambda = ss_lambda(:Nso)
        call fsolve(ss_solve_lambda,lambda,tol=solve_tolerance)
-    case ("lf_solve")       
-       include "ss_main_lf_solve.h90"
+       !
+    case ("lf_solve")
+       call ss_lf_solve()
+       !
     case default
        write(*,*)"ERROR in ss_solve(): no solve_method named as input *"//str(solve_method)//"*"
        stop
     end select
     !
+    call stop_timer
+    !
+    call save_array(trim(Pfile)//trim(ss_file_suffix)//".restart",[ss_lambda,ss_zeta,xmu])
     !
     open(100,file="ss_zeta.dat")
     write(100,*)uloc(1),ss_zeta
@@ -147,148 +215,25 @@ contains
     open(100,file="ss_dens.dat")
     write(100,*)uloc(1),ss_dens
     close(100)
-    !
-    call save_array(trim(Pfile)//trim(ss_file_suffix)//".restart",[ss_lambda,ss_zeta,xmu])
     !
   end subroutine ss_solve
 
 
 
-
-  function ss_solve_full(aparams) result(fss)
-    real(8),dimension(:),intent(in)  :: aparams !2*Nso
-    real(8),dimension(size(aparams)) :: fss
-    real(8)                          :: zeta(Nso)
-    logical                          :: bool
-    !
-    bool = size(aparams)==2*Nso+1
-    !
-    ss_lambda(1:Nso) = aparams(1:Nso)
-    ss_zeta(1:Nso)   = aparams(Nso+1:2*Nso)
-    if(bool)xmu      = aparams(2*Nso+1)
-    !
-    zeta = ss_zeta(1:Nso)
-    call ss_solve_fermions
-    call ss_solve_spins
-    if(verbose>3)write(*,"(A6,12G18.9)")"Ef   =",-xmu
-    if(verbose>3)write(*,"(A6,12G18.9)")"C    =",ss_c
-    !
-    !<constraint:
-    fss(1:Nso)       = ss_Dens(1:Nso) - (ss_Sz(1:Nso) + 0.5d0)
-    fss(Nso+1:2*Nso) = ss_zeta(1:Nso) - zeta
-    if(bool)fss(2*Nso+1) = sum(ss_dens) - filling
-    !
-    if(verbose>1)then
-       write(*,"(A7,12G18.9)")"N     =",ss_dens(:Nso),sum(ss_dens),filling
-       write(*,"(A7,12G18.9)")"Lambda=",ss_lambda(:Nso)
-       write(*,"(A7,12G18.9)")"Z_ss  =",ss_zeta(:Nso)
-       write(*,"(A7,12G18.9)")"F_ss  =",fss
-       write(*,*)""
-    endif
-    !
-    open(100,file="ss_zeta.dat")
-    write(100,*)uloc(1),ss_zeta
-    close(100)
-    !
-    open(100,file="ss_lambda.dat")
-    write(100,*)uloc(1),ss_lambda
-    close(100)
-    !
-    open(100,file="ss_dens.dat")
-    write(100,*)uloc(1),ss_dens
-    close(100)
-  end function ss_solve_full
+  !< solve the SS problem by optimizing the parameter vector X=[lambda,Z{,Ef}]
+  !  with the conditions:
+  !  n - Sz -1/2 =0
+  !  z_i - z_{i-1}=0
+  !  {n - filling=0}
+  include "ss_main_solve_full.h90"
 
 
+  !< solve the SS problem by optimizing separately lambda or [lambda,Ef] and Z
+  !GG method: optimize broyden/fsolve in lambda and iterate over Z for any fixed lambda 
+  include "ss_main_solve_gg.h90"
+  !LF method: iterate over lambda, solve fermion at fixed lambda + broyden/fsolve for spins changing lambda, fix Z
+  include "ss_main_solve_lf.h90"
 
-
-
-  !< solve the SS problem and optmize ss_lambda using Broyden/Hybrd optimization
-  function ss_solve_lambda(lambda) result(fss)
-    real(8),dimension(:),intent(in) :: lambda
-    real(8),dimension(size(lambda)) :: fss
-    integer                         :: iter,Nsuccess=0
-    logical                         :: z_converged,bool
-    real(8)                         :: zeta(Ns),Fzeta(Ns)
-    !
-    bool = size(lambda)==Nso+1
-    !
-    ss_lambda(:Nso) = lambda(1:Nso)
-    if(bool)xmu     = lambda(Nso+1)
-    if(Nspin==1)call ss_spin_symmetry(ss_lambda)
-    !
-    if(zeta_restart_init)ss_zeta = ss_zeta_init
-    !
-    if(verbose>2)call start_timer()
-    z_converged=.false. ; iter=0
-    do while(.not.z_converged.AND.iter<=loop_Nitermax)
-       iter=iter+1
-       call start_loop(iter,loop_Nitermax,"Z-iter")
-       !
-       zeta = ss_zeta
-       call ss_solve_fermions
-       call ss_solve_spins
-       if(verbose>3)write(*,"(A6,12G18.9)")"Ef   =",xmu
-       if(verbose>3)write(*,"(A6,12G18.9)")"C    =",ss_c
-       if(verbose>2)write(*,"(A6,12G18.9)")"N    =",ss_dens(:Nso),sum(ss_dens),filling
-       if(verbose>2)write(*,"(A6,12G18.9)")"Z_ss =",ss_zeta(:Nso)
-       Fzeta= ss_zeta - zeta
-       !
-       select case(loop_MixType)
-       case ("linear")            
-          call linear_mix(ss_zeta,Fzeta,loop_Wmix)
-       case ("adaptive")
-          call adaptive_mix(ss_zeta,Fzeta,loop_Wmix,iter)
-       case default
-          call broyden_mix(zeta,Fzeta,loop_Wmix,loop_Nmix,iter)
-       end select
-       !
-       z_converged = check_convergence_local(ss_zeta-zeta,loop_tolerance,Nsuccess,loop_Nitermax)
-       call end_loop() 
-    end do
-    !
-    !<constraint:
-    fss = ss_Dens - (ss_Sz + 0.5d0)
-    if(bool)fss(Nso+1) = sum(ss_Dens) - filling
-    !
-    open(100,file="ss_zeta.dat")
-    write(100,*)uloc(1),ss_zeta
-    close(100)
-    !
-    open(100,file="ss_lambda.dat")
-    write(100,*)uloc(1),ss_lambda
-    close(100)
-    !
-    open(100,file="ss_dens.dat")
-    write(100,*)uloc(1),ss_dens
-    close(100)
-    !
-    if(verbose>1)then
-       write(*,"(A7,12G18.9)")"Dens  =",ss_dens(:Nso)
-       write(*,"(A7,12G18.9)")"Sz+1/2=",ss_Sz(:Nso)+0.5d0
-       write(*,*)""
-       write(*,"(A7,12G18.9)")"Lambda=",lambda(:Nso)
-       write(*,"(A7,12G18.9)")"F_ss  =",fss(:Nso)
-       if(verbose>2)call stop_timer()
-       write(*,*)""
-       write(*,*)""
-    endif
-  end function ss_solve_lambda
-
-
-  function solve_Hps(lambda) result(Fss)
-    real(8),dimension(:),intent(in) :: lambda
-    real(8),dimension(size(lambda)) :: fss
-    !
-    siter=siter+1
-    ss_lambda(1:Nso) = lambda
-    if(Nspin==1)call ss_spin_symmetry(ss_lambda)
-    !
-    call ss_solve_spins
-    !
-    fss = (ss_Dens(:Nso) - (ss_Sz(:Nso) + 0.5d0))
-    if(verbose>1)write(*,"(I18,20G16.7)")siter,Fss(:Nso),ss_lambda(:Nso)
-  end function solve_Hps
 
 
 
@@ -406,3 +351,14 @@ END MODULE SS_MAIN
 !      write(*,*)""
 !   endif
 ! end subroutine ss_solve_routine
+
+
+
+
+! ss_Hdiag=.true.
+! allocate(Hcheck(Ns,Ns))
+! do ik=1,Nk
+!    Hcheck = ss_Hk(:,:,ik) + ss_Hloc
+!    if(sum(abs(Hcheck - diag(diagonal(Hcheck)))) > 1d-6)ss_Hdiag=.false.
+! enddo
+! deallocate(Hcheck)
