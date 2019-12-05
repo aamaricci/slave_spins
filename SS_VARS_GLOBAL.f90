@@ -19,6 +19,7 @@ MODULE SS_VARS_GLOBAL
   real(8),dimension(:),allocatable        :: ss_dens ![Ns: 1:Norb_up, 1:Norb_dw]
   logical                                 :: ss_Hdiag !
   !
+  real(8)                                 :: ss_Ef
   real(8)                                 :: zeta_function
   logical                                 :: is_dos=.false.
 

@@ -38,13 +38,13 @@ contains
 
 
   subroutine ss_init_hk(hk_user,wtk_user,hloc)
-    complex(8),dimension(:,:,:)            :: hk_user  ![Nlso,Nlso,Nk]
-    real(8),dimension(size(hk_user,3))     :: wtk_user ![Nk]
+    complex(8),dimension(:,:,:)                          :: hk_user  ![Nlso,Nlso,Nk]
+    real(8),dimension(size(hk_user,3))                   :: wtk_user ![Nk]
     complex(8),dimension(Nspin*Norb,Nspin*Norb),optional :: Hloc
     complex(8),dimension(Nspin*Norb,Nspin*Norb)          :: Htmp
-    complex(8),dimension(:,:),allocatable  :: Hcheck
-    logical,save                           :: isetup=.true.
-    integer                                :: ik,io
+    complex(8),dimension(:,:),allocatable                :: Hcheck
+    logical,save                                         :: isetup=.true.
+    integer                                              :: ik,io
     !
     !< Init the SS structure + memory allocation
     Nk = size(hk_user,3)
@@ -88,7 +88,7 @@ contains
        write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0
        write(*,"(A7,12G18.9)")"Lam   =",ss_lambda
        write(*,"(A7,12G18.9)")"Z     =",ss_zeta
-       write(*,"(A7,12G18.9)")"Ef    =",-xmu
+       write(*,"(A7,12G18.9)")"Ef    =",ss_Ef
        write(*,*)" "
     endif
     !
@@ -113,7 +113,7 @@ contains
     select case(solve_method)
     case ("fsolve")
        params  = [ss_lambda(:Nso),ss_zeta(:Nso)]
-       params1 = [params,xmu]
+       params1 = [params,xmu]   !we use xmu here to keep it generic with respect to mu, fixed or varied.
        if(filling==0d0)then
           call fsolve(ss_solve_full,params,tol=solve_tolerance)
        else
