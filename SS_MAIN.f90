@@ -7,7 +7,8 @@ MODULE SS_MAIN
   USE SF_TIMER, only: start_timer,stop_timer
   USE SF_OPTIMIZE, only: broyden1,fsolve,broyden_mix,linear_mix,adaptive_mix
   !
-  USE DMFT_TOOLS
+  !> TO BE REMOVED:
+  USE DMFT_TOOLS, only: check_convergence,check_convergence_local,start_loop,end_loop
   implicit none
   private
 
@@ -367,119 +368,6 @@ contains
   end subroutine ss_get_lambda
 
 END MODULE SS_MAIN
-
-
-
-
-! !< massive allocation of all parameters
-! subroutine ss_init_dos(Ebands,Dbands,Hloc)
-!   real(8),dimension(:,:)                      :: Ebands  ![Nlso,Ne]
-!   real(8),dimension(:,:)                      :: Dbands ![Nlso,Ne]
-!   real(8),dimension(:)                        :: Hloc
-!   complex(8),dimension(Nso,Nso) :: Htmp
-!   real(8),dimension(Nso,Nso)    :: Wtmp
-!   integer                                     :: ie,io
-!   logical,save                                :: isetup=.true.
-!   !
-!   !< Init the SS structure + memory allocation
-!   Nk = size(Ebands,2)
-!   call assert_shape(Ebands,[Nso,Nk],"ss_init_dos","Ebands")
-!   call assert_shape(Hloc,[Nso],"ss_init_dos","Hloc")
-!   !
-!   if(isetup)call ss_setup_structure()
-!   !
-!   !< Guess/Read the lambda/zeta input
-!   call ss_init_params()
-!   isetup=.false.
-!   !
-!   ss_Hk = zero
-!   ss_Wtk= 0d0
-!   do ie=1,Nk
-!      Htmp=zero
-!      Wtmp=0d0
-!      do io=1,Nso
-!         Htmp(io,io)  = one*Ebands(io,ie) - one*Hloc(io)
-!         Wtmp(io,io)  = Dbands(io,ie)
-!      end do
-!      select case(Nspin)
-!      case default
-!         ss_Hk(:,:,ie)  = kron(pauli_0,Htmp)
-!         ss_Wtk(:,:,ie) = kron(pauli_0,one*Wtmp)
-!      case (2)
-!         ss_Hk(:,:,ie)  = Htmp
-!         ss_Wtk(:,:,ie) = Wtmp
-!      end select
-!   end do
-!   !
-!   select case(Nspin)
-!   case default
-!      ss_Hloc = kron(pauli_0,one*diag(Hloc))
-!   case (2)
-!      ss_Hloc = diag(Hloc)
-!   end select
-!   !
-!   ss_Hdiag=.true.
-!   !
-!   allocate(ss_lambda_init(Ns));ss_lambda_init=ss_lambda
-!   allocate(ss_zeta_init(Ns))  ;ss_zeta_init  =ss_zeta
-!   !
-!   is_bethe=.true.
-!   !
-! end subroutine ss_init_dos
-
-
-
-! subroutine ss_solve_routine() 
-!   real(8),dimension(Nso) :: lambda
-!   real(8),dimension(Nso) :: Xvec,Fvec
-!   integer                       :: fiter,info
-!   logical                       :: fconverged
-!   !
-!   !< Setup:
-!   if(Nspin==1)call ss_spin_symmetry(ss_lambda)
-!   !
-!   if(verbose>2)call start_timer()
-!   fconverged = .false.; fiter=0 
-!   do while(.not.fconverged.AND.fiter<=loop_Nitermax)
-!      fiter=fiter+1
-!      call start_loop(fiter,loop_Nitermax,"Fermion-iter")
-!      !
-!      !
-!      lambda = ss_lambda(:Nso)    !get a guess to start the Css: n=Sz+1/2 optimization
-!      call ss_solve_fermions
-!      if(verbose>3)write(*,"(A6,12G18.9)")"Ef   =",xmu
-!      if(verbose>3)write(*,"(A6,12G18.9)")"C    =",ss_c
-!      if(verbose>2)write(*,"(A6,12G18.9)")"N    =",ss_dens(:Nso),sum(ss_dens),filling
-!      if(verbose>1)write(*,"(3A18)")"Iter","Fss","Lambda"
-!      !
-!      siter  = 0
-!      Xvec   = ss_zeta(:Nso)
-!      call broyden1(solve_Hps,lambda,tolf=solve_tolerance)
-!      !call fsolve(solve_Hps,lambda,tol=solve_tolerance,info=info)
-!      Fvec   = ss_zeta(:Nso)! - Xvec
-!      !
-!      ! call linear_mix(Xvec,Fvec,loop_Wmix)
-!      !call adaptive_mix(Xvec,Fvec,loop_Wmix,fiter)
-!      !call broyden_mix(Xvec,Fvec,loop_Wmix,loop_Nmix,fiter)
-!      ! ss_zeta(:Nso)     = Xvec
-!      ss_zeta(:Nso) = loop_Wmix*ss_zeta(:Nso) + (1d0-loop_Wmix)*Fvec
-!      if(verbose>2)write(*,"(A6,12G18.9,I4)")"Z_ss =",ss_zeta(:Nso),info
-!      !
-!      fconverged = check_convergence(ss_zeta(:Nso),loop_tolerance,Nsuccess,loop_Nitermax)
-!      call end_loop()
-!   end do
-!   !
-!   if(verbose>1)then
-!      write(*,"(A7,12G18.9)")"Dens  =",ss_dens(:Nso)
-!      write(*,"(A7,12G18.9)")"Sz+1/2=",ss_Sz(:Nso)+0.5d0
-!      write(*,*)""
-!      write(*,"(A7,12G18.9)")"Lambda=",lambda(:Nso)
-!      write(*,"(A7,12G18.9)")"F_ss  =",ss_Dens(:Nso) - (ss_Sz(:Nso) + 0.5d0)
-!      if(verbose>2)call stop_timer()
-!      write(*,*)""
-!      write(*,*)""
-!   endif
-! end subroutine ss_solve_routine
 
 
 
