@@ -1,0 +1,40 @@
+function ss_solve_full(aparams) result(fss)
+  real(8),dimension(:),intent(in)  :: aparams !2*Nso
+  real(8),dimension(size(aparams)) :: fss
+  real(8)                          :: zeta(Nso)
+  logical                          :: bool
+  !
+  bool = size(aparams)==2*Nso+1
+  !
+  siter = siter+1
+  !
+  if(verbose>2)call start_loop(siter,0,"FSOLVE-iter")
+  !
+  ss_lambda(1:Nso) = aparams(1:Nso)
+  ss_zeta(1:Nso)   = aparams(Nso+1:2*Nso)
+  if(bool)xmu      = aparams(2*Nso+1)
+  !
+  zeta = ss_zeta(1:Nso)
+  call ss_solve_fermions
+  call ss_solve_spins
+  if(verbose>3)write(*,"(A6,12G18.9)")"Ef   =",-xmu
+  if(verbose>3)write(*,"(A6,12G18.9)")"C    =",ss_c
+  !
+  !<constraint:
+  fss(1:Nso)       = ss_Dens(1:Nso) - (ss_Sz(1:Nso) + 0.5d0)
+  fss(Nso+1:2*Nso) = ss_zeta(1:Nso) - zeta
+  if(bool)fss(2*Nso+1) = sum(ss_dens) - filling
+  !
+  if(verbose>1)then
+     write(*,"(A7,12G18.9)")"N     =",ss_dens(:Nso),sum(ss_dens),filling
+     write(*,"(A7,12G18.9)")"Lambda=",ss_lambda(:Nso)
+     write(*,"(A7,12G18.9)")"Z_ss  =",ss_zeta(:Nso)
+     write(*,"(A7,12G18.9)")"F_ss  =",fss
+     write(*,*)""
+  endif
+  !
+  if(verbose>2)call end_loop()
+  !
+  call ss_write_all()
+  !
+end function ss_solve_full

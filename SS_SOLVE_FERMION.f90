@@ -3,10 +3,7 @@ MODULE SS_SOLVE_FERMION
   USE SS_SETUP
   !
   USE SF_OPTIMIZE,only: brentq
-  USE SF_LINALG,  only: kron,eigh,diag,diagonal,operator(.x.),ones,eye
-  USE SF_SPECIAL, only: fermi,heaviside,step
   USE SF_MISC,    only: sort_array
-  USE SF_IOTOOLS, only: save_array
   implicit none
 
   private
@@ -20,6 +17,7 @@ MODULE SS_SOLVE_FERMION
 
 
 contains
+
 
   subroutine ss_solve_fermions()
     complex(8),dimension(Ns,Ns) :: Hk_f,Uk_f,Eweiss,diagZ,Wtk,diagR
@@ -164,7 +162,7 @@ contains
   subroutine ss_get_lambda0()
     complex(8),dimension(Ns,Ns) :: Hk_f,Uk_f,Eweiss,diagZ,Wtk,diagR
     real(8),dimension(Ns)       :: sq_zeta,lambda
-    integer                     :: ik,iorb,jorb,ispin,io,jo,indx
+    integer                     :: ik,iorb,jorb,ispin,io,jo,indx,unit
     logical                     :: bool
     real(8),dimension(Ns,Nk)    :: eK
     real(8),dimension(Ns)       :: rhoDiag,Ek_f
@@ -219,6 +217,10 @@ contains
     ss_lambda0 = -2d0*ss_Weiss*(ss_dens-0.5d0)/(ss_dens*(1d0-ss_dens))
     ss_Ef      = -2*ss_lambda0(1)+Ef
     if(filling/=0d0)xmu = -ss_Ef
+
+    open(free_unit(unit),file="lambda0.ss")
+    write(unit,*)ss_lambda0
+    close(unit)
 
   contains
 

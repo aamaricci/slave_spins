@@ -358,11 +358,11 @@
 		Lambda_ms(i)= New_Lambda_ms(i)
 		Z_ms(i)= New_Z_ms(i)
 	end do !i-loop 	
-!	close(40)
-!	close(41)
-!	close(42)
-!	close(43)
-!	close(44)	
+ !	close(40)
+ !	close(41)
+ !	close(42)
+ !	close(43)
+ !	close(44)
 	
 	11   format(I5,I5,I5, 11(1x,E12.6,2x))	
 	12   format(I5, 11(1x,E12.6,2x))		

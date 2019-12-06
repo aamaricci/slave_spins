@@ -1,7 +1,6 @@
 MODULE SS_SETUP
   USE SS_VARS_GLOBAL
   !
-  USE SF_IOTOOLS
   implicit none
   private
 
@@ -15,6 +14,8 @@ contains
 
   subroutine ss_setup_dimensions()
     Ns = 2*Norb
+    Nso = Nspin*Norb
+    Ndim = 2**Ns
   end subroutine ss_setup_dimensions
 
 
@@ -31,17 +32,20 @@ contains
     allocate(ss_zeta(Ns))
     allocate(ss_weiss(Ns))
     allocate(ss_c(Ns))
+    allocate(ss_dens(Ns))
+    allocate(ss_Sz(Ns))
+    allocate(ss_Op(Ns))
+    allocate(ss_SzSz(4,Norb,Norb))
     ss_lambda = 0d0
     ss_lambda0= 0d0
     ss_zeta   = 1d0
     ss_weiss  = 0d0
     ss_c      = 0d0
+    ss_dens   = 0d0
+    ss_Sz     = 0d0
+    ss_Op     = 0d0
+    ss_SzSz   = 0d0
     !
-    allocate(ss_dens(Ns))
-    ss_dens  = 0d0
-    !
-    allocate(ss_Sz(Ns))
-    ss_Sz = 0d0
     !
     allocate(ss_Hk(Ns,Ns,Nk))
     ss_Hk = zero
@@ -52,8 +56,11 @@ contains
     allocate(ss_Hloc(Ns,Ns))
     ss_Hloc = zero
     !
-    Nso = Nspin*Norb
-    !    
+    allocate(Ss_Evecs(Ndim,Ndim))
+    Ss_Evecs=0d0
+    !
+    allocate(Ss_Evals(Ndim))
+    Ss_Evals=0d0
   end subroutine ss_setup_structure
 
 

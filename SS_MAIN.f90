@@ -5,10 +5,7 @@ MODULE SS_MAIN
   USE SS_SOLVE_SPIN
   !
   USE SF_TIMER, only: start_timer,stop_timer
-  USE SF_LINALG, only: diag,diagonal,kron
   USE SF_OPTIMIZE, only: broyden1,fsolve,broyden_mix,linear_mix,adaptive_mix
-  USE SF_IOTOOLS,only: save_array
-  USE SF_MISC,only: assert_shape
   !
   USE DMFT_TOOLS
   implicit none
@@ -21,6 +18,11 @@ MODULE SS_MAIN
 
   public :: ss_init
   public :: ss_solve
+  public :: ss_get_Hf
+  public :: ss_get_dens
+  public :: ss_get_zeta
+  public :: ss_get_lambda
+  public :: ss_get_sz
 
 
   real(8),dimension(:),allocatable     :: ss_lambda_init
@@ -33,6 +35,8 @@ MODULE SS_MAIN
 contains
 
 
+  !< Init SS calculation by passing the Hamiltonian H(k), the k-point weight W(k) and the local
+  !  part of the Hamiltonian H_loc = sum_k H(k)
   subroutine ss_init_hk(hk_user,wtk_user,hloc)
     complex(8),dimension(:,:,:)                          :: hk_user  ![Nlso,Nlso,Nk]
     real(8),dimension(size(hk_user,3))                   :: wtk_user ![Nk]
@@ -88,6 +92,8 @@ contains
     return
   end subroutine ss_init_hk
 
+  !< Init SS calculation by passing the Density of states D(e), the dispersions E(e) and the local
+  !  part of the Hamiltonian H_loc = sum_k H(k)
   subroutine ss_init_dos(Ebands,Dbands,Hloc)
     real(8),dimension(:,:)                      :: Ebands  ![Nlso,Ne]
     real(8),dimension(:,:)                      :: Dbands ![Nlso,Ne]
@@ -156,13 +162,15 @@ contains
 
 
 
-
+  !< Execute the SS calculation using different algorithmes as from the input file
   subroutine ss_solve()
     real(8),dimension(Nso)     :: lambda
     real(8),dimension(2*Nso)   :: params
     real(8),dimension(Nso+1)   :: lambda1
     real(8),dimension(2*Nso+1) :: params1
     real(8),dimension(Nso)     :: Xvec,Fvec
+    !
+    call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",[ss_lambda,ss_zeta,xmu])
     !
     call start_timer
     select case(solve_method)
@@ -204,17 +212,8 @@ contains
     !
     call save_array(trim(Pfile)//trim(ss_file_suffix)//".restart",[ss_lambda,ss_zeta,xmu])
     !
-    open(100,file="ss_zeta.dat")
-    write(100,*)uloc(1),ss_zeta
-    close(100)
-    !
-    open(100,file="ss_lambda.dat")
-    write(100,*)uloc(1),ss_lambda
-    close(100)
-    !
-    open(100,file="ss_dens.dat")
-    write(100,*)uloc(1),ss_dens
-    close(100)
+    call ss_spin_corr()
+    call ss_write_last()
     !
   end subroutine ss_solve
 
@@ -236,6 +235,136 @@ contains
 
 
 
+
+  subroutine ss_write_all()
+    integer :: unit
+    open(free_unit(unit),file="lambda_all.ss",position='append')
+    write(unit,*)ss_lambda
+    close(unit)
+    !
+    open(free_unit(unit),file="zeta_all.ss",position='append')
+    write(unit,*)ss_zeta
+    close(unit)
+    !
+    open(free_unit(unit),file="Ef_all.ss",position='append')
+    write(unit,*)ss_Ef
+    close(unit)
+    !
+    open(free_unit(unit),file="dens_all.ss",position='append')
+    write(unit,*)ss_dens
+    close(unit)
+    !
+    open(free_unit(unit),file="sz_all.ss",position='append')
+    write(unit,*)ss_Sz
+    close(unit)
+  end subroutine ss_write_all
+
+
+
+  subroutine ss_write_last()
+    integer :: unit,units(4),i,iorb,jorb
+    real(8) :: SzSz(4)
+    open(free_unit(unit),file="hubbards.ss")
+    write(unit,"(90F15.9)")(uloc(iorb),iorb=1,Norb),Ust,Jh
+    close(unit)
+    !
+    open(free_unit(unit),file="lambda_last.ss")
+    write(unit,*)ss_lambda
+    close(unit)
+    !
+    open(free_unit(unit),file="zeta_last.ss")
+    write(unit,*)ss_zeta
+    close(unit)
+    !
+    open(free_unit(unit),file="Ef_last.ss")
+    write(unit,*)ss_Ef
+    close(unit)
+    !
+    open(free_unit(unit),file="dens_last.ss")
+    write(unit,*)ss_dens
+    close(unit)
+    !
+    open(free_unit(unit),file="sz_last.ss")
+    write(unit,*)ss_Sz
+    close(unit)
+    !
+    open(free_unit(unit),file="Op_last.ss")
+    write(unit,*)ss_Op
+    close(unit)
+    !
+    units = free_units(4)
+    open(units(1),file="SzSz_uu.ss")
+    open(units(2),file="SzSz_dd.ss")
+    open(units(3),file="SzSz_ud.ss")
+    open(units(4),file="SzSz_du.ss")
+    do iorb=1,Norb
+       do jorb=1,Norb
+          do i=1,4
+             write(units(i),*)iorb,jorb,ss_SzSz(i,iorb,jorb)
+          enddo
+       enddo
+    enddo
+    do i=1,4
+       close(units(i))
+    enddo
+  end subroutine ss_write_last
+
+
+
+
+  subroutine ss_get_Hf(Hk)
+    complex(8),dimension(:,:,:) :: Hk
+    complex(8),dimension(Ns,Ns) :: diagZ,Hk_f
+    real(8),dimension(Ns)       :: sq_zeta
+    integer                     :: ik
+    call assert_shape(Hk,[Nspin*Norb,Nspin*Norb,Nk],"ss_get_Hf","Hk")
+    sq_zeta = sqrt(ss_zeta)
+    diagZ   = diag(sq_zeta)
+    do ik=1,Nk
+       Hk_f       = (diagZ .x. ss_Hk(:,:,ik)) .x. diagZ
+       Hk(:,:,ik) = Hk_f(:Nso,:Nso)
+    enddo
+  end subroutine ss_get_Hf
+
+  subroutine ss_get_dens(dens)
+    real(8),dimension(Nspin,Norb) :: dens
+    integer :: iorb,ispin
+    do ispin=1,Nspin
+       do iorb=1,Norb
+          dens(ispin,iorb) = ss_dens(iorb+(ispin-1)*Norb)
+       enddo
+    enddo
+  end subroutine ss_get_dens
+
+  subroutine ss_get_zeta(zeta)
+    real(8),dimension(Nspin,Norb) :: zeta
+    integer :: iorb,ispin
+    do ispin=1,Nspin
+       do iorb=1,Norb
+          zeta(ispin,iorb) = ss_zeta(iorb+(ispin-1)*Norb)
+       enddo
+    enddo
+  end subroutine ss_get_zeta
+
+  subroutine ss_get_sz(sz)
+    real(8),dimension(Nspin,Norb) :: sz
+    integer :: iorb,ispin
+    do ispin=1,Nspin
+       do iorb=1,Norb
+          sz(ispin,iorb) = ss_sz(iorb+(ispin-1)*Norb)
+       enddo
+    enddo
+  end subroutine ss_get_sz
+
+  subroutine ss_get_lambda(lambda)
+    real(8),dimension(Nspin,Norb) :: lambda
+    integer :: iorb,ispin
+    do ispin=1,Nspin
+       do iorb=1,Norb
+          lambda(ispin,iorb) = ss_lambda(iorb+(ispin-1)*Norb)
+       enddo
+    enddo
+  end subroutine ss_get_lambda
 
 END MODULE SS_MAIN
 

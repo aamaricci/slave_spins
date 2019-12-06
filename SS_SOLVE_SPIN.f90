@@ -1,34 +1,27 @@
 MODULE SS_SOLVE_SPIN
   USE SS_VARS_GLOBAl
   USE SS_SETUP
-  USE SS_SPARSE_MATRIX
-  !
-  USE SF_LINALG, only:eigh
   implicit none
 
   private
 
-  type(sparse_matrix_csr) :: spHs
-
   public :: ss_solve_spins
+  public :: ss_spin_corr
+
 
 contains
 
 
   subroutine ss_solve_spins
     integer                                   :: istate,jstate,io,iorb,ispin,Idegen
-    integer                                   :: Ndim,Ndegen
     integer,dimension(Ns)                     :: Ivec
     real(8),dimension(Ns)                     :: Sz
     real(8),dimension(2,Norb)                 :: tSz
     real(8)                                   :: htmp
     !
-    real(8),allocatable,dimension(:,:),target :: Evecs
-    real(8),allocatable,dimension(:)          :: Evals
     real(8),dimension(:),pointer              :: gs_vec
     real(8),dimension(Ns)                     :: avSz,avOO
     !   
-    Ndim = 2**Ns    
     call sp_init_matrix(spHs,Ndim)
     !
     do istate=1,Ndim
@@ -62,7 +55,6 @@ contains
        !
        call sp_insert_element(spHs,htmp,Istate,Istate)
        !
-       !
        !Non-diagonal elements:
        !< sum_{m,s} h_{m,s} * [c S^+_{m,s} + S^-_{m,s}] + H.c.
        do io=1,Ns
@@ -91,27 +83,25 @@ contains
           call sp_insert_element(spHs,htmp,Istate,Jstate)
        enddo
     enddo
-
-
-
-    allocate(Evecs(Ndim,Ndim));Evecs=0d0
-    allocate(Evals(Ndim));Evals=0d0
     !
-    call sp_dump_matrix(spHs,Evecs)
+    Ss_Evecs=0d0
+    Ss_Evals=0d0
+    !
+    call sp_dump_matrix(spHs,Ss_Evecs)
     call sp_delete_matrix(spHs)
     !
-    call eigh(Evecs,Evals)
+    call eigh(Ss_Evecs,Ss_Evals)
     !
-    Ndegen=1
+    ss_Ndegen=1
     do istate=2,Ns
-       if(abs(Evals(istate)-Evals(1))<= 1d-10)Ndegen=Ndegen+1
+       if(abs(Ss_Evals(istate)-Ss_Evals(1))<= 1d-10)ss_Ndegen=ss_Ndegen+1
     end do
-    zeta_function = dble(Ndegen)
+    zeta_function = dble(ss_Ndegen)
     !
-    avSz=0d0
-    avOO=0d0
-    do Idegen=1,Ndegen
-       gs_vec => Evecs(:,Idegen)
+    ss_Sz=0d0
+    ss_Op=0d0
+    do Idegen=1,ss_Ndegen
+       gs_vec => Ss_Evecs(:,Idegen)
        !
        do istate=1,Ndim
           !
@@ -119,29 +109,74 @@ contains
           !
           Sz = 0.5d0 ; where(Ivec==0)Sz=-0.5d0
           !
-          avSz = avSz + Sz*gs_vec(istate)**2/zeta_function          
+          ss_Sz = ss_Sz + Sz*gs_vec(istate)**2/zeta_function          
           !
           do io=1,Ns
              if(Sz(io)/=0.5d0)cycle
              call Sminus(io,Istate,Jstate)
              htmp = 1d0
-             avOO(io) = avOO(io) + gs_vec(Jstate)*htmp*gs_vec(Istate)/zeta_function
+             ss_Op(io) = ss_Op(io) + gs_vec(Jstate)*htmp*gs_vec(Istate)/zeta_function
           enddo
           do io=1,Ns
              if(Sz(io)/=-0.5d0)cycle
              call Splus(io,Istate,Jstate)
              htmp = ss_c(io)
-             avOO(io) = avOO(io) + gs_vec(Jstate)*htmp*gs_vec(Istate)/zeta_function
+             ss_Op(io) = ss_Op(io) + gs_vec(Jstate)*htmp*gs_vec(Istate)/zeta_function
           enddo
        enddo
     enddo
     !
-    ss_Sz = avSz
-    ss_zeta = avOO**2
+    ss_zeta = ss_Op**2
     !
     if(Nspin==1)call ss_spin_symmetry(ss_zeta)
     !
   end subroutine ss_solve_spins
+
+
+
+  subroutine ss_spin_corr
+    integer                      :: istate,iorb,jorb,Idegen
+    integer,dimension(Ns)        :: Ivec
+    real(8),dimension(Ns)        :: Sz
+    real(8),dimension(:),pointer :: gs_vec
+    real(8),dimension(Ns,Ns)     :: avSzSz
+    !
+    if(.not.allocated(ss_Evecs))stop "SS_SPIN_CORR Error: ss_Evecs not allocated"
+    !
+    avSzSz=0d0
+    !
+    do Idegen=1,ss_Ndegen
+       gs_vec => Ss_Evecs(:,Idegen)
+       !
+       do istate=1,Ndim
+          Ivec = Bdecomp(Istate,Ns)
+          Sz = 0.5d0 ; where(Ivec==0)Sz=-0.5d0
+          avSzSz = avSzSz + outerprod(Sz,Sz)*gs_vec(istate)**2/zeta_function
+       enddo
+    enddo
+    !
+    do iorb=1,Norb
+       do jorb=1,Norb
+          ss_SzSz(1,iorb,jorb) = avSzSz(is_indx(iorb,1),is_indx(jorb,1)) !up-up
+          ss_SzSz(2,iorb,jorb) = avSzSz(is_indx(iorb,2),is_indx(jorb,2)) !dw-dw
+          ss_SzSz(3,iorb,jorb) = avSzSz(is_indx(iorb,1),is_indx(jorb,2)) !up-dw
+          ss_SzSz(4,iorb,jorb) = avSzSz(is_indx(iorb,2),is_indx(jorb,1)) !dw-up
+       enddo
+    enddo
+    !
+  contains
+    !
+    function is_indx(iorb,ispin)
+      integer :: iorb,ispin
+      integer :: is_indx
+      is_indx = iorb + (ispin-1)*Norb
+    end function is_indx
+    !
+  end subroutine ss_spin_corr
+
+
+
+
 
 
 
