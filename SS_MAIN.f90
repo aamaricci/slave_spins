@@ -8,7 +8,7 @@ MODULE SS_MAIN
   USE SF_OPTIMIZE, only: broyden1,fsolve,broyden_mix,linear_mix,adaptive_mix
   !
   !> TO BE REMOVED:
-  USE DMFT_TOOLS, only: check_convergence,check_convergence_local,start_loop,end_loop
+  USE DMFT_TOOLS !, only: check_convergence,check_convergence_local,start_loop,end_loop
   implicit none
   private
 
@@ -53,8 +53,13 @@ contains
     if(isetup)call ss_setup_structure()
     !
     !< Init the Hk structures
-    Htmp    = sum(Hk_user,dim=3);where(abs(Htmp)<1d-6)Htmp=zero
-    if(present(Hloc).AND.(sum(abs(Htmp))>1d-12))stop "ss_init: Hloc seems to be present twice: in _Hloc and _Hk"
+    Htmp    = sum(Hk_user,dim=3)/Nk;where(abs(Htmp)<1d-6)Htmp=zero
+
+    call TB_write_Hloc(Htmp)
+
+    if(present(Hloc).AND.(sum(abs(Htmp))>1d-12))&
+         stop "ss_init: Hloc seems to be present twice: in _Hloc and _Hk"
+    !
     do ik=1,Nk
        select case(Nspin)
        case default
@@ -64,6 +69,9 @@ contains
        end select
        ss_Wtk(:,:,ik) = Wtk_user(ik)
     end do
+
+    call TB_write_Hloc(sum(ss_HK,dim=3)/Nk)
+
     !
     !< Init local non-interacting part 
     if(present(Hloc))Htmp = Hloc !Htmp should necessarily be zero (if condition above)

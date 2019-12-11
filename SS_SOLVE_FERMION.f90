@@ -2,7 +2,7 @@ MODULE SS_SOLVE_FERMION
   USE SS_VARS_GLOBAL
   USE SS_SETUP
   !
-  USE SF_OPTIMIZE,only: brentq
+  USE SF_OPTIMIZE,only: brentq,fzero
   USE SF_MISC,    only: sort_array
   implicit none
 
@@ -167,12 +167,12 @@ contains
     real(8),dimension(Ns,Nk)    :: eK
     real(8),dimension(Ns)       :: rhoDiag,Ek_f
     real(8),dimension(Ns,Ns,Nk) :: rhoK
-    real(8),parameter           :: mch=1d-9
+    real(8),parameter           :: mch=1d-5
     real(8),dimension(Nk*Ns)    :: Ek_all
     integer                     :: stride,N_electrons,N_index
     integer,dimension(Nk*Ns)    :: Ek_indx
     real(8)                     :: Efilling,Ef
-    integer                     :: Nall
+    integer                     :: Nall,info
     !
     bool = (Ns==Nspin*Norb)
     !
@@ -186,9 +186,16 @@ contains
        !
        stride = stride+Ns
     enddo
-    !
-    Ef = brentq(get_dens,minval(Ek),maxval(Ek),tol=1.d-9)
-    !
+
+    if(filling==0d0)then
+       Ef=-xmu
+    else
+       Ef = minval(Ek)
+       call fzero(get_dens,Ef,maxval(Ek),info)
+    endif
+
+    if(verbose>3)write(*,"(A6,12G18.9)")"Ef0  =",Ef
+
     Eweiss  = 0d0
     ss_dens = 0d0
     do ik = 1,Nk 
@@ -197,6 +204,7 @@ contains
        rhoK(:,:,ik) = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
        Eweiss       = Eweiss  + ss_Hk(:,:,ik)*rhoK(:,:,ik)*ss_Wtk(:,:,ik) !element wise product
        ss_dens      = ss_dens + diagonal(rhoK(:,:,ik)*ss_Wtk(:,:,ik))     !element wise product
+       write(100,*)ss_dens(1)
     enddo
     if(Nspin==1)call ss_spin_symmetry(ss_dens)
     if(verbose>3)write(*,"(A6,12G18.9)")"N0   =",ss_dens,sum(ss_dens),filling
@@ -214,7 +222,7 @@ contains
     enddo
     !
     !< Get Lambda0 = -2* h0_{m,s}*[n0_{m,s}-0.5]/[n0_{m,s}*(1-n0_{m,s})]
-    ss_lambda0 = -2d0*ss_Weiss*(ss_dens-0.5d0)/(ss_dens*(1d0-ss_dens))
+    ss_lambda0 = -2d0*ss_Weiss*(ss_dens-0.5d0)/(ss_dens*(1d0-ss_dens)+mch)
     ss_Ef      = -2*ss_lambda0(1)+Ef
     if(filling/=0d0)xmu = -ss_Ef
 
@@ -225,7 +233,8 @@ contains
   contains
 
     function get_dens(ef) result(dens)
-      real(8),intent(in)          :: ef
+      ! real(8),intent(in)          :: ef
+      real(8)                     :: ef
       real(8)                     :: dens
       real(8),dimension(Ns)       :: ndens(Ns)
       real(8),dimension(Ns,Ns)    :: Rho
