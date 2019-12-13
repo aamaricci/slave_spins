@@ -7,9 +7,9 @@ program ss_PCO
 
   integer                                     :: Nk,Nkpath,Nkx,Npts
   integer                                     :: i,j,k,ik,iorb,jorb,io,ispin
-  real(8),dimension(:,:),allocatable          :: kpath
+  real(8),dimension(:,:),allocatable          :: kpath,Self
   complex(8),dimension(:,:,:),allocatable     :: Hk
-  real(8),dimension(:),allocatable            :: Wtk
+  real(8),dimension(:),allocatable            :: Wtk,Zeta
   complex(8),dimension(:,:),allocatable       :: Hloc
   complex(8),dimension(:,:,:,:,:),allocatable :: Greal,Gmats
   character(len=32)                           :: w90_file
@@ -73,9 +73,6 @@ program ss_PCO
   call ss_solve()
 
 
-
-  !> TODO: retrieve the renormalized Hamiltonian and get bands out of it
-  ! need to push Z to w90 structure.
   !  TODO: get the GF of the problem by convoluting the spin-spin correlation function
   ! with the fermionic (free) green's function. 
 
@@ -84,8 +81,20 @@ program ss_PCO
   call get_gloc_realaxis(Hk,Wtk,Greal,zeros(Nspin,Nspin,Norb,Norb,Lreal))
   call print_gf_realaxis(Greal,"w90Gloc",iprint=1)
 
-  call TB_w90_delete()
+  allocate(Zeta(Nspin*Norb))
+  allocate(Self(Nspin*Norb,Nspin*Norb))
+  call ss_get_zeta(zeta)
+  call ss_get_self(self)
 
+
+  call TB_w90_Zeta(zeta)
+  call TB_w90_Self(self)
+  call TB_Solve_model(TB_w90_model,Nspin*Norb,kpath,Nkpath,&
+       colors_name=[red1,green1,blue1],&
+       points_name=[character(len=20) ::'G', 'X', 'M', 'G', 'R', 'A', 'Z','G'],&
+       file="zEigenbands_PCO")
+
+  call TB_w90_delete()
 
 
 end program SS_PCO

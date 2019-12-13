@@ -37,14 +37,25 @@ MODULE SS_MAIN
      module procedure :: ss_get_lambda_Ns
   end interface ss_get_lambda
 
+  interface ss_get_lambda0
+     module procedure :: ss_get_lambda0_NN
+     module procedure :: ss_get_lambda0_Ns
+  end interface ss_get_lambda0
+
+  interface ss_get_self
+     module procedure :: ss_get_self_NN
+     module procedure :: ss_get_self_Ns
+  end interface ss_get_self
+
   public :: ss_init
   public :: ss_solve
   public :: ss_get_Hf
   public :: ss_get_dens
   public :: ss_get_zeta
   public :: ss_get_lambda
+  public :: ss_get_lambda0  
   public :: ss_get_sz
-
+  public :: ss_get_self
 
   real(8),dimension(:),allocatable     :: ss_lambda_init
   real(8),dimension(:),allocatable     :: ss_zeta_init
@@ -99,8 +110,8 @@ contains
     end select
     !
     !< Init/Read the lambda/zeta input
-    !if(filling/=dble(Norb))call ss_get_lambda0()
-    if(filling/=0d0)call ss_get_lambda0()
+    !if(filling/=dble(Norb))call ss_solve_lambda0()
+    if(filling/=0d0)call ss_solve_lambda0()
     call ss_init_params()
     if(verbose>2)then
        write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0
@@ -166,8 +177,8 @@ contains
     end select
     !
     !< Init/Read the lambda/zeta input
-    ! if(filling/=dble(Norb))call ss_get_lambda0()
-    if(filling/=0d0)call ss_get_lambda0()
+    ! if(filling/=dble(Norb))call ss_solve_lambda0()
+    if(filling/=0d0)call ss_solve_lambda0()
     call ss_init_params()
     if(verbose>2)then
        write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0
@@ -352,8 +363,8 @@ contains
        Hk_f       = (diagZ .x. ss_Hk(:,:,ik)) .x. diagZ
        Hk(:,:,ik) = Hk_f(:Nso,:Nso) + ss_Hloc(:Nso,:Nso) - diag(ss_lambda) + diag(ss_lambda0)
     enddo
-  end subroutine ss_get_Hf  
-  
+  end subroutine ss_get_Hf
+
 
   subroutine ss_get_dens_NN(dens)
     real(8),dimension(Nspin,Norb) :: dens
@@ -365,8 +376,8 @@ contains
     enddo
   end subroutine ss_get_dens_NN
   subroutine ss_get_dens_Ns(dens)
-    real(8),dimension(Ns) :: dens
-    dens = ss_dens
+    real(8),dimension(Nspin*Norb) :: dens
+    dens = ss_dens(:Nso)
   end subroutine ss_get_dens_Ns
 
 
@@ -380,8 +391,8 @@ contains
     enddo
   end subroutine ss_get_zeta_NN
   subroutine ss_get_zeta_Ns(zeta)
-    real(8),dimension(Ns) :: zeta
-    zeta = ss_zeta
+    real(8),dimension(Nspin*Norb) :: zeta
+    zeta = ss_zeta(:Nso)
   end subroutine ss_get_zeta_Ns
 
 
@@ -395,8 +406,8 @@ contains
     enddo
   end subroutine ss_get_sz_NN
   subroutine ss_get_Sz_Ns(sz)
-    real(8),dimension(Ns) :: Sz
-    sz = ss_sz
+    real(8),dimension(Nspin*Norb) :: Sz
+    sz = ss_sz(:Nso)
   end subroutine ss_get_Sz_Ns
 
 
@@ -410,9 +421,39 @@ contains
     enddo
   end subroutine ss_get_lambda_NN
   subroutine ss_get_lambda_Ns(lambda)
-    real(8),dimension(Ns) :: lambda
-    lambda = ss_lambda
+    real(8),dimension(Nspin*Norb) :: lambda
+    lambda = ss_lambda(:Nso)
   end subroutine ss_get_lambda_Ns
+
+
+
+
+  subroutine ss_get_lambda0_NN(lambda)
+    real(8),dimension(Nspin,Norb) :: lambda
+    integer :: iorb,ispin
+    do ispin=1,Nspin
+       do iorb=1,Norb
+          lambda(ispin,iorb) = ss_lambda0(iorb+(ispin-1)*Norb)
+       enddo
+    enddo
+  end subroutine ss_get_lambda0_NN
+  subroutine ss_get_lambda0_Ns(lambda)
+    real(8),dimension(Nspin*Norb) :: lambda
+    lambda = ss_lambda0(:Nso)
+  end subroutine ss_get_lambda0_Ns
+
+
+
+
+  subroutine ss_get_self_NN(self)
+    real(8),dimension(Nspin*Norb,Nspin*Norb) :: self
+    self= diag(ss_lambda0)-diag(ss_lambda)
+  end subroutine ss_get_self_NN
+  subroutine ss_get_self_Ns(self)
+    real(8),dimension(Nspin*Norb) :: self
+    self(:) =  - ss_lambda(:Nso) + ss_lambda0(:Nso)
+  end subroutine ss_get_self_Ns
+
 
 END MODULE SS_MAIN
 

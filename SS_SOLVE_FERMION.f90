@@ -10,9 +10,10 @@ MODULE SS_SOLVE_FERMION
 
 
   public :: ss_solve_fermions
-  public :: ss_get_lambda0
   public :: ss_solve_fermions_Ef
+  public :: ss_solve_lambda0
 
+  
   real(8),parameter           :: mch=1d-6
 
 
@@ -157,7 +158,7 @@ contains
 
 
 
-  subroutine ss_get_lambda0()
+  subroutine ss_solve_lambda0()
     complex(8),dimension(Ns,Ns) :: Hk_f,Uk_f,Eweiss,diagZ,Wtk,diagR
     real(8),dimension(Ns)       :: sq_zeta,lambda
     integer                     :: ik,iorb,jorb,ispin,io,jo,indx,unit
@@ -246,7 +247,7 @@ contains
       dens = sum(ndens)-filling
     end function get_dens
 
-  end subroutine ss_get_lambda0
+  end subroutine ss_solve_lambda0
 
 
 END MODULE SS_SOLVE_FERMION
