@@ -22,7 +22,7 @@ function ss_solve_lambda(lambda) result(fss)
      zeta = ss_zeta
      call ss_solve_fermions
      call ss_solve_spins
-     if(verbose>3)write(*,"(A6,12G18.9)")"Ef   =",xmu
+     if(verbose>3)write(*,"(A6,12G18.9)")"mu   =",xmu
      if(verbose>3)write(*,"(A6,12G18.9)")"C    =",ss_c
      if(verbose>2)write(*,"(A6,12G18.9)")"N    =",ss_dens(:Nso),sum(ss_dens),filling
      if(verbose>2)write(*,"(A6,12G18.9)")"Z_ss =",ss_zeta(:Nso)

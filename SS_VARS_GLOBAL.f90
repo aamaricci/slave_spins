@@ -28,7 +28,6 @@ MODULE SS_VARS_GLOBAL
   real(8),dimension(:,:,:),allocatable      :: ss_SzSz
   real(8),dimension(:),allocatable          :: ss_Op  
   !
-  real(8)                                   :: ss_Ef
   real(8)                                   :: zeta_function
   logical                                   :: is_dos=.false.
 

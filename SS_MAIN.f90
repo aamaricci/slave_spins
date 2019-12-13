@@ -17,6 +17,26 @@ MODULE SS_MAIN
      module procedure :: ss_init_dos
   end interface ss_init
 
+  interface ss_get_dens
+     module procedure :: ss_get_dens_NN
+     module procedure :: ss_get_dens_Ns
+  end interface ss_get_dens
+
+  interface ss_get_zeta
+     module procedure :: ss_get_zeta_NN
+     module procedure :: ss_get_zeta_Ns
+  end interface ss_get_zeta
+
+  interface ss_get_sz
+     module procedure :: ss_get_Sz_NN
+     module procedure :: ss_get_Sz_Ns
+  end interface ss_get_sz
+
+  interface ss_get_lambda
+     module procedure :: ss_get_lambda_NN
+     module procedure :: ss_get_lambda_Ns
+  end interface ss_get_lambda
+
   public :: ss_init
   public :: ss_solve
   public :: ss_get_Hf
@@ -55,8 +75,6 @@ contains
     !< Init the Hk structures
     Htmp    = sum(Hk_user,dim=3)/Nk;where(abs(Htmp)<1d-6)Htmp=zero
 
-    call TB_write_Hloc(Htmp)
-
     if(present(Hloc).AND.(sum(abs(Htmp))>1d-12))&
          stop "ss_init: Hloc seems to be present twice: in _Hloc and _Hk"
     !
@@ -70,8 +88,6 @@ contains
        ss_Wtk(:,:,ik) = Wtk_user(ik)
     end do
 
-    call TB_write_Hloc(sum(ss_HK,dim=3)/Nk)
-
     !
     !< Init local non-interacting part 
     if(present(Hloc))Htmp = Hloc !Htmp should necessarily be zero (if condition above)
@@ -83,13 +99,14 @@ contains
     end select
     !
     !< Init/Read the lambda/zeta input
-    if(filling/=dble(Norb))call ss_get_lambda0()
+    !if(filling/=dble(Norb))call ss_get_lambda0()
+    if(filling/=0d0)call ss_get_lambda0()
     call ss_init_params()
     if(verbose>2)then
        write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0
        write(*,"(A7,12G18.9)")"Lam   =",ss_lambda
        write(*,"(A7,12G18.9)")"Z     =",ss_zeta
-       write(*,"(A7,12G18.9)")"Ef    =",ss_Ef
+       write(*,"(A7,12G18.9)")"mu    =",xmu
        write(*,*)" "
     endif
     !
@@ -149,13 +166,14 @@ contains
     end select
     !
     !< Init/Read the lambda/zeta input
-    if(filling/=dble(Norb))call ss_get_lambda0()
+    ! if(filling/=dble(Norb))call ss_get_lambda0()
+    if(filling/=0d0)call ss_get_lambda0()
     call ss_init_params()
     if(verbose>2)then
        write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0
        write(*,"(A7,12G18.9)")"Lam   =",ss_lambda
        write(*,"(A7,12G18.9)")"Z     =",ss_zeta
-       write(*,"(A7,12G18.9)")"Ef    =",ss_Ef
+       write(*,"(A7,12G18.9)")"mu    =",xmu
        write(*,*)" "
     endif
     !
@@ -228,7 +246,7 @@ contains
 
 
 
-  !< solve the SS problem by optimizing the parameter vector X=[lambda,Z{,Ef}]
+  !< solve the SS problem by optimizing the parameter vector X=[lambda,Z{,xmu}]
   !  with the conditions:
   !  n - Sz -1/2 =0
   !  z_i - z_{i-1}=0
@@ -236,7 +254,7 @@ contains
   include "ss_main_solve_full.h90"
 
 
-  !< solve the SS problem by optimizing separately lambda or [lambda,Ef] and Z
+  !< solve the SS problem by optimizing separately lambda or [lambda,xmu] and Z
   !GG method: optimize broyden/fsolve in lambda and iterate over Z for any fixed lambda 
   include "ss_main_solve_gg.h90"
   !LF method: iterate over lambda, solve fermion at fixed lambda + broyden/fsolve for spins changing lambda, fix Z
@@ -255,10 +273,6 @@ contains
     write(unit,*)ss_zeta
     close(unit)
     !
-    open(free_unit(unit),file="Ef_all.ss",position='append')
-    write(unit,*)ss_Ef
-    close(unit)
-    !
     open(free_unit(unit),file="dens_all.ss",position='append')
     write(unit,*)ss_dens
     close(unit)
@@ -266,6 +280,11 @@ contains
     open(free_unit(unit),file="sz_all.ss",position='append')
     write(unit,*)ss_Sz
     close(unit)
+    !
+    open(free_unit(unit),file="mu_all.ss",position='append')
+    write(unit,*)xmu
+    close(unit)
+    !
   end subroutine ss_write_all
 
 
@@ -285,10 +304,6 @@ contains
     write(unit,*)ss_zeta
     close(unit)
     !
-    open(free_unit(unit),file="Ef_last.ss")
-    write(unit,*)ss_Ef
-    close(unit)
-    !
     open(free_unit(unit),file="dens_last.ss")
     write(unit,*)ss_dens
     close(unit)
@@ -299,6 +314,10 @@ contains
     !
     open(free_unit(unit),file="Op_last.ss")
     write(unit,*)ss_Op
+    close(unit)
+    !
+    open(free_unit(unit),file="mu_last.ss")
+    write(unit,*)xmu
     close(unit)
     !
     units = free_units(4)
@@ -331,11 +350,12 @@ contains
     diagZ   = diag(sq_zeta)
     do ik=1,Nk
        Hk_f       = (diagZ .x. ss_Hk(:,:,ik)) .x. diagZ
-       Hk(:,:,ik) = Hk_f(:Nso,:Nso)
+       Hk(:,:,ik) = Hk_f(:Nso,:Nso) + ss_Hloc(:Nso,:Nso) - diag(ss_lambda) + diag(ss_lambda0)
     enddo
-  end subroutine ss_get_Hf
+  end subroutine ss_get_Hf  
+  
 
-  subroutine ss_get_dens(dens)
+  subroutine ss_get_dens_NN(dens)
     real(8),dimension(Nspin,Norb) :: dens
     integer :: iorb,ispin
     do ispin=1,Nspin
@@ -343,9 +363,14 @@ contains
           dens(ispin,iorb) = ss_dens(iorb+(ispin-1)*Norb)
        enddo
     enddo
-  end subroutine ss_get_dens
+  end subroutine ss_get_dens_NN
+  subroutine ss_get_dens_Ns(dens)
+    real(8),dimension(Ns) :: dens
+    dens = ss_dens
+  end subroutine ss_get_dens_Ns
 
-  subroutine ss_get_zeta(zeta)
+
+  subroutine ss_get_zeta_NN(zeta)
     real(8),dimension(Nspin,Norb) :: zeta
     integer :: iorb,ispin
     do ispin=1,Nspin
@@ -353,9 +378,14 @@ contains
           zeta(ispin,iorb) = ss_zeta(iorb+(ispin-1)*Norb)
        enddo
     enddo
-  end subroutine ss_get_zeta
+  end subroutine ss_get_zeta_NN
+  subroutine ss_get_zeta_Ns(zeta)
+    real(8),dimension(Ns) :: zeta
+    zeta = ss_zeta
+  end subroutine ss_get_zeta_Ns
 
-  subroutine ss_get_sz(sz)
+
+  subroutine ss_get_sz_NN(sz)
     real(8),dimension(Nspin,Norb) :: sz
     integer :: iorb,ispin
     do ispin=1,Nspin
@@ -363,9 +393,14 @@ contains
           sz(ispin,iorb) = ss_sz(iorb+(ispin-1)*Norb)
        enddo
     enddo
-  end subroutine ss_get_sz
+  end subroutine ss_get_sz_NN
+  subroutine ss_get_Sz_Ns(sz)
+    real(8),dimension(Ns) :: Sz
+    sz = ss_sz
+  end subroutine ss_get_Sz_Ns
 
-  subroutine ss_get_lambda(lambda)
+
+  subroutine ss_get_lambda_NN(lambda)
     real(8),dimension(Nspin,Norb) :: lambda
     integer :: iorb,ispin
     do ispin=1,Nspin
@@ -373,7 +408,11 @@ contains
           lambda(ispin,iorb) = ss_lambda(iorb+(ispin-1)*Norb)
        enddo
     enddo
-  end subroutine ss_get_lambda
+  end subroutine ss_get_lambda_NN
+  subroutine ss_get_lambda_Ns(lambda)
+    real(8),dimension(Ns) :: lambda
+    lambda = ss_lambda
+  end subroutine ss_get_lambda_Ns
 
 END MODULE SS_MAIN
 

@@ -12,7 +12,7 @@ subroutine ss_lf_solve()
      !
      lambda = ss_lambda(:Nspin*Norb)    !get a guess to start the Css: n=Sz+1/2 optimization
      call ss_solve_fermions_Ef
-     if(verbose>3)write(*,"(A6,12G18.9)")"Ef   =",xmu
+     if(verbose>3)write(*,"(A6,12G18.9)")"mu   =",xmu
      if(verbose>3)write(*,"(A6,12G18.9)")"C    =",ss_c
      if(verbose>2)write(*,"(A6,12G18.9)")"N    =",ss_dens(:Nspin*Norb),sum(ss_dens),filling
      if(verbose>1)write(*,"(3A18)")"Iter","Fss","Lambda"

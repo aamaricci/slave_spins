@@ -13,7 +13,7 @@ MODULE SS_SOLVE_FERMION
   public :: ss_get_lambda0
   public :: ss_solve_fermions_Ef
 
-  real(8),parameter           :: mch=1d-12
+  real(8),parameter           :: mch=1d-6
 
 
 contains
@@ -25,7 +25,6 @@ contains
     real(8),dimension(Ns,Ns)    :: rhoK
     integer                     :: ik,iorb,jorb,ispin,io,jo,indx
     logical                     :: bool
-    real(8)                     :: Ef
     !
     bool = (Ns==Nspin*Norb)
     !
@@ -38,18 +37,17 @@ contains
     lambda0 = ss_lambda0
     if(any(ss_zeta<0d0))then
        print*,ss_zeta
-       stop
+       stop "ERROR in ss_solve_fermions: any(ss_zeta)<0"
     endif
     sq_zeta = sqrt(ss_zeta)
     diagZ   = diag(sq_zeta)
     !
-    ss_Ef   = -xmu
     Eweiss  = 0d0
     ss_dens = 0d0
     !
     do ik = 1,Nk 
        Hk_f   = (diagZ .x. ss_Hk(:,:,ik)) .x. diagZ
-       Uk_f   = Hk_f + ss_Hloc + ss_Ef*eye(Ns)  - diag(lambda) + diag(lambda0)
+       Uk_f   = Hk_f + ss_Hloc - xmu*eye(Ns)  - diag(lambda) + diag(lambda0)
        call eigh(Uk_f,Ek_f)
        diagR  = diag(fermi(Ek_f, beta))
        RhoK   = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
@@ -127,10 +125,10 @@ contains
     call sort_array(Ek_all,Ek_indx)
     !
     indx  = ceiling(filling*Nk)
-    ss_Ef = -Ek_all(indx)
+    xmu   = Ek_all(indx)
     !
     do ik = 1,Nk 
-       rhoDiag = fermi(eK(:,ik)+ss_Ef, beta)
+       rhoDiag = fermi(eK(:,ik)-xmu, beta)
        diagR   = diag(rhoDiag)
        Uk_f    = rhoK(:,:,ik)
        rhoK(:,:,ik) = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
@@ -171,7 +169,7 @@ contains
     real(8),dimension(Nk*Ns)    :: Ek_all
     integer                     :: stride,N_electrons,N_index
     integer,dimension(Nk*Ns)    :: Ek_indx
-    real(8)                     :: Efilling,Ef
+    real(8)                     :: mu0,Dmin,Dmax
     integer                     :: Nall,info
     !
     bool = (Ns==Nspin*Norb)
@@ -187,27 +185,27 @@ contains
        stride = stride+Ns
     enddo
 
-    if(filling==0d0)then
-       Ef=-xmu
-    else
-       Ef = minval(Ek)
-       call fzero(get_dens,Ef,maxval(Ek),info)
+    Dmin = minval(Ek)
+    Dmax = maxval(Ek)
+    mu0 = Dmin
+    call fzero(get_dens,mu0,Dmax,info,rguess=Dmin+0.5d0*(Dmax-Dmin))
+    if(info/=1)then
+       write(*,*)"ERROR ss_get_lambda0: fzero returned info>1 ",info
+       stop
     endif
-
-    if(verbose>3)write(*,"(A6,12G18.9)")"Ef0  =",Ef
+    if(verbose>3)write(*,"(A6,12G18.9)")"mu0  =",mu0
 
     Eweiss  = 0d0
     ss_dens = 0d0
     do ik = 1,Nk 
-       diagR        = diag(fermi(eK(:,ik)+Ef, beta))
+       diagR        = diag(fermi(eK(:,ik)-mu0, beta))
        Uk_f         = rhoK(:,:,ik)
        rhoK(:,:,ik) = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
        Eweiss       = Eweiss  + ss_Hk(:,:,ik)*rhoK(:,:,ik)*ss_Wtk(:,:,ik) !element wise product
        ss_dens      = ss_dens + diagonal(rhoK(:,:,ik)*ss_Wtk(:,:,ik))     !element wise product
-       write(100,*)ss_dens(1)
     enddo
     if(Nspin==1)call ss_spin_symmetry(ss_dens)
-    if(verbose>3)write(*,"(A6,12G18.9)")"N0   =",ss_dens,sum(ss_dens),filling
+    if(verbose>2)write(*,"(A6,12G18.9)")"N0   =",ss_dens,sum(ss_dens),filling
     !
     !< Get H_{a,s} = \sum_{b}sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
     ss_weiss= 0d0
@@ -223,8 +221,7 @@ contains
     !
     !< Get Lambda0 = -2* h0_{m,s}*[n0_{m,s}-0.5]/[n0_{m,s}*(1-n0_{m,s})]
     ss_lambda0 = -2d0*ss_Weiss*(ss_dens-0.5d0)/(ss_dens*(1d0-ss_dens)+mch)
-    ss_Ef      = -2*ss_lambda0(1)+Ef
-    if(filling/=0d0)xmu = -ss_Ef
+    xmu        = 2*ss_lambda0(1)+mu0
 
     open(free_unit(unit),file="lambda0.ss")
     write(unit,*)ss_lambda0
@@ -232,40 +229,23 @@ contains
 
   contains
 
-    function get_dens(ef) result(dens)
-      ! real(8),intent(in)          :: ef
-      real(8)                     :: ef
+    function get_dens(mu) result(dens)
+      real(8)                     :: mu
       real(8)                     :: dens
       real(8),dimension(Ns)       :: ndens(Ns)
       real(8),dimension(Ns,Ns)    :: Rho
       complex(8),dimension(Ns,Ns) :: Uk_f,diagRho
       ndens = 0d0
       do ik = 1,Nk 
-         diagRho = diag(fermi(eK(:,ik)+ef, beta))
+         diagRho = diag(fermi(eK(:,ik)-mu, beta))
          Uk_f    = rhoK(:,:,ik)
          Rho     = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
          ndens   = ndens + diagonal(Rho*ss_Wtk(:,:,ik))     !element wise product
       enddo
+      if(verbose>4)write(*,"(A9,3G18.9)")"Ef,N0   =",mu,sum(ndens),filling
       dens = sum(ndens)-filling
     end function get_dens
-    ! REMOVED:
-    ! select case(is_dos)
-    ! case(.true.)                !DOS like Bethe needs special treatment 
-    !    Efilling = 0d0
-    !    ik_loop: do ik=1,Nk
-    !       do io=1,Ns
-    !          indx = io + (ik-1)*Ns
-    !          Efilling = Efilling + ss_Wtk(io,io,ik) !this does not include Hloc so it is onyl for degenerate bands
-    !          if(Efilling >= filling)exit ik_loop
-    !       enddo
-    !    enddo ik_loop
-    !    !indx=indx-1
-    ! case(.false.)
-    !    call sort_array(Ek_all,Ek_indx)
-    !    indx = ceiling(filling*Nk)
-    ! end select
-    ! Ef   = -Ek_all(indx)
-    ! print*,-Ek_all(indx)
+
   end subroutine ss_get_lambda0
 
 

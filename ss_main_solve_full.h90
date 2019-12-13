@@ -17,7 +17,7 @@ function ss_solve_full(aparams) result(fss)
   zeta = ss_zeta(1:Nso)
   call ss_solve_fermions
   call ss_solve_spins
-  if(verbose>3)write(*,"(A6,12G18.9)")"Ef   =",-xmu
+  if(verbose>3)write(*,"(A6,12G18.9)")"mu   =",xmu
   if(verbose>3)write(*,"(A6,12G18.9)")"C    =",ss_c
   !
   !<constraint:
