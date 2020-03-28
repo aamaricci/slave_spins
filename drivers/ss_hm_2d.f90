@@ -6,7 +6,6 @@ program ss_bethe
   !
   implicit none
   complex(8),allocatable,dimension(:,:,:) :: Hk
-  real(8),allocatable,dimension(:)        :: Wkt
   real(8)                                 :: ts(5)
   real(8)                                 :: Mh(5)
   integer                                 :: Nkx,Nktot,Nso
@@ -23,14 +22,12 @@ program ss_bethe
   if(Nso>5)stop "Nso > 5"
 
   allocate(Hk(Nso,Nso,Nktot))
-  allocate(Wkt(Nktot))
 
   call TB_set_bk([pi2,0d0],[0d0,pi2])
   call TB_build_model(Hk,hk_model,Nso,[Nkx,Nkx])
-  Wkt = 1d0/Nktot
 
   !init SS
-  call ss_init(Hk,Wkt)
+  call ss_init(Hk)
 
   call ss_solve()
 

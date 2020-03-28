@@ -13,7 +13,7 @@ DIREXE=$(HOME)/.bin
 ##$ CHOOSE THE DRIVER CODE:
 #EXE=ss_hm_2d
 #EXE=ss_hm_bethe
-EXE=ss_PCO
+EXE=ss_hm_2d
 
 ##$ SET INCLUDE AND LINK OPTIONS USING pkg-config
 INCARGS=$(shell pkg-config --cflags dmft_tools scifor)

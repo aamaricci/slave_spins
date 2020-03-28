@@ -10,9 +10,11 @@ MODULE SS_INPUT_VARS
 
   !input variables
   !=========================================================
+  integer              :: Nlat                !Nlat =# of inequivalent sites
   integer              :: Norb                !Norb =# of impurity orbitals
   integer              :: Nspin               !Nspin=# spin degeneracy (max 2)
-  real(8)              :: filling             !Total filling of the local problem: 0:Norb
+  integer              :: Nporb               !Nporb=# of non-correlated orbitals UNUSED
+  real(8)              :: filling             !Total filling of the local problem: 0:(Norb+Nporb)
   real(8),dimension(5) :: Uloc                !local interactions
   real(8)              :: Ust                 !intra-orbitals interactions
   real(8)              :: Jh                  !J_Hund: Hunds' coupling constant 
@@ -59,8 +61,10 @@ contains
     ss_input_file=str(INPUTunit)
     !
     !DEFAULT VALUES OF THE PARAMETERS:
+    call parse_input_variable(Nlat,"NLAT",INPUTunit,default=1,comment="Number of inequivalent sites.")
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of impurity orbitals (max 5).")
     call parse_input_variable(Nspin,"NSPIN",INPUTunit,default=1,comment="Number of spin degeneracy (max 2)")
+    call parse_input_variable(Nporb,"NPORB",INPUTunit,default=0,comment="Number of non-correlated impurity orbitals. UNUSED.")
     call parse_input_variable(Filling,"FILLING",INPUTunit,default=1d0,comment="Total filling of the local problem: 0:Norb")
     call parse_input_variable(uloc,"ULOC",INPUTunit,default=[2d0,0d0,0d0,0d0,0d0],comment="Values of the local interaction per orbital (max 5)")
     call parse_input_variable(ust,"UST",INPUTunit,default=0.d0,comment="Value of the inter-orbital interaction term")
