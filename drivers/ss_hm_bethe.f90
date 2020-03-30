@@ -56,9 +56,7 @@ program ss_bethe
   call TB_write_Hloc(one*diag(H0))
 
 
-
-  !init SS
-  call ss_init(Ebands,Dbands,H0)
+  call ss_init(Ebands,Dbands,Hloc=H0)
 
   call ss_solve()
 

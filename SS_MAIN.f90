@@ -154,18 +154,19 @@ contains
     real(8),dimension(:,:)                                :: Ebands  ![Nlso,Ne]
     real(8),dimension(:,:)                                :: Dbands ![Nlso,Ne]
     character(len=*),dimension(3),optional                :: UserOrder
-    real(8),dimension(:)                                  :: Hloc
+    real(8),dimension(:),optional                         :: Hloc
     integer,dimension(Nlat),optional                      :: ineq_sites
     !
     complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Htmp
     real(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb)    :: Wtmp
-    real(8),dimension(Nspin*Nlat*Norb)                    :: Eb,Db
+    real(8),dimension(Nspin*Nlat*Norb)                    :: Eb,Db,Hloc_
     integer                                               :: ie,io
     logical,save                                          :: isetup=.true.
-    character(len=5),dimension(3)                                  :: UserOrder_
+    character(len=5),dimension(3)                         :: UserOrder_
     !
     UserOrder_ = [character(len=5) :: "Norb","Nlat","Nspin"];
     if(present(UserOrder))UserOrder_ = UserOrder
+
     !
     if(isetup)then
        if(present(ineq_sites))then
@@ -180,7 +181,11 @@ contains
     Nk = size(Ebands,2)
     call assert_shape(Ebands,[Nspin*Nlat*Norb,Nk],"ss_init_dos","Ebands")
     call assert_shape(Dbands,[Nspin*Nlat*Norb,Nk],"ss_init_dos","Dbands")
-    call assert_shape(Hloc,[Nspin*Nlat*Norb],"ss_init_dos","Hloc")
+    Hloc_      = zero
+    if(present(Hloc))then
+       call assert_shape(Hloc,[Nspin*Nlat*Norb],"ss_init_dos","Hloc")
+       Hloc_ = Hloc
+    endif
     !
     !
     ss_Hk = zero
@@ -191,7 +196,7 @@ contains
        Htmp=zero
        Wtmp=0d0
        do io=1,Nspin*Nlat*Norb
-          Htmp(io,io)  = one*Eb(io) - one*Hloc(io)
+          Htmp(io,io)  = one*Eb(io) - one*Hloc_(io)
           Wtmp(io,io)  = Db(io)
        end do
        !
@@ -207,9 +212,9 @@ contains
     !
     select case(Nspin)
     case default
-       ss_Hloc = kron(pauli_0,one*diag(Hloc))
+       ss_Hloc = kron(pauli_0,one*diag(Hloc_))
     case (2)
-       ss_Hloc = diag(Hloc)
+       ss_Hloc = diag(Hloc_)
     end select
     !
     !< Init/Read the lambda/zeta input
@@ -363,9 +368,9 @@ contains
 
   ! !< solve the SS problem by optimizing separately lambda or [lambda,xmu] and Z
   ! !GG method: optimize broyden/fsolve in lambda and iterate over Z for any fixed lambda 
-  ! include "ss_main_solve_gg.h90"
+  ! include "SS_MAIN/ss_main_solve_gg.h90"
   ! !LF method: iterate over lambda, solve fermion at fixed lambda + broyden/fsolve for spins changing lambda, fix Z
-  ! include "ss_main_solve_lf.h90"
+  ! include "SS_MAIN/ss_main_solve_lf.h90"
 
 
 
