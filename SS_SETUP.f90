@@ -17,33 +17,26 @@ MODULE SS_SETUP
      module procedure :: indx_reorder
   end interface ss_indx_reorder
 
+  interface ss_spin_symmetry
+     module procedure :: ss_spin_symmetry_nlso
+     module procedure :: ss_spin_symmetry_nn
+  end interface ss_spin_symmetry
+
+
   public :: ss_setup_structure
   public :: ss_init_params
-  public :: ss_spin_symmetry
+  !
   public :: ss_reorder_hk
   public :: ss_reorder_bands
-  public :: ss_i2indices,ss_indices2i,ss_indx_reorder
+  !
+  public :: ss_indices2i
+  public :: ss_i2indices
+  public :: ss_indx_reorder
+  public :: ss_spread_array
+  public :: ss_spin_symmetry
+
 
 contains
-
-
-
-  subroutine ss_setup_dimensions()
-    !the total number of degrees of freedom. Nlat=#inequivalent sites.
-    !-TODO: Norb be the total number of orbitals P+D. Now it is only correlated orbitals.
-    Nlso = Nlat*Norb*Nspin
-    !ordering of the degrees of freedom in H(k).
-    !THE SS ORDERING IS ASSUMED TO BE ALWAYS [Norb,Nlat,Nspin]
-    DefOrder  = [character(len=5) :: "Norb","Nlat","Nspin"]
-    nDefOrder = [Norb,Nlat,Nspin]
-    !
-    Nineq = size(ss_ineq2ilat)
-    !
-    Ns   = 2*Nlat*Norb          !total number of parameters
-    Nss  = 2*Norb
-    !
-  end subroutine ss_setup_dimensions
-
 
 
   subroutine ss_setup_structure(ineq_sites)
@@ -76,8 +69,7 @@ contains
     !
     allocate(ss_Sz(Ns), ss_Sz_ineq(Nineq,Nss))
     allocate(ss_Op(Ns), ss_Op_ineq(Nineq,Nss))
-    allocate(ss_SzSz(4,Nlat,Norb,Norb))
-    allocate(ss_SzSz_ineq(4,Nineq,Norb,Norb))
+    allocate(ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
     ss_Sz     = 0d0; ss_Sz_ineq   = 0d0
     ss_Op     = 0d0; ss_Op_ineq   = 0d0
     ss_SzSz   = 0d0; ss_SzSz_ineq = 0d0
@@ -91,6 +83,23 @@ contains
     allocate(ss_Hloc(Ns,Ns))
     ss_Hloc = zero
   end subroutine ss_setup_structure
+
+
+  subroutine ss_setup_dimensions()
+    !the total number of degrees of freedom. Nlat=#inequivalent sites.
+    !-TODO: Norb be the total number of orbitals P+D. Now it is only correlated orbitals.
+    Nlso = Nlat*Norb*Nspin
+    !ordering of the degrees of freedom in H(k).
+    !THE SS ORDERING IS ASSUMED TO BE ALWAYS [Norb,Nlat,Nspin]
+    DefOrder  = [character(len=5) :: "Norb","Nlat","Nspin"]
+    nDefOrder = [Norb,Nlat,Nspin]
+    !
+    Nineq = size(ss_ineq2ilat)
+    !
+    Ns   = 2*Nlat*Norb          !total number of parameters
+    Nss  = 2*Norb
+    !
+  end subroutine ss_setup_dimensions
 
 
 
@@ -112,12 +121,6 @@ contains
     endif
   end subroutine ss_init_params
 
-
-
-  subroutine ss_spin_symmetry(array)
-    real(8),dimension(Ns)    :: array
-    array(Nlat*Norb+1:) = array(1:Nlat*Norb)
-  end subroutine ss_spin_symmetry
 
 
 
@@ -213,6 +216,43 @@ contains
   end function ss_reorder_bands
 
 
+
+
+
+  subroutine ss_spin_symmetry_nlso(array)
+    real(8),dimension(Ns)    :: array
+    array(Nlat*Norb+1:) = array(1:Nlat*Norb)
+  end subroutine ss_spin_symmetry_nlso
+
+  subroutine ss_spin_symmetry_nn(array)
+    real(8),dimension(Nlat,Nss) :: array
+    integer                     :: ilat
+    do ilat=1,Nlat
+       array(ilat,Norb+1:) = array(ilat,1:Norb)
+    enddo
+  end subroutine ss_spin_symmetry_nn
+
+
+
+  subroutine ss_spread_array(Ain,Aout)
+    real(8),dimension(2*Nlat*Norb) :: Ain
+    real(8),dimension(Nlat,2*Norb) :: Aout
+    integer                        :: ispin,ilat,iorb,io,ii
+    do ispin=1,2
+       do ilat=1,Nlat
+          do iorb=1,Norb
+             ii = Indices2i([iorb,ilat,ispin],nDefOrder) !io = iorb + (ispin-1)*Norb
+             io = Indices2i([iorb,ispin],[Norb,2])
+             !
+             Aout(ilat,io) = Ain(ii)
+             !
+          enddo
+       enddo
+    enddo
+  end subroutine ss_spread_array
+
+
+
   function indx_reorder(Ain,Index)  result(Aout)
     integer,dimension(:)         :: Ain
     integer,dimension(size(Ain)) :: Index
@@ -244,6 +284,8 @@ contains
        count   = count/Nvec(i)
     enddo
   end function i2indices
+
+
 
 
 END MODULE SS_SETUP

@@ -60,12 +60,12 @@ MODULE SS_MAIN
 
   real(8),dimension(:),allocatable     :: ss_lambda_init
   real(8),dimension(:),allocatable     :: ss_zeta_init
-
   integer,save                         :: siter=0
   integer                              :: fiter,info
   logical                              :: fconverged
 
 contains
+
 
 
   !< Init SS calculation by passing the Hamiltonian H(k), the k-point weight W(k) and the local
@@ -80,8 +80,9 @@ contains
     complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb)          :: Htmp,Hk
     complex(8),dimension(:,:),allocatable                          :: Hcheck
     logical,save                                                   :: isetup=.true.
-    integer                                                        :: ik,io
+    integer                                                        :: ik,io,ilat
     character(len=5),dimension(3)                                  :: UserOrder_
+    real(8),dimension(Nlat,Nss)                                    :: TmpLambda0,TmpZeta,TmpLambda
     !
     UserOrder_ = [character(len=5) :: "Norb","Nlat","Nspin"];
     if(present(UserOrder))UserOrder_ = UserOrder
@@ -132,17 +133,19 @@ contains
     !if(filling/=dble(Norb))call ss_solve_lambda0()
     if(filling/=0d0)call ss_solve_lambda0()
     call ss_init_params()
+    !
     if(verbose>2)then
-       write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0
-       write(*,"(A7,12G18.9)")"Lam   =",ss_lambda
-       write(*,"(A7,12G18.9)")"Z     =",ss_zeta
+       call ss_spread_array(ss_lambda0,TmpLambda0)
+       call ss_spread_array(ss_lambda,TmpLambda)
+       call ss_spread_array(ss_zeta,TmpZeta)
+       do ilat=1,Nlat
+          write(*,"(A7,12G18.9)")"Lam0  =",TmpLambda0(ilat,:)
+          write(*,"(A7,12G18.9)")"Lam   =",TmpLambda(ilat,:)
+          write(*,"(A7,12G18.9)")"Z     =",TmpZeta(ilat,:)
+       enddo
        write(*,"(A7,12G18.9)")"mu    =",xmu
        write(*,*)" "
     endif
-    !
-    !< Internal use:
-    allocate(ss_lambda_init(Ns));ss_lambda_init=ss_lambda
-    allocate(ss_zeta_init(Ns))  ;ss_zeta_init  =ss_zeta
     !
     isetup=.false.
     return
@@ -162,9 +165,10 @@ contains
     complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Htmp
     real(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb)    :: Wtmp
     real(8),dimension(Nspin*Nlat*Norb)                    :: Eb,Db,Hloc_
-    integer                                               :: ie,io
+    integer                                               :: ie,io,ilat
     logical,save                                          :: isetup=.true.
     character(len=5),dimension(3)                         :: UserOrder_
+    real(8),dimension(Nlat,2*Norb)                        :: TmpLambda0,TmpZeta,TmpLambda
     !
     UserOrder_ = [character(len=5) :: "Norb","Nlat","Nspin"];
     if(present(UserOrder))UserOrder_ = UserOrder
@@ -224,21 +228,21 @@ contains
     if(filling/=0d0)call ss_solve_lambda0()
     call ss_init_params()
     if(verbose>2)then
-       write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0
-       write(*,"(A7,12G18.9)")"Lam   =",ss_lambda
-       write(*,"(A7,12G18.9)")"Z     =",ss_zeta
+       call ss_spread_array(ss_lambda0,TmpLambda0)
+       call ss_spread_array(ss_lambda,TmpLambda)
+       call ss_spread_array(ss_zeta,TmpZeta)
+       do ilat=1,Nlat
+          write(*,"(A7,12G18.9)")"Lam0  =",TmpLambda0(ilat,:)
+          write(*,"(A7,12G18.9)")"Lam   =",TmpLambda(ilat,:)
+          write(*,"(A7,12G18.9)")"Z     =",TmpZeta(ilat,:)
+       enddo
        write(*,"(A7,12G18.9)")"mu    =",xmu
        write(*,*)" "
     endif
     !
-    !< Internal use:
-    allocate(ss_lambda_init(Ns));ss_lambda_init=ss_lambda
-    allocate(ss_zeta_init(Ns))  ;ss_zeta_init  =ss_zeta
-    !
     isetup=.false.
-    !    
+    !
     return
-
   end subroutine ss_init_dos
 
 
@@ -250,9 +254,9 @@ contains
     real(8),dimension(2*Nlso)   :: params
     real(8),dimension(Nlso+1)   :: lambda1
     real(8),dimension(2*Nlso+1) :: params1
-    real(8),dimension(Nlso)     :: Xvec,Fvec
+    ! real(8),dimension(Nlso)     :: Xvec,Fvec
     !
-    call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",[ss_lambda,ss_zeta,xmu])
+    call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",[ss_lambda,ss_zeta,xmu]) !2*Ns+1
     !
     call start_timer
     select case(solve_method)
@@ -273,17 +277,6 @@ contains
        else
           call broyden1(ss_solve_full,params1,tol=solve_tolerance)
        endif
-       !
-       ! case ("gg_broyden")
-       !    lambda = ss_lambda(:Nlso)
-       !    call broyden1(ss_solve_lambda,lambda,tolf=solve_tolerance)
-       !    !
-       ! case ("gg_fsolve")
-       !    lambda = ss_lambda(:Nlso)
-       !    call fsolve(ss_solve_lambda,lambda,tol=solve_tolerance)
-       !    !
-       ! case ("lf_solve")
-       !    call ss_lf_solve()
        !
     case default
        write(*,*)"ERROR in ss_solve(): no solve_method named as input *"//str(solve_method)//"*"
@@ -311,6 +304,7 @@ contains
     real(8)                          :: zeta(Nlso)
     logical                          :: bool
     integer                          :: ilat,ineq,io,il,iorb,ispin
+    real(8),dimension(Nlat,2*Norb)   :: TmpDens,TmpZeta,TmpLambda,TmpC
     !
     bool = (size(aparams)==2*Nlso+1)
     !
@@ -338,15 +332,12 @@ contains
              ss_Op(io)   = ss_Op_ineq(ineq,il)
           enddo
        enddo
-       ss_SzSz(:,ilat,:,:) = ss_SzSz_ineq(:,ineq,:,:)
+       ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)
     enddo
     !
     !< Get Z:
     ss_Zeta = ss_Op**2
     if(Nspin==1)call ss_spin_symmetry(ss_zeta)
-    !
-    if(verbose>3)write(*,"(A6,12G18.9)")"mu   =",xmu
-    if(verbose>3)write(*,"(A6,12G18.9)")"C    =",ss_c
     !
     !<constraint:
     fss(1:Nlso)           = ss_Dens(1:Nlso) - (ss_Sz(1:Nlso) + 0.5d0)
@@ -354,9 +345,19 @@ contains
     if(bool)fss(2*Nlso+1) = sum(ss_dens) - filling
     !
     if(verbose>1)then
-       write(*,"(A7,12G18.9)")"N     =",ss_dens(:Nlso),sum(ss_dens),filling
-       write(*,"(A7,12G18.9)")"Lambda=",ss_lambda(:Nlso)
-       write(*,"(A7,12G18.9)")"Z_ss  =",ss_zeta(:Nlso)
+       call ss_spread_array(ss_c,TmpC)
+       call ss_spread_array(ss_dens,TmpDens)
+       call ss_spread_array(ss_lambda,TmpLambda)
+       call ss_spread_array(ss_zeta,TmpZeta)
+       do ilat=1,Nlat
+          write(*,*)" SITE= "//str(ilat,4)
+          if(verbose>3)write(*,"(A6,12G18.9)")"C    =",TmpC(ilat,:)
+          write(*,"(A7,12G18.9)")"N     =",TmpDens(ilat,:Nspin*Norb),sum(TmpDens(ilat,:Nspin*Norb)),filling
+          write(*,"(A7,12G18.9)")"Lambda=",TmpLambda(ilat,:Nspin*Norb)
+          write(*,"(A7,12G18.9)")"Z_ss  =",TmpZeta(ilat,:Nspin*Norb)
+          write(*,*)" "
+       enddo
+       write(*,*)" - "
        write(*,"(A7,12G18.9)")"F_ss  =",fss
        write(*,*)""
     endif
@@ -369,89 +370,67 @@ contains
 
 
 
-  ! !< solve the SS problem by optimizing separately lambda or [lambda,xmu] and Z
-  ! !GG method: optimize broyden/fsolve in lambda and iterate over Z for any fixed lambda 
-  ! include "SS_MAIN/ss_main_solve_gg.h90"
-  ! !LF method: iterate over lambda, solve fermion at fixed lambda + broyden/fsolve for spins changing lambda, fix Z
-  ! include "SS_MAIN/ss_main_solve_lf.h90"
 
 
-
-
-  ! subroutine ss_write_all()
-  !   integer :: unit
-  !   open(free_unit(unit),file="lambda_all.ss",position='append')
-  !   write(unit,*)ss_lambda
-  !   close(unit)
-  !   !
-  !   open(free_unit(unit),file="zeta_all.ss",position='append')
-  !   write(unit,*)ss_zeta
-  !   close(unit)
-  !   !
-  !   open(free_unit(unit),file="dens_all.ss",position='append')
-  !   write(unit,*)ss_dens
-  !   close(unit)
-  !   !
-  !   open(free_unit(unit),file="sz_all.ss",position='append')
-  !   write(unit,*)ss_Sz
-  !   close(unit)
-  !   !
-  !   open(free_unit(unit),file="mu_all.ss",position='append')
-  !   write(unit,*)xmu
-  !   close(unit)
-  !   !
-  ! end subroutine ss_write_all
 
 
 
   subroutine ss_write_last()
-    integer :: unit,units(4),i,iorb,jorb,ilat
-    real(8) :: SzSz(4)
+    integer                        :: unit,units(4),i,iorb,jorb,ilat
+    real(8),dimension(Nlat,2*Norb) :: TmpDens,TmpZeta,TmpLambda,TmpOp,TmpSz
     open(free_unit(unit),file="hubbards.ss")
     write(unit,"(90F15.9)")(uloc(iorb),iorb=1,Norb),Ust,Jh
     close(unit)
     !
-    open(free_unit(unit),file="lambda_last.ss")
-    write(unit,*)ss_lambda
-    close(unit)
-    !
-    open(free_unit(unit),file="zeta_last.ss")
-    write(unit,*)ss_zeta
-    close(unit)
-    !
-    open(free_unit(unit),file="dens_last.ss")
-    write(unit,*)ss_dens
-    close(unit)
-    !
-    open(free_unit(unit),file="sz_last.ss")
-    write(unit,*)ss_Sz
-    close(unit)
-    !
-    open(free_unit(unit),file="Op_last.ss")
-    write(unit,*)ss_Op
-    close(unit)
-    !
-    open(free_unit(unit),file="mu_last.ss")
-    write(unit,*)xmu
-    close(unit)
-    !
-    units = free_units(4)
-    open(units(1),file="SzSz_uu.ss")
-    open(units(2),file="SzSz_dd.ss")
-    open(units(3),file="SzSz_ud.ss")
-    open(units(4),file="SzSz_du.ss")
-    do iorb=1,Norb
-       do jorb=1,Norb
-          do i=1,4
-             do ilat=1,Nlat
-                write(units(i),*)ilat,iorb,jorb,ss_SzSz(i,ilat,iorb,jorb)
+    call ss_spread_array(ss_Dens,TmpDens)
+    call ss_spread_array(ss_Lambda,TmpLambda)
+    call ss_spread_array(ss_Zeta,TmpZeta)
+    call ss_spread_array(ss_Op,TmpOp)
+    call ss_spread_array(ss_Sz,TmpSz)
+
+    do ilat=1,Nlat
+       open(free_unit(unit),file="lambda_site"//str(ilat,4)//".ss")
+       write(unit,*)TmpLambda(ilat,:)
+       close(unit)
+       !
+       open(free_unit(unit),file="zeta_site"//str(ilat,4)//".ss")
+       write(unit,*)TmpZeta(ilat,:)
+       close(unit)
+       !
+       open(free_unit(unit),file="dens_site"//str(ilat,4)//".ss")
+       write(unit,*)TmpDens(ilat,:)
+       close(unit)
+       !
+       open(free_unit(unit),file="sz_site"//str(ilat,4)//".ss")
+       write(unit,*)TmpSz(ilat,:)
+       close(unit)
+       !
+       open(free_unit(unit),file="Op_site"//str(ilat,4)//".ss")
+       write(unit,*)TmpOp(ilat,:)
+       close(unit)
+       !
+       units = free_units(4)
+       open(units(1),file="SzSz_uu_site"//str(ilat,4)//".ss")
+       open(units(2),file="SzSz_dd_site"//str(ilat,4)//".ss")
+       open(units(3),file="SzSz_ud_site"//str(ilat,4)//".ss")
+       open(units(4),file="SzSz_du_site"//str(ilat,4)//".ss")
+       do iorb=1,Norb
+          do jorb=1,Norb
+             do i=1,4
+                write(units(i),*)iorb,jorb,ss_SzSz(ilat,i,iorb,jorb)
              enddo
           enddo
        enddo
+       do i=1,4
+          close(units(i))
+       enddo
+       !
     enddo
-    do i=1,4
-       close(units(i))
-    enddo
+    !
+    open(free_unit(unit),file="mu.ss")
+    write(unit,*)xmu
+    close(unit)
+    !
   end subroutine ss_write_last
 
 
@@ -462,7 +441,7 @@ contains
     complex(8),dimension(Ns,Ns) :: diagZ,Hk_f
     real(8),dimension(Ns)       :: sq_zeta
     integer                     :: ik
-    call assert_shape(Hk,[Nspin*Norb,Nspin*Norb,Nk],"ss_get_Hf","Hk")
+    call assert_shape(Hk,[Nspin*Nlat*Norb,Nspin*Nlat*Norb,Nk],"ss_get_Hf","Hk")
     sq_zeta = sqrt(ss_zeta)
     diagZ   = diag(sq_zeta)
     do ik=1,Nk
@@ -668,6 +647,30 @@ contains
 END MODULE SS_MAIN
 
 
+!
+! case ("gg_broyden")
+!    lambda = ss_lambda(:Nlso)
+!    call broyden1(ss_solve_lambda,lambda,tolf=solve_tolerance)
+!    !
+! case ("gg_fsolve")
+!    lambda = ss_lambda(:Nlso)
+!    call fsolve(ss_solve_lambda,lambda,tol=solve_tolerance)
+!    !
+! case ("lf_solve")
+!    call ss_lf_solve()
+!
+
+
+! !< solve the SS problem by optimizing separately lambda or [lambda,xmu] and Z
+! !GG method: optimize broyden/fsolve in lambda and iterate over Z for any fixed lambda 
+! include "SS_MAIN/ss_main_solve_gg.h90"
+! !LF method: iterate over lambda, solve fermion at fixed lambda + broyden/fsolve for spins changing lambda, fix Z
+! include "SS_MAIN/ss_main_solve_lf.h90"
+
+
+! !< Internal use:
+! allocate(ss_lambda_init(Ns));ss_lambda_init=ss_lambda
+! allocate(ss_zeta_init(Ns))  ;ss_zeta_init  =ss_zeta
 
 
 ! ss_Hdiag=.true.

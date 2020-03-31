@@ -79,7 +79,7 @@ contains
     !< Copy back into main arrays ss_XYZ at proper position
     ss_Sz_ineq(ineq,:) = ii_Sz
     ss_Op_ineq(ineq,:) = ii_Op
-    ss_SzSz_ineq(:,ineq,:,:) = ii_SzSz
+    ss_SzSz_ineq(ineq,:,:,:) = ii_SzSz
     !
     deallocate(ii_lambda,ii_Weiss,ii_c)
     deallocate(ii_Sz,ii_Op,ii_Zeta,ii_SzSz)

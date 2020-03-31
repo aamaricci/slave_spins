@@ -40,12 +40,13 @@ MODULE SS_VARS_GLOBAL
   !
   real(8)                                 :: zeta_function
   logical                                 :: is_dos=.false.
+  !
+  character(len=32)                       :: ss_file_suffix=""
 
 
 
-  !File suffixes for printing fine tuning.
-  !=========================================================
-  character(len=32)                         :: ss_file_suffix=""       !suffix string attached to the output files.
+
+
 
 
 END MODULE SS_VARS_GLOBAL
