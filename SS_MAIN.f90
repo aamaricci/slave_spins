@@ -85,6 +85,9 @@ contains
     !
     UserOrder_ = [character(len=5) :: "Norb","Nlat","Nspin"];
     if(present(UserOrder))UserOrder_ = UserOrder
+    !
+    Nk = size(hk_user,3)
+    !
     !< Init SS parameters:
     if(isetup)then
        if(present(ineq_sites))then
@@ -95,7 +98,6 @@ contains
     endif
     !
     !< Init the SS structure + memory allocation
-    Nk = size(hk_user,3)
     call assert_shape(hk_user,[Nlso,Nlso,Nk],"ss_init_hk","hk_user")
     !
     !< Init the Hk structures
@@ -166,7 +168,8 @@ contains
     !
     UserOrder_ = [character(len=5) :: "Norb","Nlat","Nspin"];
     if(present(UserOrder))UserOrder_ = UserOrder
-
+    !
+    Nk = size(Ebands,2)
     !
     if(isetup)then
        if(present(ineq_sites))then
@@ -178,7 +181,6 @@ contains
     is_dos=.true.
     !
     !< Init the SS structure + memory allocation
-    Nk = size(Ebands,2)
     call assert_shape(Ebands,[Nspin*Nlat*Norb,Nk],"ss_init_dos","Ebands")
     call assert_shape(Dbands,[Nspin*Nlat*Norb,Nk],"ss_init_dos","Dbands")
     Hloc_      = zero
@@ -234,8 +236,9 @@ contains
     allocate(ss_zeta_init(Ns))  ;ss_zeta_init  =ss_zeta
     !
     isetup=.false.
-    !
+    !    
     return
+
   end subroutine ss_init_dos
 
 
@@ -360,7 +363,7 @@ contains
     !
     if(verbose>2)call end_loop()
     !
-    call ss_write_all()
+    call ss_write_last()
     !
   end function ss_solve_full
 
@@ -375,29 +378,29 @@ contains
 
 
 
-  subroutine ss_write_all()
-    integer :: unit
-    open(free_unit(unit),file="lambda_all.ss",position='append')
-    write(unit,*)ss_lambda
-    close(unit)
-    !
-    open(free_unit(unit),file="zeta_all.ss",position='append')
-    write(unit,*)ss_zeta
-    close(unit)
-    !
-    open(free_unit(unit),file="dens_all.ss",position='append')
-    write(unit,*)ss_dens
-    close(unit)
-    !
-    open(free_unit(unit),file="sz_all.ss",position='append')
-    write(unit,*)ss_Sz
-    close(unit)
-    !
-    open(free_unit(unit),file="mu_all.ss",position='append')
-    write(unit,*)xmu
-    close(unit)
-    !
-  end subroutine ss_write_all
+  ! subroutine ss_write_all()
+  !   integer :: unit
+  !   open(free_unit(unit),file="lambda_all.ss",position='append')
+  !   write(unit,*)ss_lambda
+  !   close(unit)
+  !   !
+  !   open(free_unit(unit),file="zeta_all.ss",position='append')
+  !   write(unit,*)ss_zeta
+  !   close(unit)
+  !   !
+  !   open(free_unit(unit),file="dens_all.ss",position='append')
+  !   write(unit,*)ss_dens
+  !   close(unit)
+  !   !
+  !   open(free_unit(unit),file="sz_all.ss",position='append')
+  !   write(unit,*)ss_Sz
+  !   close(unit)
+  !   !
+  !   open(free_unit(unit),file="mu_all.ss",position='append')
+  !   write(unit,*)xmu
+  !   close(unit)
+  !   !
+  ! end subroutine ss_write_all
 
 
 
