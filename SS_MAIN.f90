@@ -45,6 +45,7 @@ MODULE SS_MAIN
   interface ss_get_self
      module procedure :: ss_get_self_NN
      module procedure :: ss_get_self_Ns
+     module procedure :: ss_get_self_Ns2
   end interface ss_get_self
 
   public :: ss_init
@@ -82,7 +83,7 @@ contains
     logical,save                                                   :: isetup=.true.
     integer                                                        :: ik,io,ilat
     character(len=5),dimension(3)                                  :: UserOrder_
-    real(8),dimension(Nlat,Nss)                                    :: TmpLambda0,TmpZeta,TmpLambda
+    real(8),dimension(Nlat,2*Norb)                                 :: TmpLambda0,TmpZeta,TmpLambda
     !
     UserOrder_ = [character(len=5) :: "Norb","Nlat","Nspin"];
     if(present(UserOrder))UserOrder_ = UserOrder
@@ -323,7 +324,7 @@ contains
     enddo
     !< propagate spin-solution to all sites
     do ilat=1,Nlat
-       ineq = ss_ineq2ilat(ilat)
+       ineq = ss_ilat2ineq(ilat)
        do ispin=1,2
           do iorb=1,Norb
              io = ss_indices2i([iorb,ilat,ispin],[Norb,Nlat,2])
@@ -358,7 +359,7 @@ contains
           write(*,*)" "
        enddo
        write(*,*)" - "
-       write(*,"(A7,12G18.9)")"F_ss  =",fss
+       write(*,"(A7,50G18.9)")"F_ss  =",fss
        write(*,*)""
     endif
     !
@@ -553,6 +554,18 @@ contains
     real(8),dimension(Nlat*Nspin*Norb) :: self
     self(:) =  -ss_lambda(:Nlso) + ss_lambda0(:Nlso)
   end subroutine ss_get_self_Ns
+  subroutine ss_get_self_Ns2(self)
+    real(8),dimension(Nlat,Nspin,Norb) :: self
+    integer :: iorb,ispin,ilat,io
+    do ispin=1,Nspin
+       do ilat=1,Nlat
+          do iorb=1,Norb
+             io = ss_indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
+             self(ilat,ispin,iorb) = -ss_lambda(io) + ss_lambda0(io)
+          enddo
+       enddo
+    enddo
+  end subroutine ss_get_self_Ns2
 
 
   subroutine ss_get_ssHk(ssHk,UserOrder)

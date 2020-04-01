@@ -23,9 +23,10 @@ contains
 
   subroutine ss_solve_fermions()
     complex(8),dimension(Ns,Ns) :: Hk_f,Uk_f,Eweiss,diagZ,Wtk,diagR
+    complex(8),dimension(Ns,Ns) :: rhoK
     real(8),dimension(Ns)       :: sq_zeta,lambda,lambda0,rhoDiag,Ek_f
-    real(8),dimension(Ns,Ns)    :: rhoK
     integer                     :: ik
+    real(8),dimension(Nlat,Nss) :: TmpDens
     !
     if(Nspin==1)then
        call ss_spin_symmetry(ss_zeta)
@@ -54,7 +55,7 @@ contains
        Hk_f   = (diagZ .x. ss_Hk(:,:,ik)) .x. diagZ
        Uk_f   = Hk_f + ss_Hloc - xmu*eye(Ns)  - diag(lambda) + diag(lambda0)
        call eigh(Uk_f,Ek_f)
-       diagR  = diag(step_fermi(Ek_f))!diag(fermi(Ek_f, beta))
+       diagR  = diag(step_fermi(Ek_f))
        RhoK   = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
        Eweiss = Eweiss + ss_Hk(:,:,ik)*RhoK*ss_Wtk(:,:,ik) !element wise product
        ss_dens= ss_dens + diagonal(RhoK*ss_Wtk(:,:,ik)) !element wise product
@@ -79,6 +80,7 @@ contains
     enddo
     ! Get C = ( n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
     ss_c  = 1d0/(sqrt(ss_dens*(1d0-ss_dens))+mch) - 1d0
+    !
   end subroutine ss_solve_fermions
 
 
@@ -87,33 +89,27 @@ contains
 
 
   subroutine ss_solve_lambda0()
-    complex(8),dimension(Ns,Ns) :: Hk_f,Uk_f,Eweiss,diagR
-    real(8),dimension(Ns)       :: lambda
-    real(8),dimension(Ns)       :: rhoDiag,Ek_f
-    integer                     :: ik,unit
-    real(8),dimension(Ns,Nk)    :: eK
-    real(8),dimension(Ns,Ns,Nk) :: rhoK
-    real(8),dimension(Nk*Ns)    :: Ek_all
-    integer                     :: stride
-    real(8)                     :: mu0,Dmin,Dmax
-    integer                     :: info
-    real(8),dimension(Nlat,Nss) :: TmpArray
+    complex(8),dimension(Ns,Ns)    :: Uk_f,Eweiss,diagRho,Rho
+    complex(8),dimension(Ns,Ns,Nk) :: rhoK
+    real(8),dimension(Ns,Nk)       :: eK
+    real(8),dimension(Ns)          :: rhoDiag,Ek_f
+    integer                        :: ik,unit
+    integer                        :: stride
+    real(8)                        :: mu0,Dmin,Dmax
+    integer                        :: info
+    real(8),dimension(Nlat,Nss)    :: TmpArray
     !
-    stride = 0
-    do ik = 1,Nk 
+    do ik = 1,Nk
        Uk_f = ss_Hk(:,:,ik) + ss_Hloc
        call eigh(Uk_f,Ek_f)
        eK(:,ik)     = Ek_f
        rhoK(:,:,ik) = Uk_f
-       Ek_all(stride+1:stride+Ns) = Ek_f
-       !
-       stride = stride+Ns
     enddo
     !
     Dmin = minval(Ek)
     Dmax = maxval(Ek)
     mu0 = Dmin
-    call fzero(get_dens,mu0,Dmax,info,rguess=Dmin+0.5d0*(Dmax-Dmin))
+    call fzero(get_dens,mu0,Dmax,info)!,rguess=Dmin+0.5d0*(Dmax-Dmin))
     if(info/=1)then
        write(*,*)"ERROR ss_get_lambda0: fzero returned info>1 ",info
        stop
@@ -124,9 +120,9 @@ contains
     Eweiss  = 0d0    
     ss_dens = 0d0
     do ik = 1,Nk 
-       diagR        = diag(step_fermi(eK(:,ik)-mu0))
+       diagRho      = diag(step_fermi(eK(:,ik)-mu0))
        Uk_f         = rhoK(:,:,ik)
-       rhoK(:,:,ik) = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
+       rhoK(:,:,ik) = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
        Eweiss       = Eweiss  + ss_Hk(:,:,ik)*rhoK(:,:,ik)*ss_Wtk(:,:,ik) !element wise product
        ss_dens      = ss_dens + diagonal(rhoK(:,:,ik)*ss_Wtk(:,:,ik))     !element wise product
     enddo
@@ -167,17 +163,16 @@ contains
        close(unit)
     enddo
     !
+
   contains
 
     function get_dens(mu) result(dens)
       real(8),intent(in)          :: mu
       real(8)                     :: dens
-      real(8),dimension(Ns)       :: ndens(Ns)
-      real(8),dimension(Ns,Ns)    :: Rho
-      complex(8),dimension(Ns,Ns) :: Uk_f,diagRho
+      real(8),dimension(Ns)       :: ndens
       ndens = 0d0
       do ik = 1,Nk 
-         diagRho = diag(step_fermi(eK(:,ik)-mu))!diag(fermi(eK(:,ik)-mu, beta))
+         diagRho = diag(step_fermi(eK(:,ik)-mu))
          Uk_f    = rhoK(:,:,ik)
          Rho     = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
          ndens   = ndens + diagonal(Rho*ss_Wtk(:,:,ik))     !element wise product
