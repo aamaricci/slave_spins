@@ -12,7 +12,7 @@ program ss_LaOFeAs
   real(8),dimension(:,:),allocatable      :: kpath
   complex(8),dimension(:,:,:),allocatable :: Hk
   complex(8),dimension(:,:),allocatable   :: Hloc
-  real(8),allocatable                     :: Zeta(:,:,:), Self(:,:,:)
+  real(8),allocatable                     :: Dens(:),Zeta(:), Self(:)
   character(len=20)                       :: w90file,InputFile
 
   call parse_cmd_variable(InputFile,"INPUTFILE",default="inputLaOFeAs.conf")
@@ -49,6 +49,21 @@ program ss_LaOFeAs
   where(abs(Hloc)<1d-6)Hloc=zero
   call TB_write_Hloc(Hloc,"w90Hloc.dat")
 
+  ! !solve along a path in the 3D BZ.
+  Npts = 9
+  Nk=(Npts-1)*Nkpath
+  allocate(kpath(Npts,3))
+  kpath(1,:)=[0.5d0,0.5d0,0d0]
+  kpath(2,:)=[0.5d0,0.5d0,0.5d0]
+  kpath(3,:)=[0d0,0d0,0d0]
+  kpath(4,:)=[0.5d0,0d0,0d0]
+  kpath(5,:)=[0.5d0,0.5d0,0d0]
+  kpath(6,:)=[0d0,0d0,0d0]
+  kpath(7,:)=[0d0,0d0,0.5d0]
+  kpath(8,:)=[0.5d0,0d0,0.5d0]
+  kpath(9,:)=[0.5d0,0.5d0,0.5d0]
+
+
   !SOLVE SS:
   !init
   call ss_init(Hk,&
@@ -58,43 +73,46 @@ program ss_LaOFeAs
   call ss_solve()
 
 
-  ! !solve along a path in the 3D BZ.
-  ! Npts = 9
-  ! Nk=(Npts-1)*Nkpath
-  ! allocate(kpath(Npts,3))
-  ! kpath(1,:)=[0.5d0,0.5d0,0d0]
-  ! kpath(2,:)=[0.5d0,0.5d0,0.5d0]
-  ! kpath(3,:)=[0d0,0d0,0d0]
-  ! kpath(4,:)=[0.5d0,0d0,0d0]
-  ! kpath(5,:)=[0.5d0,0.5d0,0d0]
-  ! kpath(6,:)=[0d0,0d0,0d0]
-  ! kpath(7,:)=[0d0,0d0,0.5d0]
-  ! kpath(8,:)=[0.5d0,0d0,0.5d0]
-  ! kpath(9,:)=[0.5d0,0.5d0,0.5d0]
-  ! call TB_Solve_model(TB_w90_model,Nlso,kpath,Nkpath,&
-  !      colors_name=[green,red,blue,green,green,green,red,blue,green,green],&
-  !      points_name=[character(len=40) ::'M', 'R', 'G', 'X', 'M', 'G', 'Z','A', 'R'],&
-  !      file="Eigenband_LaOFeAs",iproject=.true.)
+  !Retrieve Zeta and ReSigma(0)=lambda0-lambda
+  allocate(Zeta(Nlat*Nspin*Norb))
+  allocate(Self(Nlat*Nspin*Norb))
+  call ss_get_zeta(zeta)
+  call ss_get_Self(self)
 
+  !Push em to Wannier 90 setup
+  call TB_w90_Zeta(zeta)
+  call TB_w90_Self(diag(self))
 
+  !Solve for the renormalized bands:
+  call TB_Solve_model(TB_w90_model,Nlso,kpath,Nkpath,&
+       colors_name=[green,red,blue,green,green,green,red,blue,green,green],&
+       points_name=[character(len=40) ::'M', 'R', 'G', 'X', 'M', 'G', 'Z','A', 'R'],&
+       file="zEigenband_LaOFeAs",iproject=.true.)
 
-
-
-
-  ! allocate(Zeta(Nlat,Nspin,Norb))
-  ! allocate(Self(Nlat,Nspin,Norb))
-  ! call ss_get_zeta(zeta)
-  ! call ss_get_self(self)
-
-
-  ! call TB_w90_Zeta(zeta)
-  ! call TB_w90_Self(self)
-  ! ! call TB_Solve_model(TB_w90_model,Nlso,kpath,Nkpath,&
-  ! !      colors_name=[green,red,blue,green,green,green,red,blue,green,green],&
-  ! !      points_name=[character(len=40) ::'M', 'R', 'G', 'X', 'M', 'G', 'Z','A', 'R'],&
-  ! !      file="zEigenband_LaOFeAs",iproject=.true.)
 
   call TB_w90_delete()
 
+
+contains
+
+
+  function spread_array(vec) result(array)
+    real(8),dimension(Nlat*Nspin*Norb) :: vec
+    real(8),dimension(Nlat,Nspin,Norb) :: array
+    integer                            :: iorb,ispin,ilat,io
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             io = indices2i(ilat,ispin,iorb)
+             array(ilat,ispin,iorb) = vec(io)
+          enddo
+       enddo
+    enddo
+  end function spread_array
+
+  function indices2i(ilat,ispin,iorb) result(io)
+    integer  :: iorb,ispin,ilat,io
+    io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
+  end function indices2i
 
 end program ss_LaOFeAs

@@ -22,12 +22,22 @@ MODULE SS_SETUP
      module procedure :: ss_spin_symmetry_nn
   end interface ss_spin_symmetry
 
+  interface ss_user2ss
+     module procedure :: ss_user2ss_vec
+     module procedure :: ss_user2ss_mat
+  end interface ss_user2ss
+
+  interface ss_ss2user
+     module procedure :: ss_ss2user_vec
+     module procedure :: ss_ss2user_mat
+  end interface ss_ss2user
+
 
   public :: ss_setup_structure
   public :: ss_init_params
   !
-  public :: ss_reorder_hk
-  public :: ss_reorder_bands
+  public :: ss_user2ss
+  public :: ss_ss2user
   !
   public :: ss_indices2i
   public :: ss_i2indices
@@ -123,64 +133,14 @@ contains
 
 
 
-
-  function ss_reorder_hk(Huser,UserOrder) result(Hord)
-    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Huser
-    character(len=*),dimension(3)                         :: UserOrder
-    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Hord
-    integer,dimension(3)                                  :: Ivec,Jvec
-    integer,dimension(3)                                  :: UserIndex
-    integer,dimension(3)                                  :: nUserOrder
-    integer                                               :: iord,jord,iuser,juser,i
-    !
-    !Construct an index array corresponding to the User ordering.
-    !This is a permutation of the default ordering [1,2,3].
-    !For each entry in Default Order we look for the position of the
-    !corresponding entry in User Order using Fortran findloc.
-    !If 0 entries exist, corresponding components are not found. stop. 
-    do i=1,3     
-       UserIndex(i:i)=findloc(UserOrder,DefOrder(i))
-    enddo
-    if(any(UserIndex==0))then
-       print*,"SS_REORDER_HK ERROR: wrong entry in UserIndex at: ",findloc(UserIndex,0)
-       stop
-    endif
-    !
-    !From UserIndex we can re-order the dimensions array to get the User dimensions array 
-    nUserOrder=indx_reorder(nDefOrder,UserIndex)
-    !
-    if(any(UserIndex/=[1,2,3]))then
-       !Re-order
-       do iord=1,Nlso
-          Ivec  = i2indices(iord,nDefOrder)     !get components in default ordering
-          Jvec  = indx_reorder(Ivec,UserIndex)      !reorder according to User ordering using UserIndex
-          iuser = indices2i(Jvec,nUserOrder) !get corresponding total index in user ordering
-          do jord=1,Nlso
-             Ivec  = i2indices(jord,nDefOrder)
-             Jvec  = indx_reorder(Ivec,UserIndex)
-             juser = indices2i(Jvec,nUserOrder)
-             !
-             Hord(iord,jord) = Huser(iuser,juser)
-             !
-          enddo
-       enddo
-       !
-    else
-       !copy that
-       Hord = Huser
-    endif
-    return
-  end function ss_reorder_hk
-
-
-  function ss_reorder_bands(Huser,UserOrder) result(Hord)
+  function ss_user2ss_vec(Huser,UserOrder) result(Hss)
     real(8),dimension(Nspin*Nlat*Norb) :: Huser
     character(len=*),dimension(3)      :: UserOrder
-    real(8),dimension(Nspin*Nlat*Norb) :: Hord
+    real(8),dimension(Nspin*Nlat*Norb) :: Hss
     integer,dimension(3)               :: Ivec,Jvec
     integer,dimension(3)               :: UserIndex
     integer,dimension(3)               :: nUserOrder
-    integer                            :: iord,iuser,i
+    integer                            :: iss,iuser,i
     !
     !Construct an index array corresponding to the User ordering.
     !This is a permutation of the default ordering [1,2,3].
@@ -199,21 +159,127 @@ contains
     nUserOrder=indx_reorder(nDefOrder,UserIndex)
     !
     if(any(UserIndex/=[1,2,3]))then
-       !Re-order
-       do iord=1,Nlso
-          Ivec  = i2indices(iord,nDefOrder)     !get components in default ordering
-          Jvec  = indx_reorder(Ivec,UserIndex)      !reorder according to User ordering using UserIndex
-          iuser = indices2i(Jvec,nUserOrder) !get corresponding total index in user ordering
+       do iss=1,Nlso
+          Ivec  = i2indices(iss,nDefOrder)     !get components in default ordering
+          Jvec  = indx_reorder(Ivec,UserIndex)  !reorder according to User ordering using UserIndex
+          iuser = indices2i(Jvec,nUserOrder)    !get corresponding total index in user ordering
           !
-          Hord(iord) = Huser(iuser)
-          !
+          Hss(iss) = Huser(iuser)
        enddo
     else
-       !Copy
-       Hord = Huser
+       Hss = Huser
     endif
     return
-  end function ss_reorder_bands
+  end function ss_user2ss_vec
+
+  function ss_user2ss_mat(Huser,UserOrder) result(Hss)
+    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Huser
+    character(len=*),dimension(3)                         :: UserOrder
+    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Hss
+    integer,dimension(3)                                  :: Ivec,Jvec
+    integer,dimension(3)                                  :: UserIndex
+    integer,dimension(3)                                  :: nUserOrder
+    integer                                               :: iss,jss,iuser,juser,i
+    !
+    do i=1,3     
+       UserIndex(i:i)=findloc(UserOrder,DefOrder(i))
+    enddo
+    if(any(UserIndex==0))then
+       print*,"SS_REORDER_HK ERROR: wrong entry in UserIndex at: ",findloc(UserIndex,0)
+       stop
+    endif
+    !
+    nUserOrder=indx_reorder(nDefOrder,UserIndex)
+    !
+    if(any(UserIndex/=[1,2,3]))then
+       do iss=1,Nlso
+          Ivec  = i2indices(iss,nDefOrder)
+          Jvec  = indx_reorder(Ivec,UserIndex)
+          iuser = indices2i(Jvec,nUserOrder)
+          do jss=1,Nlso
+             Ivec  = i2indices(jss,nDefOrder)
+             Jvec  = indx_reorder(Ivec,UserIndex)
+             juser = indices2i(Jvec,nUserOrder)
+             !
+             Hss(iss,jss) = Huser(iuser,juser)
+          enddo
+       enddo
+    else
+       Hss = Huser
+    endif
+    return
+  end function ss_user2ss_mat
+
+
+  function ss_ss2user_vec(Hss,UserOrder) result(Huser)
+    real(8),dimension(Nspin*Nlat*Norb) :: Hss
+    character(len=*),dimension(3)      :: UserOrder
+    real(8),dimension(Nspin*Nlat*Norb) :: Huser
+    integer,dimension(3)               :: Ivec,Jvec
+    integer,dimension(3)               :: UserIndex
+    integer,dimension(3)               :: nUserOrder
+    integer                            :: iss,iuser,i
+    !
+    do i=1,3     
+       UserIndex(i:i)=findloc(UserOrder,DefOrder(i))
+    enddo
+    if(any(UserIndex==0))then
+       print*,"SS_REORDER_HK ERROR: wrong entry in UserIndex at: ",findloc(UserIndex,0)
+       stop
+    endif
+    !
+    nUserOrder=indx_reorder(nDefOrder,UserIndex)
+    !
+    if(any(UserIndex/=[1,2,3]))then
+       do iss=1,Nlso
+          Ivec  = i2indices(iss,nDefOrder)
+          Jvec  = indx_reorder(Ivec,UserIndex)
+          iuser = indices2i(Jvec,nUserOrder)
+          Huser(iuser) = Hss(iss)
+       enddo
+    else
+       Huser = Hss
+    endif
+    return
+  end function ss_ss2user_vec
+
+  function ss_ss2user_mat(Hss,UserOrder) result(Huser)
+    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Hss
+    character(len=*),dimension(3)                         :: UserOrder
+    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Huser
+    integer,dimension(3)                                  :: Ivec,Jvec
+    integer,dimension(3)                                  :: UserIndex
+    integer,dimension(3)                                  :: nUserOrder
+    integer                                               :: iss,jss,iuser,juser,i
+    !
+    do i=1,3     
+       UserIndex(i:i)=findloc(UserOrder,DefOrder(i))
+    enddo
+    if(any(UserIndex==0))then
+       print*,"SS_REORDER_HK ERROR: wrong entry in UserIndex at: ",findloc(UserIndex,0)
+       stop
+    endif
+    !
+    nUserOrder=indx_reorder(nDefOrder,UserIndex)
+    !
+    if(any(UserIndex/=[1,2,3]))then
+       do iss=1,Nlso
+          Ivec  = i2indices(iss,nDefOrder)
+          Jvec  = indx_reorder(Ivec,UserIndex)
+          iuser = indices2i(Jvec,nUserOrder)
+          do jss=1,Nlso
+             Ivec  = i2indices(jss,nDefOrder)
+             Jvec  = indx_reorder(Ivec,UserIndex)
+             juser = indices2i(Jvec,nUserOrder)
+             !
+             Huser(iuser,juser) = Hss(iss,jss)
+          enddo
+       enddo
+    else
+       Huser = Hss
+    endif
+    return
+  end function ss_ss2user_mat
 
 
 

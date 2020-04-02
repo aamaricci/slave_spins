@@ -7,7 +7,7 @@ MODULE SS_MAIN
   USE SF_PAULI
   USE SF_LINALG, only: kron
   USE SF_TIMER, only: start_timer,stop_timer
-  USE SF_OPTIMIZE, only: broyden1,fsolve,broyden_mix,linear_mix,adaptive_mix
+  USE SF_OPTIMIZE, only: broyden1,fsolve!,broyden_mix,linear_mix,adaptive_mix
   !
   implicit none
   private
@@ -17,47 +17,9 @@ MODULE SS_MAIN
      module procedure :: ss_init_dos
   end interface ss_init
 
-  interface ss_get_dens
-     module procedure :: ss_get_dens_NN
-     module procedure :: ss_get_dens_Ns
-  end interface ss_get_dens
-
-  interface ss_get_zeta
-     module procedure :: ss_get_zeta_NN
-     module procedure :: ss_get_zeta_Ns
-  end interface ss_get_zeta
-
-  interface ss_get_sz
-     module procedure :: ss_get_Sz_NN
-     module procedure :: ss_get_Sz_Ns
-  end interface ss_get_sz
-
-  interface ss_get_lambda
-     module procedure :: ss_get_lambda_NN
-     module procedure :: ss_get_lambda_Ns
-  end interface ss_get_lambda
-
-  interface ss_get_lambda0
-     module procedure :: ss_get_lambda0_NN
-     module procedure :: ss_get_lambda0_Ns
-  end interface ss_get_lambda0
-
-  interface ss_get_self
-     module procedure :: ss_get_self_NN
-     module procedure :: ss_get_self_Ns
-     module procedure :: ss_get_self_Ns2
-  end interface ss_get_self
 
   public :: ss_init
   public :: ss_solve
-  public :: ss_get_Hf
-  public :: ss_get_dens
-  public :: ss_get_zeta
-  public :: ss_get_lambda
-  public :: ss_get_lambda0  
-  public :: ss_get_sz
-  public :: ss_get_self
-  public :: ss_get_ssHk
 
   real(8),dimension(:),allocatable     :: ss_lambda_init
   real(8),dimension(:),allocatable     :: ss_zeta_init
@@ -69,9 +31,7 @@ contains
 
 
 
-  !< Init SS calculation by passing the Hamiltonian H(k), the k-point weight W(k) and the local
-  !  part of the Hamiltonian H_loc = sum_k H(k)
-  ! real(8),dimension(size(hk_user,3)),optional                    :: wtk_user ![Nk]
+  !< Init SS calculation by passing the Hamiltonian H(k)
   subroutine ss_init_hk(hk_user,UserOrder,Hloc,ineq_sites)
     complex(8),dimension(:,:,:)                                    :: hk_user  ![Nlso,Nlso,Nk]
     character(len=*),dimension(3),optional                         :: UserOrder
@@ -85,7 +45,7 @@ contains
     character(len=5),dimension(3)                                  :: UserOrder_
     real(8),dimension(Nlat,2*Norb)                                 :: TmpLambda0,TmpZeta,TmpLambda
     !
-    UserOrder_ = [character(len=5) :: "Norb","Nlat","Nspin"];
+    UserOrder_ = [character(len=5) :: "Norb","Nspin","Nlat"];
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Nk = size(hk_user,3)
@@ -110,7 +70,7 @@ contains
     !
     do ik=1,Nk
        !< if order of Hk_user is not correct set the SS_order function to actual reorder
-       Hk = ss_reorder_hk(Hk_user(:,:,ik),UserOrder_)
+       Hk = ss_user2ss(Hk_user(:,:,ik),UserOrder_)
        !
        select case(Nspin)
        case default
@@ -171,7 +131,7 @@ contains
     character(len=5),dimension(3)                         :: UserOrder_
     real(8),dimension(Nlat,2*Norb)                        :: TmpLambda0,TmpZeta,TmpLambda
     !
-    UserOrder_ = [character(len=5) :: "Norb","Nlat","Nspin"];
+    UserOrder_ = [character(len=5) :: "Norb","Nspin","Nlat"];
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Nk = size(Ebands,2)
@@ -198,8 +158,8 @@ contains
     ss_Hk = zero
     ss_Wtk= 0d0
     do ie=1,Nk
-       Eb = ss_reorder_bands(Ebands(:,ie),UserOrder_)
-       Db = ss_reorder_bands(Dbands(:,ie),UserOrder_)
+       Eb = ss_user2ss(Ebands(:,ie),UserOrder_)
+       Db = ss_user2ss(Dbands(:,ie),UserOrder_)
        Htmp=zero
        Wtmp=0d0
        do io=1,Nspin*Nlat*Norb
@@ -263,7 +223,7 @@ contains
     select case(solve_method)
     case ("fsolve")
        params  = [ss_lambda(:Nlso),ss_zeta(:Nlso)]
-       params1 = [params,xmu]   !we use xmu here to keep it generic with respect to mu, fixed or varied.
+       params1 = [params,xmu] 
        if(filling==0d0)then
           call fsolve(ss_solve_full,params,tol=solve_tolerance)
        else
@@ -272,7 +232,7 @@ contains
        !
     case ("broyden")
        params  = [ss_lambda(:Nlso),ss_zeta(:Nlso)]
-       params1 = [params,xmu]   !we use xmu here to keep it generic with respect to mu, fixed or varied.
+       params1 = [params,xmu] 
        if(filling==0d0)then
           call broyden1(ss_solve_full,params,tol=solve_tolerance)
        else
@@ -353,7 +313,8 @@ contains
        do ilat=1,Nlat
           write(*,*)" SITE= "//str(ilat,4)
           if(verbose>3)write(*,"(A6,12G18.9)")"C    =",TmpC(ilat,:)
-          write(*,"(A7,12G18.9)")"N     =",TmpDens(ilat,:Nspin*Norb),sum(TmpDens(ilat,:Nspin*Norb)),filling
+          write(*,"(A7,12G18.9)")"N     =",TmpDens(ilat,:Nspin*Norb),&
+               sum(TmpDens(ilat,:Nspin*Norb)),filling
           write(*,"(A7,12G18.9)")"Lambda=",TmpLambda(ilat,:Nspin*Norb)
           write(*,"(A7,12G18.9)")"Z_ss  =",TmpZeta(ilat,:Nspin*Norb)
           write(*,*)" "
@@ -433,194 +394,6 @@ contains
     close(unit)
     !
   end subroutine ss_write_last
-
-
-
-
-  subroutine ss_get_Hf(Hk)
-    complex(8),dimension(:,:,:) :: Hk
-    complex(8),dimension(Ns,Ns) :: diagZ,Hk_f
-    real(8),dimension(Ns)       :: sq_zeta
-    integer                     :: ik
-    call assert_shape(Hk,[Nspin*Nlat*Norb,Nspin*Nlat*Norb,Nk],"ss_get_Hf","Hk")
-    sq_zeta = sqrt(ss_zeta)
-    diagZ   = diag(sq_zeta)
-    do ik=1,Nk
-       Hk_f       = (diagZ .x. ss_Hk(:,:,ik)) .x. diagZ
-       Hk(:,:,ik) = Hk_f(:Nlso,:Nlso) + ss_Hloc(:Nlso,:Nlso) - diag(ss_lambda) + diag(ss_lambda0)
-    enddo
-  end subroutine ss_get_Hf
-
-
-  subroutine ss_get_dens_NN(dens)
-    real(8),dimension(Nlat,Nspin,Norb) :: dens
-    integer :: ilat,iorb,ispin,io
-    do ispin=1,Nspin
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             io = ss_indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
-             dens(ilat,ispin,iorb) = ss_dens( ss_indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin]) )
-          enddo
-       enddo
-    enddo
-  end subroutine ss_get_dens_NN
-  subroutine ss_get_dens_Ns(dens)
-    real(8),dimension(Nspin*Nlat*Norb) :: dens
-    dens = ss_dens(:Nlso)
-  end subroutine ss_get_dens_Ns
-
-
-  subroutine ss_get_zeta_NN(zeta)
-    real(8),dimension(Nlat,Nspin,Norb) :: zeta
-    integer :: ilat,iorb,ispin,io
-    do ispin=1,Nspin
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             io = ss_indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
-             zeta(ilat,ispin,iorb) = ss_zeta(io)
-          enddo
-       enddo
-    enddo
-  end subroutine ss_get_zeta_NN
-  subroutine ss_get_zeta_Ns(zeta)
-    real(8),dimension(Nlat*Nspin*Norb) :: zeta
-    zeta = ss_zeta(:Nlso)
-  end subroutine ss_get_zeta_Ns
-
-
-  subroutine ss_get_sz_NN(sz)
-    real(8),dimension(Nlat,Nspin,Norb) :: sz
-    integer :: iorb,ispin,ilat,io
-    do ispin=1,Nspin
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             io = ss_indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
-             sz(ilat,ispin,iorb) = ss_sz(io)
-          enddo
-       enddo
-    enddo
-  end subroutine ss_get_sz_NN
-  subroutine ss_get_Sz_Ns(sz)
-    real(8),dimension(Nlat*Nspin*Norb) :: Sz
-    sz = ss_sz(:Nlso)
-  end subroutine ss_get_Sz_Ns
-
-
-  subroutine ss_get_lambda_NN(lambda)
-    real(8),dimension(Nlat,Nspin,Norb) :: lambda
-    integer :: iorb,ispin,ilat,io
-    do ispin=1,Nspin
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             io = ss_indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
-             lambda(ilat,ispin,iorb) = ss_lambda(io)
-          enddo
-       enddo
-    enddo
-  end subroutine ss_get_lambda_NN
-  subroutine ss_get_lambda_Ns(lambda)
-    real(8),dimension(Nlat*Nspin*Norb) :: lambda
-    lambda = ss_lambda(:Nlso)
-  end subroutine ss_get_lambda_Ns
-
-
-
-
-  subroutine ss_get_lambda0_NN(lambda)
-    real(8),dimension(Nlat,Nspin,Norb) :: lambda
-    integer :: iorb,ispin,ilat,io
-    do ispin=1,Nspin
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             io = ss_indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
-             lambda(ilat,ispin,iorb) = ss_lambda0(io)
-          enddo
-       enddo
-    enddo
-  end subroutine ss_get_lambda0_NN
-  subroutine ss_get_lambda0_Ns(lambda)
-    real(8),dimension(Nlat*Nspin*Norb) :: lambda
-    lambda = ss_lambda0(:Nlso)
-  end subroutine ss_get_lambda0_Ns
-
-
-
-
-  subroutine ss_get_self_NN(self)
-    real(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: self
-    self= diag(ss_lambda0)-diag(ss_lambda)
-  end subroutine ss_get_self_NN
-  subroutine ss_get_self_Ns(self)
-    real(8),dimension(Nlat*Nspin*Norb) :: self
-    self(:) =  -ss_lambda(:Nlso) + ss_lambda0(:Nlso)
-  end subroutine ss_get_self_Ns
-  subroutine ss_get_self_Ns2(self)
-    real(8),dimension(Nlat,Nspin,Norb) :: self
-    integer :: iorb,ispin,ilat,io
-    do ispin=1,Nspin
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             io = ss_indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
-             self(ilat,ispin,iorb) = -ss_lambda(io) + ss_lambda0(io)
-          enddo
-       enddo
-    enddo
-  end subroutine ss_get_self_Ns2
-
-
-  subroutine ss_get_ssHk(ssHk,UserOrder)
-    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb,Nk) :: ssHk
-    character(len=*),dimension(3),optional                   :: UserOrder
-    complex(8),dimension(Ns,Ns)                              :: Hk_f,diagZ
-    integer,dimension(3)                                     :: Ivec,Jvec
-    integer,dimension(3)                                     :: UserIndex
-    integer,dimension(3)                                     :: nUserOrder
-    integer                                                  :: ik,i
-    integer                                                  :: iord,jord,iuser,juser
-    character(len=5),dimension(3)                            :: UserOrder_
-    !
-    UserOrder_ = [character(len=5) :: "Norb","Nlat","Nspin"];
-    if(present(UserOrder))UserOrder_ = UserOrder
-    !
-    !
-    diagZ   = diag( sqrt(ss_zeta) )
-    !
-    do i=1,3     
-       UserIndex(i:i)=findloc(UserOrder_,DefOrder(i))
-    enddo
-    if(any(UserIndex==0))then
-       print*,"SS_GET_SSHK ERROR: wrong entry in UserIndex at: ",findloc(UserIndex,0)
-       stop
-    endif
-    !
-    !From UserIndex we can re-order the dimensions array to get the User dimensions array 
-    nUserOrder=ss_indx_reorder(nDefOrder,UserIndex)
-    !
-    do ik = 1,Nk 
-       Hk_f   = (diagZ .x. ss_Hk(:,:,ik)) .x. diagZ
-       Hk_f   = Hk_f + ss_Hloc - diag(ss_lambda) + diag(ss_lambda0)
-       !
-       if(any(UserIndex/=[1,2,3]))then
-          do iord=1,Nlso
-             Ivec  = ss_i2indices(iord,nDefOrder)
-             Jvec  = ss_indx_reorder(Ivec,UserIndex)   
-             iuser = ss_indices2i(Jvec,nUserOrder)
-             do jord=1,Nlso
-                Ivec  = ss_i2indices(jord,nDefOrder)
-                Jvec  = ss_indx_reorder(Ivec,UserIndex)
-                juser = ss_indices2i(Jvec,nUserOrder)
-                !
-                ssHk(iuser,juser,ik) = Hk_f(iord,jord)
-                !
-             enddo
-          enddo
-       else
-          ssHk(:,:,ik) = Hk_f(:Nlso,:Nlso)
-       endif
-    enddo
-  end subroutine ss_get_ssHk
-
-
 
 
 
