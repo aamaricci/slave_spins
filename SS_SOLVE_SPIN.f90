@@ -52,15 +52,10 @@ contains
     allocate(ii_Op(Nss))
     allocate(ii_Zeta(Nss))
     allocate(ii_SzSz(4,Norb,Norb))
-    do ispin=1,2
-       do iorb=1,Norb
-          io = ss_indices2i([iorb,ilat,ispin],[Norb,Nlat,2])
-          il = ss_indices2i([iorb,ispin],[Norb,2])
-          ii_lambda(il) = ss_lambda(io)
-          ii_Weiss(il)  = ss_Weiss(io)
-          ii_c(il)      = ss_c(io)
-       enddo
-    enddo
+    !
+    ii_Lambda = ss_Lambda(ilat,:)
+    ii_Weiss  = ss_Weiss(ilat,:)
+    ii_C      = ss_C(ilat,:)
     !
     !Build spin Hamiltonian and write it onto ss_Evecs
     call ss_build_Hs()
@@ -79,6 +74,7 @@ contains
     !< Copy back into main arrays ss_XYZ at proper position
     ss_Sz_ineq(ineq,:) = ii_Sz
     ss_Op_ineq(ineq,:) = ii_Op
+    ss_Zeta_ineq(ineq,:) = ii_Zeta
     ss_SzSz_ineq(ineq,:,:,:) = ii_SzSz
     !
     deallocate(ii_lambda,ii_Weiss,ii_c)

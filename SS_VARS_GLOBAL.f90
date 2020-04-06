@@ -10,7 +10,7 @@ MODULE SS_VARS_GLOBAL
 
   integer,save                            :: Ns,Nss       !# of levels total = 2*Nlat*Norb
   integer                                 :: Nk
-  integer                                 :: Nlso
+  integer                                 :: Nlso,Niso
   integer                                 :: Nineq
   integer,dimension(3)                    :: nDefOrder
   character(len=5),dimension(3)           :: DefOrder
@@ -19,21 +19,16 @@ MODULE SS_VARS_GLOBAL
   real(8),dimension(:,:,:),allocatable    :: ss_Wtk
   real(8),dimension(:,:),allocatable      :: ss_Hloc           !local hamiltonian
   !
-  real(8),dimension(:),allocatable        :: ss_lambda    !lambda_{m\sigma}
-  real(8),dimension(:),allocatable        :: ss_lambda0   !lambda^0_{m\sigma}
-  real(8),dimension(:),allocatable        :: ss_weiss     !4<S^x_{m\sigma}><E_fermion>
-  real(8),dimension(:),allocatable        :: ss_c
-  real(8),dimension(:),allocatable        :: ss_dens      ![Ns: 1:Norb_up, 1:Norb_dw]
-  !
-  real(8),dimension(:),allocatable        :: ss_zeta      !zeta_{m\sigma}
-  !
-  real(8),dimension(:),allocatable        :: ss_Sz
-  real(8),dimension(:),allocatable        :: ss_Op  
-  real(8),dimension(:,:,:,:),allocatable  :: ss_SzSz
-  !
-  real(8),dimension(:,:),allocatable      :: ss_Sz_ineq  
-  real(8),dimension(:,:),allocatable      :: ss_Op_ineq  
-  real(8),dimension(:,:,:,:),allocatable  :: ss_SzSz_ineq
+
+  real(8),dimension(:,:),allocatable      :: ss_weiss  ,ss_weiss_ineq   !4<S^x_{m\sigma}><E_el>
+  real(8),dimension(:,:),allocatable      :: ss_c      ,ss_c_ineq
+  real(8),dimension(:,:),allocatable      :: ss_dens   ,ss_dens_ineq
+  real(8),dimension(:,:),allocatable      :: ss_lambda0,ss_lambda0_ineq 
+  real(8),dimension(:,:),allocatable      :: ss_lambda ,ss_lambda_ineq 
+  real(8),dimension(:,:),allocatable      :: ss_zeta   ,ss_zeta_ineq
+  real(8),dimension(:,:),allocatable      :: ss_Sz     ,ss_Sz_ineq
+  real(8),dimension(:,:),allocatable      :: ss_Op     ,ss_Op_ineq  
+  real(8),dimension(:,:,:,:),allocatable  :: ss_SzSz   ,ss_SzSz_ineq
   !
   integer,dimension(:),allocatable        :: ss_ilat2ineq
   integer,dimension(:),allocatable        :: ss_ineq2ilat

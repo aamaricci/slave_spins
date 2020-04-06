@@ -14,7 +14,7 @@ MODULE SS_SOLVE_FERMION
 
 
   real(8),parameter :: mch=1d-6
-  integer           :: iorb,jorb,ispin,io,jo,ilat,jlat
+  integer           :: iorb,jorb,ispin,io,jo,ilat,jlat,ineq
 
 contains
 
@@ -22,35 +22,42 @@ contains
 
 
   subroutine ss_solve_fermions()
-    complex(8),dimension(Ns,Ns) :: Hk_f,Uk_f,Eweiss,diagZ,Wtk,diagR
+    complex(8),dimension(Ns,Ns) :: Hk_f
+    complex(8),dimension(Ns,Ns) :: Uk_f
+    real(8),dimension(Ns)       :: Ek_f
+    !
+    complex(8),dimension(Ns,Ns) :: Eweiss
+    complex(8),dimension(Ns,Ns) :: diagZ,diagR
     complex(8),dimension(Ns,Ns) :: rhoK
-    real(8),dimension(Ns)       :: sq_zeta,lambda,lambda0,rhoDiag,Ek_f
+    real(8),dimension(Ns)       :: sq_zeta
+    real(8),dimension(Ns)       :: lambda,lambda0,dens,weiss,const,zeta
+    real(8),dimension(Ns)       :: rhoDiag
     integer                     :: ik
     real(8),dimension(Nlat,Nss) :: TmpDens
     !
     if(Nspin==1)then
-       call ss_spin_symmetry(ss_zeta)
-       call ss_spin_symmetry(ss_lambda)
+       call ss_spin_symmetry(ss_zeta,Nlat)
+       call ss_spin_symmetry(ss_lambda,Nlat)
     endif
     !
-    lambda  = ss_lambda
-    lambda0 = ss_lambda0
-    if(any(ss_zeta<0d0))then
-       if(sum(abs(ss_zeta))< 10*solve_tolerance)then
-          ss_zeta=0d0
-       elseif(sum(abs(ss_zeta)) > 1d-1)then
-          print*,ss_zeta
+    lambda  = ss_pack_array(ss_lambda,Nlat)
+    lambda0 = ss_pack_array(ss_lambda0,Nlat)
+    zeta    = ss_pack_array(ss_zeta,Nlat)
+    if(any(zeta<0d0))then
+       if(sum(abs(zeta))< 10*solve_tolerance)then
+          zeta=0d0
+       elseif(sum(abs(zeta)) > 1d-1)then
+          print*,zeta
           stop "ERROR in ss_solve_fermions: any(ss_zeta)<0"
        else
-          ss_zeta=abs(ss_zeta)
+          zeta=abs(zeta)
        endif
     endif
-    sq_zeta = sqrt(ss_zeta)
+    sq_zeta = sqrt(zeta)
     diagZ   = diag(sq_zeta)
     !
     Eweiss  = 0d0
-    ss_dens = 0d0
-    !
+    dens    = 0d0
     do ik = 1,Nk 
        Hk_f   = (diagZ .x. ss_Hk(:,:,ik)) .x. diagZ
        Uk_f   = Hk_f + ss_Hloc - xmu*eye(Ns)  - diag(lambda) + diag(lambda0)
@@ -58,13 +65,13 @@ contains
        diagR  = diag(step_fermi(Ek_f))
        RhoK   = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
        Eweiss = Eweiss + ss_Hk(:,:,ik)*RhoK*ss_Wtk(:,:,ik) !element wise product
-       ss_dens= ss_dens + diagonal(RhoK*ss_Wtk(:,:,ik)) !element wise product
+       dens   = dens + diagonal(RhoK*ss_Wtk(:,:,ik)) !element wise product
     enddo
-    if(Nspin==1)call ss_spin_symmetry(ss_dens)
+    if(Nspin==1)call ss_spin_symmetry(dens,Nlat)
     !
     ! Get H_{a,s} = \sum_{b} sqrt(Z_{b,s})* sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
     !             = \sum_{b} sqrt(Z_{b,s})* Eweiss_{a,s,b,s}
-    ss_weiss= 0d0
+    weiss = 0d0
     do ispin=1,2
        do ilat=1,Nlat
           do iorb=1,Norb
@@ -72,14 +79,27 @@ contains
              do jlat=1,Nlat
                 do jorb=1,Norb
                    jo = ss_Indices2i([jorb,jlat,ispin],nDefOrder) !jo = jorb + (ispin-1)*Norb
-                   ss_weiss(io) = ss_weiss(io) + sq_zeta(jo)*Eweiss(io,jo)
+                   weiss(io) = weiss(io) + sq_zeta(jo)*Eweiss(io,jo)
                 enddo
              enddo
           enddo
        enddo
     enddo
+    if(Nspin==1)call ss_spin_symmetry(weiss,Nlat)
+    !
     ! Get C = ( n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
-    ss_c  = 1d0/(sqrt(ss_dens*(1d0-ss_dens))+mch) - 1d0
+    const  = 1d0/(sqrt(dens*(1d0-dens))+mch) - 1d0
+    !
+    ss_Dens = ss_unpack_array(dens,Nlat)
+    ss_C    = ss_unpack_array(const,Nlat)
+    ss_Weiss= ss_unpack_array(weiss,Nlat)
+    !
+    do ineq=1,Nineq
+       ilat = ss_ineq2ilat(ineq)
+       ss_Dens_ineq(ineq,:)  = ss_Dens(ilat,:)
+       ss_C_ineq(ineq,:)     = ss_C(ilat,:)
+       ss_Weiss_ineq(ineq,:) = ss_Weiss(ilat,:)
+    enddo
     !
   end subroutine ss_solve_fermions
 
@@ -92,7 +112,7 @@ contains
     complex(8),dimension(Ns,Ns)    :: Uk_f,Eweiss,diagRho,Rho
     complex(8),dimension(Ns,Ns,Nk) :: rhoK
     real(8),dimension(Ns,Nk)       :: eK
-    real(8),dimension(Ns)          :: rhoDiag,Ek_f
+    real(8),dimension(Ns)          :: rhoDiag,Ek_f,lambda0,dens,weiss
     integer                        :: ik,unit
     integer                        :: stride
     real(8)                        :: mu0,Dmin,Dmax
@@ -117,26 +137,27 @@ contains
     if(verbose>3)write(*,"(A6,12G18.9)")"mu0  =",mu0
     !
     !
-    Eweiss  = 0d0    
-    ss_dens = 0d0
+    Eweiss = 0d0    
+    Dens   = 0d0
     do ik = 1,Nk 
        diagRho      = diag(step_fermi(eK(:,ik)-mu0))
        Uk_f         = rhoK(:,:,ik)
        rhoK(:,:,ik) = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
        Eweiss       = Eweiss  + ss_Hk(:,:,ik)*rhoK(:,:,ik)*ss_Wtk(:,:,ik) !element wise product
-       ss_dens      = ss_dens + diagonal(rhoK(:,:,ik)*ss_Wtk(:,:,ik))     !element wise product
+       Dens         = Dens + diagonal(rhoK(:,:,ik)*ss_Wtk(:,:,ik))     !element wise product
     enddo
-    if(Nspin==1)call ss_spin_symmetry(ss_Dens)
+    if(Nspin==1)call ss_spin_symmetry(Dens,Nlat)
+    ss_Dens = ss_unpack_array(Dens,Nlat)
     !
     if(verbose>2)then
-       call ss_spread_array(ss_Dens,TmpArray)
        do ilat=1,Nlat
-          write(*,"(A6,12G18.9)")"N0   =",TmpArray(ilat,:),sum(TmpArray(Ilat,:)),filling
+          write(*,"(A6,12G18.9)")"N0   =",ss_Dens(ilat,:Nspin*Norb),&
+               sum(ss_dens(Ilat,:))*(3-Nspin),filling
        enddo
     endif
     !
     !< Get H_{a,s} = \sum_{b}sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
-    ss_weiss= 0d0
+    Weiss = 0d0
     do ispin=1,2
        do ilat=1,Nlat
           do iorb=1,Norb
@@ -144,7 +165,7 @@ contains
              do jlat=1,Nlat
                 do jorb=1,Norb
                    jo = ss_Indices2i([jorb,jlat,ispin],nDefOrder) !jo = jorb + (ispin-1)*Norb
-                   ss_weiss(io) = ss_weiss(io) + Eweiss(io,jo)
+                   Weiss(io) = Weiss(io) + Eweiss(io,jo)
                 enddo
              enddo
           enddo
@@ -152,18 +173,17 @@ contains
     enddo
     !
     !< Get Lambda0 = -2* h0_{m,s}*[n0_{m,s}-0.5]/[n0_{m,s}*(1-n0_{m,s})]
-    ss_lambda0 = -2d0*ss_Weiss*(ss_dens-0.5d0)/(ss_dens*(1d0-ss_dens)+mch)
-    xmu        =  2*ss_lambda0(1)+mu0
+    lambda0 = -2d0*Weiss*(Dens-0.5d0)/(Dens*(1d0-Dens)+mch)
+    xmu     =  2*sum(lambda0)/Ns + mu0!2*ss_lambda0(1)+mu0
     !
+    ss_Lambda0 = ss_unpack_array(lambda0,Nlat)
     !
-    call ss_spread_array(ss_Lambda0,TmpArray)
     do ilat=1,Nlat
        open(free_unit(unit),file="lambda0_site"//str(ilat,4)//".ss")
-       write(unit,*)TmpArray(ilat,:)
+       write(unit,*)ss_lambda0(ilat,:)
        close(unit)
     enddo
     !
-
   contains
 
     function get_dens(mu) result(dens)

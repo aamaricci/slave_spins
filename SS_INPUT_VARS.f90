@@ -21,6 +21,7 @@ MODULE SS_INPUT_VARS
   real(8)              :: Xmu                 !Chemical potential level
   real(8)              :: beta                !inverse temperature
   real(8)              :: eps                 !broadening
+  integer              :: Niter               !Max number of iterations
   real(8)              :: wini,wfin           !
   integer              :: nloop               !max convergence loop variables
   integer              :: Nsuccess            !
@@ -71,6 +72,7 @@ contains
     call parse_input_variable(beta,"BETA",INPUTunit,default=1000.d0,comment="Inverse temperature, at T=0 is used as a IR cut-off.")
     call parse_input_variable(xmu,"xmu",INPUTunit,default=0d0,comment="Chemical potential. If filling is 0d0 this sets the total density")
     call parse_input_variable(solve_tolerance,"solve_tolerance",INPUTunit,default=1d-6,comment="Tolerance on the constraint fixing")
+    call parse_input_variable(Niter,"Niter",INPUTunit,default=100,comment="Max number of iterations")
     ! call parse_input_variable(loop_tolerance,"loop_tolerance",INPUTunit,default=1d-6,comment="Tolerance on the loop convergence error")
     ! call parse_input_variable(loop_nmix,"loop_nmix",INPUTunit,default=0,comment="Mixing number in the Broyden procedure. 0=linear mix [default]")
     ! call parse_input_variable(loop_wmix,"loop_wmix",INPUTunit,default=1d0,comment="Weight for the linear or Broyden mixing procedure")

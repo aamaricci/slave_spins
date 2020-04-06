@@ -42,7 +42,9 @@ MODULE SS_SETUP
   public :: ss_indices2i
   public :: ss_i2indices
   public :: ss_indx_reorder
-  public :: ss_spread_array
+  !
+  public :: ss_pack_array
+  public :: ss_unpack_array
   public :: ss_spin_symmetry
 
 
@@ -63,26 +65,25 @@ contains
     !
     call ss_setup_dimensions()
     !
-    allocate(ss_lambda(Ns))
-    allocate(ss_lambda0(Ns))
-    allocate(ss_weiss(Ns))
-    allocate(ss_c(Ns))
-    allocate(ss_dens(Ns))
-    ss_lambda = 0d0
-    ss_lambda0= 0d0
-    ss_weiss  = 0d0
-    ss_c      = 0d0
-    ss_dens   = 0d0
+    allocate(ss_Weiss(Nlat,Nss), ss_Weiss_ineq(Nineq,Nss))
+    allocate(ss_C(Nlat,Nss),ss_C_ineq(Nineq,Nss))
+    allocate(ss_Dens(Nlat,Nss), ss_Dens_ineq(Nineq,Nss))
+    allocate(ss_Lambda0(Nlat,Nss), ss_Lambda0_ineq(Nineq,Nss))
+    allocate( ss_lambda(Nlat,Nss), ss_lambda_ineq(Nineq,Nss) )
+    allocate( ss_zeta(Nlat,Nss),   ss_zeta_ineq(Nineq,Nss) )
+    allocate( ss_Sz(Nlat,Nss), ss_Sz_ineq(Nineq,Nss))
+    allocate( ss_Op(Nlat,Nss), ss_Op_ineq(Nineq,Nss))
+    ss_weiss  = 0d0; ss_weiss_ineq  = 0d0
+    ss_c      = 0d0; ss_c_ineq      = 0d0
+    ss_dens   = 0d0; ss_dens_ineq   = 0d0
+    ss_lambda0= 0d0; ss_lambda0_ineq= 0d0
+    ss_lambda = 0d0;ss_lambda_ineq = 0d0
+    ss_zeta   = 1d0;ss_zeta_ineq   = 1d0
+    ss_Sz     = 0d0; ss_Sz_ineq    = 0d0
+    ss_Op     = 0d0; ss_Op_ineq    = 0d0
     !
-    allocate(ss_zeta(Ns))
-    ss_zeta   = 1d0
-    !
-    allocate(ss_Sz(Ns), ss_Sz_ineq(Nineq,Nss))
-    allocate(ss_Op(Ns), ss_Op_ineq(Nineq,Nss))
-    allocate(ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
-    ss_Sz     = 0d0; ss_Sz_ineq   = 0d0
-    ss_Op     = 0d0; ss_Op_ineq   = 0d0
-    ss_SzSz   = 0d0; ss_SzSz_ineq = 0d0
+    allocate( ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
+    ss_SzSz   = 0d0; ss_SzSz_ineq  = 0d0
     !
     allocate(ss_Hk(Ns,Ns,Nk))
     ss_Hk = zero
@@ -96,15 +97,17 @@ contains
 
 
   subroutine ss_setup_dimensions()
-    !the total number of degrees of freedom. Nlat=#inequivalent sites.
-    !-TODO: Norb be the total number of orbitals P+D. Now it is only correlated orbitals.
-    Nlso = Nlat*Norb*Nspin
     !ordering of the degrees of freedom in H(k).
     !THE SS ORDERING IS ASSUMED TO BE ALWAYS [Norb,Nlat,Nspin]
     DefOrder  = [character(len=5) :: "Norb","Nlat","Nspin"]
     nDefOrder = [Norb,Nlat,Nspin]
     !
     Nineq = size(ss_ineq2ilat)
+    !
+    !the total number of degrees of freedom. Nlat=#inequivalent sites.
+    !-TODO: Norb be the total number of orbitals P+D. Now it is only correlated orbitals.
+    Nlso = Nlat*Norb*Nspin
+    Niso = Nineq*Norb*Nspin
     !
     Ns   = 2*Nlat*Norb          !total number of parameters
     Nss  = 2*Norb
@@ -117,19 +120,23 @@ contains
     logical                          :: IOfile
     real(8),dimension(:),allocatable :: params
     integer                          :: Len
+    real(8),dimension(Ns)            :: lambda,zeta
     inquire(file=trim(Pfile)//trim(ss_file_suffix)//".restart",exist=IOfile)
     if(IOfile)then
        len = file_length(trim(Pfile)//trim(ss_file_suffix)//".restart")
+       print*,len,2*Ns
+       if( (len/=2*Ns) .AND. (len/=2*Ns+1) )stop "SS_INIT_PARAMS ERROR: len!=2*Ns OR 2*Ns+1"
        allocate(params(len))
        call read_array(trim(Pfile)//trim(ss_file_suffix)//".restart",params)
-       ss_lambda = params(1:Ns)
-       ss_zeta   = params(Ns+1:2*Ns)
+       ss_lambda = ss_unpack_array(params(1:Ns),Nlat)
+       ss_zeta   = ss_unpack_array(params(Ns+1:2*Ns),Nlat)
        if(size(params)==2*Ns+1)xmu=params(2*Ns+1)
     else
        ss_lambda = -ss_lambda0
        ss_zeta   = 1d0
     endif
   end subroutine ss_init_params
+
 
 
 
@@ -285,37 +292,59 @@ contains
 
 
 
-  subroutine ss_spin_symmetry_nlso(array)
-    real(8),dimension(Ns)    :: array
-    array(Nlat*Norb+1:) = array(1:Nlat*Norb)
+  subroutine ss_spin_symmetry_nlso(array,Nsite)
+    integer                      :: Nsite
+    real(8),dimension(Nsite*Nss) :: array
+    array(Nsite*Norb+1:) = array(1:Nsite*Norb)
   end subroutine ss_spin_symmetry_nlso
 
-  subroutine ss_spin_symmetry_nn(array)
-    real(8),dimension(Nlat,Nss) :: array
-    integer                     :: ilat
-    do ilat=1,Nlat
-       array(ilat,Norb+1:) = array(ilat,1:Norb)
+  subroutine ss_spin_symmetry_nn(array,Nsite)
+    integer                      :: Nsite
+    real(8),dimension(Nsite,Nss) :: array
+    integer                      :: isite
+    do isite=1,Nsite
+       array(isite,Norb+1:) = array(isite,1:Norb)
     enddo
   end subroutine ss_spin_symmetry_nn
 
 
 
-  subroutine ss_spread_array(Ain,Aout)
-    real(8),dimension(2*Nlat*Norb) :: Ain
-    real(8),dimension(Nlat,2*Norb) :: Aout
-    integer                        :: ispin,ilat,iorb,io,ii
+
+  function ss_pack_array(Ain,Nsite) result(Aout)
+    integer                         :: Nsite
+    real(8),dimension(Nsite,2*Norb) :: Ain
+    real(8),dimension(2*Nsite*Norb) :: Aout
+    integer                         :: ispin,isite,iorb,io,ii
     do ispin=1,2
-       do ilat=1,Nlat
+       do isite=1,Nsite
           do iorb=1,Norb
-             ii = Indices2i([iorb,ilat,ispin],nDefOrder) !io = iorb + (ispin-1)*Norb
+             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
              io = Indices2i([iorb,ispin],[Norb,2])
              !
-             Aout(ilat,io) = Ain(ii)
+             Aout(ii) = Ain(isite,io)
              !
           enddo
        enddo
     enddo
-  end subroutine ss_spread_array
+  end function ss_pack_array
+
+  function ss_unpack_array(Ain,Nsite) result(Aout)
+    integer                         :: Nsite
+    real(8),dimension(2*Nsite*Norb) :: Ain
+    real(8),dimension(Nsite,2*Norb) :: Aout
+    integer                         :: ispin,isite,iorb,io,ii
+    do ispin=1,2
+       do isite=1,Nsite
+          do iorb=1,Norb
+             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
+             io = Indices2i([iorb,ispin],[Norb,2])
+             !
+             Aout(isite,io) = Ain(ii)
+             !
+          enddo
+       enddo
+    enddo
+  end function ss_unpack_array
 
 
 

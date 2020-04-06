@@ -38,7 +38,7 @@ program ss_bethe
   call add_ctrl_var(eps,"eps")
 
 
-  if(Nspin/=1.OR.Norb>5)stop "Wrong setup from input file: Nspin=1 OR Norb>5"
+  if(Nspin/=1.OR.Norb>5.OR.Nlat/=2)stop "Wrong setup from input file: Nspin!=1 OR Norb>5 OR Nlat!=2"
   Nlso=Nlat*Nspin*Norb
 
 
