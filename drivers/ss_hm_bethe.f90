@@ -6,7 +6,7 @@ program ss_bethe
   !
   implicit none
   !
-  integer                                     :: Le,Nso,iorb
+  integer                                     :: Le,Nlso,iorb,ilat,io
   real(8),dimension(5)                        :: Wbethe,Dbethe
   !  
   real(8),dimension(:,:),allocatable          :: Dbands
@@ -28,6 +28,7 @@ program ss_bethe
   call ss_read_input(trim(finput))
 
   !Add DMFT CTRL Variables:
+  call add_ctrl_var(Nlat,"nlat")
   call add_ctrl_var(Norb,"norb")
   call add_ctrl_var(Nspin,"nspin")
   call add_ctrl_var(beta,"beta")
@@ -37,27 +38,32 @@ program ss_bethe
   call add_ctrl_var(eps,"eps")
 
 
-  if(Nspin/=1.OR.Norb>5)stop "Wrong setup from input file: Nspin=1 OR Norb>5"
-  Nso=Nspin*Norb
+  if(Nspin/=1.OR.Norb>5.OR.Nlat>5)stop "Wrong setup from input file: Nspin!=1 OR Norb>5 OR Nlat>5"
+  Nlso=Nlat*Nspin*Norb
 
 
-  allocate(Ebands(Nso,Le))
-  allocate(Dbands(Nso,Le))
-  allocate(H0(Nso))
-  allocate(Wband(Nso))
-  allocate(de(Nso))
+  allocate(Ebands(Nlso,Le))
+  allocate(Dbands(Nlso,Le))
+  allocate(H0(Nlso))
+  allocate(Wband(Nlso))
+  allocate(de(Nlso))
   !
-  Wband = Wbethe(:Norb)
-  H0    = Dbethe(:Norb)
-  do iorb=1,Norb
-     Ebands(iorb,:) = linspace(-Wband(iorb),Wband(iorb),Le,mesh=de(iorb))
-     Dbands(iorb,:) = dens_bethe(Ebands(iorb,:),Wband(iorb))*de(iorb)
+  do ilat=1,Nlat
+     do iorb=1,Norb
+        io = iorb + (ilat-1)*Norb
+        Wband(io) = Wbethe(iorb)
+        H0(io)    = Dbethe(iorb)
+     enddo
+  enddo
+  !
+  do io=1,Nlso
+     Ebands(io,:) = linspace(-Wband(io),Wband(io),Le,mesh=de(io))
+     Dbands(io,:) = dens_bethe(Ebands(io,:),Wband(io))*de(io)
   enddo
   call TB_write_Hloc(one*diag(H0))
+  !
 
+  call ss_solve( Ebands,Dbands,Hloc=H0,ineq_sites=(/(1,ilat=1,Nlat)/) )
 
-  call ss_init(Ebands,Dbands,Hloc=H0)
-
-  call ss_solve()
 
 end program ss_bethe

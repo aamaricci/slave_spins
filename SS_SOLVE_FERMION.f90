@@ -47,10 +47,11 @@ contains
        if(sum(abs(zeta))< 10*solve_tolerance)then
           zeta=0d0
        elseif(sum(abs(zeta)) > 1d-1)then
-          print*,zeta
-          stop "ERROR in ss_solve_fermions: any(ss_zeta)<0"
-       else
+          print*,"WARNING:",zeta
           zeta=abs(zeta)
+          ! stop "ERROR in ss_solve_fermions: any(ss_zeta)<0"
+          ! else
+          !    zeta=abs(zeta)
        endif
     endif
     sq_zeta = sqrt(zeta)
@@ -144,7 +145,7 @@ contains
        Uk_f         = rhoK(:,:,ik)
        rhoK(:,:,ik) = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
        Eweiss       = Eweiss  + ss_Hk(:,:,ik)*rhoK(:,:,ik)*ss_Wtk(:,:,ik) !element wise product
-       Dens         = Dens + diagonal(rhoK(:,:,ik)*ss_Wtk(:,:,ik))     !element wise product
+       Dens         = Dens + diagonal(rhoK(:,:,ik)*ss_Wtk(:,:,ik))        !element wise product
     enddo
     if(Nspin==1)call ss_spin_symmetry(Dens,Nlat)
     ss_Dens = ss_unpack_array(Dens,Nlat)

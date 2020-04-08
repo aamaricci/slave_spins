@@ -65,12 +65,7 @@ program ss_LaOFeAs
 
 
   !SOLVE SS:
-  !init
-  call ss_init(Hk,&
-       ineq_sites=[1,1])
-  !
-  !Solve:
-  call ss_solve()
+  call ss_solve(Hk,ineq_sites=[1,1])
 
 
   !Retrieve Zeta and ReSigma(0)=lambda0-lambda
@@ -92,27 +87,5 @@ program ss_LaOFeAs
 
   call TB_w90_delete()
 
-
-contains
-
-
-  function spread_array(vec) result(array)
-    real(8),dimension(Nlat*Nspin*Norb) :: vec
-    real(8),dimension(Nlat,Nspin,Norb) :: array
-    integer                            :: iorb,ispin,ilat,io
-    do ilat=1,Nlat
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             io = indices2i(ilat,ispin,iorb)
-             array(ilat,ispin,iorb) = vec(io)
-          enddo
-       enddo
-    enddo
-  end function spread_array
-
-  function indices2i(ilat,ispin,iorb) result(io)
-    integer  :: iorb,ispin,ilat,io
-    io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
-  end function indices2i
 
 end program ss_LaOFeAs

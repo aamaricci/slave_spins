@@ -43,13 +43,76 @@ MODULE SS_IO
   public :: ss_get_sz
   public :: ss_get_self
   public :: ss_get_ssHk
-
+  !
+  public :: ss_write_last
 
   integer                       :: ilat,iorb,ispin,io,Ivec(3)
   character(len=5),dimension(3) :: UserOrder_ = [character(len=5) :: "Norb","Nspin","Nlat"]
   integer,dimension(3)          :: nUserOrder
 
 contains
+
+
+
+
+
+  subroutine ss_write_last()
+    integer                        :: unit,units(4),i,iorb,jorb,ilat
+    real(8),dimension(Nlat,2*Norb) :: TmpDens
+    open(free_unit(unit),file="hubbards.ss")
+    write(unit,"(90F15.9)")(uloc(iorb),iorb=1,Norb),Ust,Jh
+    close(unit)
+    !
+    TmpDens=ss_unpack_array(ss_Dens,Nlat)
+    ! TmpLambda= ss_unpack_array(ss_Lambda)
+    ! TmpZeta= ss_unpack_array(ss_Zeta)
+    ! TmpOp= ss_unpack_array(ss_Op)
+    ! TmpSz= ss_unpack_array(ss_Sz)
+
+    do ilat=1,Nlat
+       open(free_unit(unit),file="lambda_site"//str(ilat,4)//".ss")
+       write(unit,*)ss_lambda(ilat,:)
+       close(unit)
+       !
+       open(free_unit(unit),file="zeta_site"//str(ilat,4)//".ss")
+       write(unit,*)ss_zeta(ilat,:)
+       close(unit)
+       !
+       open(free_unit(unit),file="dens_site"//str(ilat,4)//".ss")
+       write(unit,*)TmpDens(ilat,:)
+       close(unit)
+       !
+       open(free_unit(unit),file="sz_site"//str(ilat,4)//".ss")
+       write(unit,*)ss_Sz(ilat,:)
+       close(unit)
+       !
+       open(free_unit(unit),file="Op_site"//str(ilat,4)//".ss")
+       write(unit,*)ss_Op(ilat,:)
+       close(unit)
+       !
+       units = free_units(4)
+       open(units(1),file="SzSz_uu_site"//str(ilat,4)//".ss")
+       open(units(2),file="SzSz_dd_site"//str(ilat,4)//".ss")
+       open(units(3),file="SzSz_ud_site"//str(ilat,4)//".ss")
+       open(units(4),file="SzSz_du_site"//str(ilat,4)//".ss")
+       do iorb=1,Norb
+          do jorb=1,Norb
+             do i=1,4
+                write(units(i),*)iorb,jorb,ss_SzSz(ilat,i,iorb,jorb)
+             enddo
+          enddo
+       enddo
+       do i=1,4
+          close(units(i))
+       enddo
+       !
+    enddo
+    !
+    open(free_unit(unit),file="mu.ss")
+    write(unit,*)xmu
+    close(unit)
+    !
+  end subroutine ss_write_last
 
 
 

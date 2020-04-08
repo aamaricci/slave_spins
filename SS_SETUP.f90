@@ -34,7 +34,6 @@ MODULE SS_SETUP
 
 
   public :: ss_setup_structure
-  public :: ss_init_params
   !
   public :: ss_user2ss
   public :: ss_ss2user
@@ -115,27 +114,6 @@ contains
   end subroutine ss_setup_dimensions
 
 
-
-  subroutine ss_init_params()
-    logical                          :: IOfile
-    real(8),dimension(:),allocatable :: params
-    integer                          :: Len
-    real(8),dimension(Ns)            :: lambda,zeta
-    inquire(file=trim(Pfile)//trim(ss_file_suffix)//".restart",exist=IOfile)
-    if(IOfile)then
-       len = file_length(trim(Pfile)//trim(ss_file_suffix)//".restart")
-       print*,len,2*Ns
-       if( (len/=2*Ns) .AND. (len/=2*Ns+1) )stop "SS_INIT_PARAMS ERROR: len!=2*Ns OR 2*Ns+1"
-       allocate(params(len))
-       call read_array(trim(Pfile)//trim(ss_file_suffix)//".restart",params)
-       ss_lambda = ss_unpack_array(params(1:Ns),Nlat)
-       ss_zeta   = ss_unpack_array(params(Ns+1:2*Ns),Nlat)
-       if(size(params)==2*Ns+1)xmu=params(2*Ns+1)
-    else
-       ss_lambda = -ss_lambda0
-       ss_zeta   = 1d0
-    endif
-  end subroutine ss_init_params
 
 
 

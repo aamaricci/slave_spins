@@ -67,10 +67,7 @@ program ss_PCO
 
 
   !> SS INIT:
-  call ss_init(Hk,Wtk)
-
-  !> SS SOLVE:
-  call ss_solve()
+  call ss_solve(Hk)
 
 
   !  TODO: get the GF of the problem by convoluting the spin-spin correlation function
