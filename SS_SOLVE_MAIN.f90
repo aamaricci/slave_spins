@@ -5,6 +5,8 @@ MODULE SS_SOLVE_MAIN
   USE SS_SOLVE_FERMION
   USE SS_SOLVE_SPIN
   !
+  USE SF_IOTOOLS, only: str
+  USE SF_FONTS
   USE SF_PAULI
   USE SF_TIMER, only: start_timer,stop_timer
   USE SF_OPTIMIZE, only: broyden1,fsolve,leastsq,fmin_cg
@@ -15,9 +17,10 @@ MODULE SS_SOLVE_MAIN
 
   public :: ss_solve_methods
 
-  integer,save                     :: siter=0
-  integer                          :: iorb,ispin,ilat,ineq,io,il
-
+  integer,save                       :: siter=0
+  integer                            :: iorb,ispin,ilat,ineq,io,il
+  real(8),dimension(:,:),allocatable :: ss_lambda_init
+  real(8),dimension(:,:),allocatable :: ss_zeta_init
 
 contains
 
@@ -43,6 +46,9 @@ contains
     !< Pack array:
     lambda =  ss_pack_array(ss_lambda_ineq,Nineq)
     zeta   =  ss_pack_array(ss_zeta_ineq,Nineq)
+    !
+    allocate(ss_lambda_init(Nineq,Nss));ss_lambda_init=ss_lambda_ineq
+    allocate(ss_zeta_init(Nineq,Nss))  ;ss_zeta_init  =ss_zeta_ineq
     !
     call start_timer
     !
@@ -83,6 +89,12 @@ contains
           call fmin_cg(params1,ss_solve_cg, iter, chi)!, itmax=Niter, ftol=solve_tolerance)
        end if
        if(verbose>1)write(*,"(A,ES18.9,1x,I5)")"Chi^2_fss|iter:",chi,"|",iter
+       !
+    case ("gg_broyden")
+       call broyden1(ss_solve_gg,lambda(:Niso),tol=solve_tolerance)
+       !
+    case ("gg_fsolve")
+       call fsolve(ss_solve_gg,lambda(:Niso),tol=solve_tolerance)
        !
     case default
        write(*,*)"ERROR in ss_solve(): no solve_method named as input *"//str(solve_method)//"*"
@@ -366,6 +378,109 @@ contains
 
 
 
+
+
+
+  function ss_solve_gg(aparams) result(fss)
+    real(8),dimension(:),intent(in)  :: aparams
+    real(8),dimension(size(aparams)) :: fss
+    integer                          :: iter,Nsuccess=0
+    logical                          :: z_converged,bool
+    real(8),dimension(Nineq*Nss)     :: lambda,zeta,sz,Dens,zeta_prev,Fzeta
+    !
+    bool = size(lambda)==Niso+1
+    !
+    ! > Retrieve ss_lambda:
+    lambda(:Niso) = aparams(1:Niso)
+    if(bool)xmu   = aparams(Niso+1)
+    if(Nspin==1)call ss_spin_symmetry(lambda,Nineq)
+    ss_lambda_ineq = ss_unpack_array(lambda,Nineq)
+    do ilat=1,Nlat
+       ineq = ss_ilat2ineq(ilat)
+       ss_lambda(ilat,:) = ss_lambda_ineq(ineq,:)
+    enddo
+    !
+    !> Retrieve starting ss_zeta:
+    if(zeta_restart_init)ss_zeta_ineq = ss_zeta_init
+    do ilat=1,Nlat
+       ineq = ss_ilat2ineq(ilat)
+       ss_zeta(ilat,:)   = ss_zeta_ineq(ineq,:)
+    enddo
+    !
+    !> Solve:
+    if(verbose>2)call start_timer()
+    z_converged=.false. ; iter=0
+    do while(.not.z_converged.AND.iter<=Niter)
+       iter=iter+1
+       call start_loop(iter,Niter,"Z-iter")
+       !
+       zeta_prev = ss_pack_array(ss_zeta_ineq,Nineq)
+       !
+       !< Solve Fermions:
+       call ss_solve_fermions   
+       !
+       !< Solve Spins:
+       do ineq=1,Nineq
+          call ss_solve_spins(ineq)
+       enddo
+       do ilat=1,Nlat
+          ineq = ss_ilat2ineq(ilat)
+          ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
+          ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
+          ss_Zeta(ilat,:)     = ss_Zeta_ineq(ineq,:)
+          ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
+       enddo
+       if(Nspin==1)call ss_spin_symmetry(ss_zeta,Nlat)
+       !
+       do ineq=1,Nineq
+          ilat = ss_ineq2ilat(ineq)
+          ss_Dens_ineq(ineq,:) = ss_Dens(ilat,:)
+       enddo
+       Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
+       Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
+       Zeta    = ss_pack_array(ss_zeta_ineq,Nineq)
+       !
+       call ss_print_screen
+       !
+       zeta = loop_Wmix*zeta + (1d0-loop_Wmix)*zeta_prev
+       !
+       ! Fzeta= zeta - zeta_prev
+       !
+       ! select case(loop_MixType)
+       ! case ("linear")            
+       !    call linear_mix(zeta,Fzeta,loop_Wmix)
+       ! case ("adaptive")
+       !    call adaptive_mix(zeta,Fzeta,loop_Wmix,iter)
+       ! case default
+       !    call broyden_mix(zeta,Fzeta,loop_Wmix,loop_Nmix,iter)
+       ! end select
+       !
+       z_converged = check_convergence(zeta-zeta_prev,loop_tolerance,Nsuccess,Niter)
+       call end_loop() 
+    end do
+    !
+    !<constraint:
+    fss(1:Niso)         = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
+    if(bool)fss(Niso+1) = sum(ss_Dens) - filling
+    !
+    if(verbose>1)then
+       write(*,"(A11,50G18.9)")"F_cnstr   =",fss(1:Niso)
+       if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(Niso+1)
+       write(*,*)""
+    endif
+    if(verbose>2)call stop_timer()
+    !
+    call ss_write_last()
+    !
+  end function ss_solve_gg
+
+
+
+
+
+
+
+
   subroutine ss_print_screen
     if(verbose>1)then
        do ineq=1,Nineq
@@ -374,6 +489,7 @@ contains
           !
           if(verbose>3)write(*,"(A7,12G18.9)")"C     =",ss_C_ineq(ineq,:Nspin*Norb)
           !
+          write(*,"(A7,12G18.9)")"mu    =",xmu
           write(*,"(A7,12G18.9)")"N     =",ss_Dens_ineq(ineq,:Nspin*Norb),&
                sum(ss_Dens_ineq(ineq,:Nspin*Norb))*(3-Nspin),filling/Nlat
           write(*,"(A7,12G18.9)")"Sz    =",ss_Sz_ineq(ineq,:Nspin*Norb)
@@ -386,7 +502,7 @@ contains
     endif
   end subroutine ss_print_screen
 
-  
+
   subroutine start_loop(loop,max,name,unit,id)
     integer                   :: loop
     integer,optional          :: max,unit,id
@@ -418,6 +534,72 @@ contains
     write(unit_,*)
   end subroutine end_loop
 
+
+
+  function check_convergence(Xnew,eps,N1,N2) result(convergence)
+    real(8),intent(in)            :: Xnew(:)
+    real(8)                       :: eps
+    integer                       :: N1,N2
+    integer                       :: unit
+    integer                       :: i,j,Msize1
+    logical                       :: convergence  
+    real(8)                       :: error(2),err
+    real(8),dimension(size(Xnew)) :: Verror
+    real(8),save,allocatable      :: Xold(:)
+    integer,save                  :: success=0,check=1
+    character(len=2)              :: label
+    character(len=100)            :: file_
+    file_='error.err'
+    Msize1=size(Xnew)
+    if(.not.allocated(Xold))then
+       allocate(Xold(Msize1))
+       Xold=0.d0
+       open(free_unit(unit),file=str(file_),position="append")
+    endif
+    write(unit,*);close(unit)
+    !
+    Verror=abs(Xnew-Xold)
+    if(check==1)Verror=1.d0
+    err=sum(Verror)/dble(size(Verror))
+    !
+    Xold=Xnew
+    !
+    open(unit,file=str(file_),position="append")
+    write(unit,"(I5,ES15.7)")check,err
+    close(unit)
+    !
+    if(err < eps)then
+       success=success+1
+    else
+       success=0
+    endif
+    convergence=.false.
+    !
+    if(success > N1)convergence=.true.
+    if(check>=N2)then
+       open(10,file="ERROR.README")
+       write(10,*)""
+       close(10)
+       write(*,"(A,I4,A)")"Not converged after",N2," iterations."
+       convergence=.true.
+    endif
+    if(convergence)then
+       check=0
+       deallocate(Xold)
+    endif
+    !
+    if(convergence)then
+       write(*,"(A,ES15.7)")bold_green("    error="),err
+    else
+       if(err < eps)then
+          write(*,"(A,ES15.7)")bold_yellow("    error="),err
+       else
+          write(*,"(A,ES15.7)")bold_red("    error="),err
+       endif
+    endif
+    !
+    check=check+1
+  end function check_convergence
 
 END MODULE SS_SOLVE_MAIN
 

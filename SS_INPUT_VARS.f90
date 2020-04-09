@@ -28,12 +28,13 @@ MODULE SS_INPUT_VARS
   integer              :: verbose             !
   character(len=24)    :: solve_method        !Pick the solve method to be used in ss_solve: broyden, hybrd
   real(8)              :: solve_tolerance !Tolerance on the constraint fixing
-  ! real(8)              :: loop_tolerance       !
+  logical              :: zeta_restart_init   
+  real(8)              :: loop_tolerance       !
+  real(8)              :: loop_Wmix
   ! integer              :: loop_Nmix       !
-  ! real(8)              :: loop_Wmix
   ! character(len=10)    :: loop_MixType
   ! integer              :: loop_Nitermax
-  ! logical              :: zeta_restart_init   
+
   !Some parameters for function dimension:
   !=========================================================
   integer              :: Lmats
@@ -73,12 +74,13 @@ contains
     call parse_input_variable(xmu,"xmu",INPUTunit,default=0d0,comment="Chemical potential. If filling is 0d0 this sets the total density")
     call parse_input_variable(solve_tolerance,"solve_tolerance",INPUTunit,default=1d-6,comment="Tolerance on the constraint fixing")
     call parse_input_variable(Niter,"Niter",INPUTunit,default=100,comment="Max number of iterations")
-    ! call parse_input_variable(loop_tolerance,"loop_tolerance",INPUTunit,default=1d-6,comment="Tolerance on the loop convergence error")
+    call parse_input_variable(zeta_restart_init,"zeta_restart_init",INPUTunit,default=.true.,comment="Restart the Zeta convergence loop from init Z_0 [T] or not (F)")
+    call parse_input_variable(loop_tolerance,"loop_tolerance",INPUTunit,default=1d-6,comment="Tolerance on the loop convergence error")
+    call parse_input_variable(loop_wmix,"loop_wmix",INPUTunit,default=1d0,comment="Weight for the linear or Broyden mixing procedure")
     ! call parse_input_variable(loop_nmix,"loop_nmix",INPUTunit,default=0,comment="Mixing number in the Broyden procedure. 0=linear mix [default]")
-    ! call parse_input_variable(loop_wmix,"loop_wmix",INPUTunit,default=1d0,comment="Weight for the linear or Broyden mixing procedure")
     ! call parse_input_variable(loop_mixtype,"loop_MixType",INPUTunit,default="broyden",comment="Type of mixing procedure: linear, adaptive, broyden [default]")
     ! call parse_input_variable(loop_Nitermax,"loop_Nitermax",INPUTunit,default=100,comment="Max number of iterations in the zeta convergence loop")
-    ! call parse_input_variable(zeta_restart_init,"zeta_restart_init",INPUTunit,default=.true.,comment="Restart the Zeta convergence loop from init Z_0 [T] or not (F)")
+
     call parse_input_variable(Lmats,"LMATS",INPUTunit,default=1000,comment="Number of Matsubara frequencies.")
     call parse_input_variable(Lreal,"LREAL",INPUTunit,default=1000,comment="Number of real-axis frequencies.")
     call parse_input_variable(wini,"WINI",INPUTunit,default=-5.d0,comment="Smallest real-axis frequency")
