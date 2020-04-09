@@ -14,6 +14,8 @@ program ss_LaOFeAs
   complex(8),dimension(:,:),allocatable   :: Hloc
   real(8),allocatable                     :: Dens(:),Zeta(:), Self(:)
   character(len=20)                       :: w90file,InputFile
+  real(8)                                 :: ef
+
 
   call parse_cmd_variable(InputFile,"INPUTFILE",default="inputLaOFeAs.conf")
   call parse_input_variable(w90file,"w90file",InputFile,default="pwscf_LaOFeAs.w90")
@@ -38,6 +40,7 @@ program ss_LaOFeAs
 
   !METHOD 1 (setup W90 --> use internal W90 model)
   call TB_w90_setup(reg(w90file),nlat=Nlat,nspin=Nspin,norb=Norb)
+  call TB_w90_FermiLevel([Nkx,Nkx,Nkx],dble(Nlso),Ef)
 
   !SOLVE AND PLOT THE FULLY HOMOGENOUS PROBLEM:
   Nktot=Nkx*Nkx*Nkx ;   write(*,*) "Using Nk_total="//txtfy(Nktot)
@@ -82,7 +85,7 @@ program ss_LaOFeAs
   call TB_Solve_model(TB_w90_model,Nlso,kpath,Nkpath,&
        colors_name=[green,red,blue,green,green,green,red,blue,green,green],&
        points_name=[character(len=40) ::'M', 'R', 'G', 'X', 'M', 'G', 'Z','A', 'R'],&
-       file="zEigenband_LaOFeAs",iproject=.true.)
+       file="zBands_LaOFeAs",iproject=.true.)
 
 
   call TB_w90_delete()

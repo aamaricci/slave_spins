@@ -7,7 +7,7 @@ MODULE SS_SOLVE_MAIN
   !
   USE SF_PAULI
   USE SF_TIMER, only: start_timer,stop_timer
-  USE SF_OPTIMIZE, only: broyden1,fsolve,leastsq
+  USE SF_OPTIMIZE, only: broyden1,fsolve,leastsq,fmin_cg
   !
   implicit none
   private
@@ -29,6 +29,8 @@ contains
     real(8),dimension(2*Niso+1)  :: params1
     real(8),dimension(Niso+1)    :: apar1
     real(8),dimension(Nineq*Nss) :: lambda,zeta
+    integer :: iter
+    real(8) :: chi
     !
     ! call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",[ss_lambda,ss_zeta,xmu])
     !
@@ -71,6 +73,16 @@ contains
        else
           call leastsq(ss_solve_least,apar1,m=2*Niso+1,tol=solve_tolerance)
        end if
+       !
+    case ("conjg")
+       params  = [lambda(:Niso),zeta(:Niso)]
+       params1 = [params,xmu] 
+       if(filling==0d0)then
+          call fmin_cg(params, ss_solve_cg, iter, chi)!, itmax=Niter, ftol=solve_tolerance)
+       else
+          call fmin_cg(params1,ss_solve_cg, iter, chi)!, itmax=Niter, ftol=solve_tolerance)
+       end if
+       if(verbose>1)write(*,"(A,ES18.9,1x,I5)")"Chi^2_fss|iter:",chi,"|",iter
        !
     case default
        write(*,*)"ERROR in ss_solve(): no solve_method named as input *"//str(solve_method)//"*"
@@ -183,6 +195,92 @@ contains
   end function ss_solve_full
 
 
+  function ss_solve_cg(aparams) result(chi2)
+    real(8),dimension(:)             :: aparams !2*Nlso[+1]
+    real(8),dimension(size(aparams)) :: fss
+    real(8)                          :: chi2
+    logical                          :: bool
+    integer                          :: ilat,ineq,io,il,iorb,ispin
+    real(8),dimension(Nineq,Nss)     :: TmpZeta
+    real(8),dimension(Nineq*Nss)     :: lambda,zeta,sz,Dens,zeta_prev
+    !
+    bool = (size(aparams)==2*Niso+1)
+    !
+    siter = siter+1
+    if(verbose>2)call start_loop(siter,Niter,"FSOLVE-iter")
+    !
+    !< extract the input for ineq. sites
+    lambda(:Niso) = aparams(1:Niso)
+    zeta(:Niso)   = aparams(Niso+1:2*Niso)
+    if(bool)xmu   = aparams(2*Niso+1)
+    if(Nspin==1)then
+       call ss_spin_symmetry(lambda,Nineq)
+       call ss_spin_symmetry(zeta,Nineq)
+    endif
+    ss_lambda_ineq = ss_unpack_array(lambda,Nineq)
+    ss_zeta_ineq   = ss_unpack_array(zeta,Nineq)
+    !
+    !< propagate input to all sites
+    do ilat=1,Nlat
+       ineq = ss_ilat2ineq(ilat)
+       ss_lambda(ilat,:) = ss_lambda_ineq(ineq,:)
+       ss_zeta(ilat,:)   = ss_zeta_ineq(ineq,:)
+    enddo
+    !
+    !< store parameters:
+    call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",&
+         [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_zeta,Nlat), xmu])
+    !
+    !< save input zeta 
+    zeta_prev = ss_pack_array(ss_zeta_ineq,Nineq)
+    TmpZeta   = ss_zeta_ineq
+    !
+    !< Solve Fermions:
+    call ss_solve_fermions    
+    !
+    !< Solve Spins:
+    do ineq=1,Nineq
+       call ss_solve_spins(ineq)
+    enddo
+    do ilat=1,Nlat
+       ineq = ss_ilat2ineq(ilat)
+       ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
+       ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
+       ss_Zeta(ilat,:)     = ss_Zeta_ineq(ineq,:)
+       ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
+    enddo
+    if(Nspin==1)call ss_spin_symmetry(ss_zeta,Nlat)
+    !
+    ! < Constraint:
+    do ineq=1,Nineq
+       ilat = ss_ineq2ilat(ineq)
+       ss_Dens_ineq(ineq,:) = ss_Dens(ilat,:)
+    enddo
+    Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
+    Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
+    Zeta    = ss_pack_array(ss_zeta_ineq,Nineq)
+    !
+    fss(1:Niso)           = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
+    fss(Niso+1:2*Niso)    = abs(zeta(1:Niso) - zeta_prev(1:Niso))
+    if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
+    !
+    chi2 = sum(abs(Fss)**2)/size(Fss)
+    print*,chi2
+    !
+    call ss_print_screen
+    if(verbose>1)then
+       write(*,"(A11,50G18.9)")"F_cnstr   =",fss(1:Niso)
+       write(*,"(A11,50G18.9)")"F_zeta    =",fss(Niso+1:2*Niso)
+       if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(2*Niso+1)
+       write(*,*)""
+    end if
+    !
+    if(verbose>2)call end_loop()
+    !
+    call ss_write_last()
+    !
+    if(siter>=Niter)stop "SS_SOLVE_FULL warning: iter > Niter"
+  end function ss_solve_cg
 
 
 
