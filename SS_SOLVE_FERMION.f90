@@ -30,9 +30,9 @@ contains
     complex(8),dimension(Ns,Ns) :: diagZ,diagR
     complex(8),dimension(Ns,Ns) :: rhoK
     real(8),dimension(Ns)       :: sq_zeta
-    real(8),dimension(Ns)       :: lambda,lambda0,dens,weiss,const,zeta
+    real(8),dimension(Ns)       :: lambda,lambda0,dens,weiss,const,zeta,Op
     real(8),dimension(Ns)       :: rhoDiag
-    integer                     :: ik
+    integer                     :: ik,i,j
     real(8),dimension(Nlat,Nss) :: TmpDens
     !
     if(Nspin==1)then
@@ -40,13 +40,13 @@ contains
        call ss_spin_symmetry(ss_lambda,Nlat)
     endif
     !
-    lambda  = ss_pack_array(ss_lambda,Nlat)
-    lambda0 = ss_pack_array(ss_lambda0,Nlat)
-    zeta    = ss_pack_array(ss_zeta,Nlat)
+    lambda  = ss_pack_array(ss_Lambda,Nlat)
+    lambda0 = ss_pack_array(ss_Lambda0,Nlat)
+    zeta    = ss_pack_array(ss_Zeta,Nlat)
+    Op      = ss_pack_array(ss_Op,Nlat)
     if(any(zeta<0d0))then
-       if(sum(abs(zeta))< 10*solve_tolerance)then
-          zeta=0d0
-       elseif(sum(abs(zeta)) > 1d-1)then
+       where(abs(zeta)< 10*solve_tolerance)zeta=0d0
+       if(sum(abs(zeta)) > 1d-1)then
           print*,"WARNING:",zeta
           zeta=abs(zeta)
           ! stop "ERROR in ss_solve_fermions: any(ss_zeta)<0"
@@ -56,11 +56,13 @@ contains
     endif
     sq_zeta = sqrt(zeta)
     diagZ   = diag(sq_zeta)
+    ! diagZ = diag(Op)
     !
     Eweiss  = 0d0
     dens    = 0d0
     do ik = 1,Nk 
        Hk_f   = (diagZ .x. ss_Hk(:,:,ik)) .x. diagZ
+       !forall(i=1:Ns,j=1:Ns)Hk_f(i,j) = Op(i)*ss_Hk(i,j,ik)*Op(j) !(diagZ .x. ss_Hk(:,:,ik)) .x. diagZ
        Uk_f   = Hk_f + ss_Hloc - xmu*eye(Ns)  - diag(lambda) + diag(lambda0)
        call eigh(Uk_f,Ek_f)
        diagR  = diag(step_fermi(Ek_f))
