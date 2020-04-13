@@ -12,7 +12,6 @@ MODULE SS_SOLVE_SPIN
 
 
   complex(8),allocatable,dimension(:,:),target :: ss_Evecs
-  real(8),allocatable,dimension(:,:),target    :: dd_Evecs
   real(8),allocatable,dimension(:)             :: ss_Evals
   integer                                      :: ss_Ndegen
   !
@@ -38,14 +37,14 @@ contains
 
 
   subroutine ss_solve_spins(ineq)
-    integer                :: ineq,ilat,i
+    integer :: ineq,ilat
+    integer :: Nstate
     !
     Ndim = 2**Nss
     !
     if(lanc_solve)then
        allocate(Ss_Evals(lanc_Neigen))
        allocate(Ss_Evecs(Ndim,lanc_Neigen))
-       ! allocate(dd_Evecs(Ndim,lanc_Neigen))
     else
        allocate(Ss_Evals(Ndim))
        allocate(Ss_Evecs(Ndim,Ndim))
@@ -72,7 +71,6 @@ contains
     !
     call sp_init_matrix(spHs,Ndim)
     !
-    ss_Ndegen=1
     !
     !Build spin Hamiltonian and write it onto ss_Evecs
     if(verbose>2)call start_timer
@@ -80,25 +78,25 @@ contains
     if(verbose>2)call stop_timer("ss_build_Hs")
     if(verbose>2)call start_timer
     if(lanc_solve)then
-       ! call sp_eigh(spMatVec_dd,ss_Evals,dd_Evecs,iverbose=(verbose>3));ss_evecs=dd_evecs
        call sp_eigh(spMatVec_cc,ss_Evals,ss_Evecs,iverbose=(verbose>5))
-       do istate=2,lanc_Neigen
-          if(abs(Ss_Evals(istate)-Ss_Evals(1))<= 1d-10)ss_Ndegen=ss_Ndegen+1
-       end do
-
+       Nstate = lanc_Neigen
     else
        call sp_dump_matrix(spHs,ss_Evecs) !dimensions check is done internally
        call eigh(Ss_Evecs,Ss_Evals)
-       do istate=2,Ns
-          if(abs(Ss_Evals(istate)-Ss_Evals(1))<= 1d-10)ss_Ndegen=ss_Ndegen+1
-       end do
+       Nstate=Ndim
     endif
+    if(verbose>2)call stop_timer("eigh")
+    !
+    ss_Ndegen=1
+    do istate=2,Nstate
+       if(abs(Ss_Evals(istate)-Ss_Evals(1))<= 1d-10)ss_Ndegen=ss_Ndegen+1
+    end do
+    zeta_function = dble(ss_Ndegen)
     !
     call sp_delete_matrix(spHs)
     !
-    if(verbose>2)call stop_timer("eigh")
+
     !
-    zeta_function = dble(ss_Ndegen)
     !
     !< Get <Sz> and <O>, <O+>
     if(verbose>2)call start_timer
