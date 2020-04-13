@@ -19,7 +19,6 @@ MODULE SS_SOLVE_SPIN
   real(8),dimension(:),allocatable          :: ii_c
   real(8),dimension(:),allocatable          :: ii_Sz
   real(8),dimension(:),allocatable          :: ii_Op
-  real(8),dimension(:),allocatable          :: ii_Zeta
   real(8),dimension(:,:,:),allocatable      :: ii_SzSz
   !
   integer                                   :: Ndim
@@ -33,7 +32,7 @@ contains
 
   subroutine ss_solve_spins(ineq)
     integer                :: ineq,ilat
-    real(8),dimension(Nss) :: avSz,avOO,avZeta
+    real(8),dimension(Nss) :: avSz,avOO
     !
     Ndim = 2**Nss
     !
@@ -50,7 +49,6 @@ contains
     allocate(ii_c(Nss))
     allocate(ii_Sz(Nss))
     allocate(ii_Op(Nss))
-    allocate(ii_Zeta(Nss))
     allocate(ii_SzSz(4,Norb,Norb))
     !
     ii_Lambda = ss_Lambda(ilat,:)
@@ -67,18 +65,23 @@ contains
     end do
     zeta_function = dble(ss_Ndegen)
     !
-    !< Get <Sz> and <O>--> Z=<O>**2
+    !< Get <Sz> and <O>, <O+> 
     call ss_Spin_observables()
+    !
     !< Get Sz-Sz correlations:
     call ss_SpinSpin_correlations()
+    !
     !< Copy back into main arrays ss_XYZ at proper position
     ss_Sz_ineq(ineq,:) = ii_Sz
     ss_Op_ineq(ineq,:) = ii_Op
-    ss_Zeta_ineq(ineq,:) = ii_Zeta
     ss_SzSz_ineq(ineq,:,:,:) = ii_SzSz
+    if(Nspin==1)then
+       call ss_spin_symmetry(ss_Sz_ineq,Nineq)
+       call ss_spin_symmetry(ss_Op_ineq,Nineq)
+    endif
     !
     deallocate(ii_lambda,ii_Weiss,ii_c)
-    deallocate(ii_Sz,ii_Op,ii_Zeta,ii_SzSz)
+    deallocate(ii_Sz,ii_Op,ii_SzSz)
     deallocate(ss_Evecs,ss_Evals)
     !
   end subroutine ss_solve_spins
@@ -130,15 +133,15 @@ contains
        !Non-diagonal elements:
        !< sum_{m,s} h_{m,s} * [c S^+_{m,s} + S^-_{m,s}] + H.c.
        do io=1,Nss
-          if(Sz(io)/=0.5d0)cycle
-          call Sminus(io,Istate,Jstate)
-          htmp = ii_Weiss(io)
-          call sp_insert_element(spHs,htmp,Istate,Jstate)
-       enddo
-       do io=1,Nss
           if(Sz(io)/=-0.5d0)cycle
           call Splus(io,Istate,Jstate)
           htmp = ii_c(io)*ii_Weiss(io)
+          call sp_insert_element(spHs,htmp,Istate,Jstate)
+       enddo
+       do io=1,Nss
+          if(Sz(io)/=0.5d0)cycle
+          call Sminus(io,Istate,Jstate)
+          htmp = ii_Weiss(io)
           call sp_insert_element(spHs,htmp,Istate,Jstate)
        enddo
        !
@@ -197,7 +200,6 @@ contains
           !
        enddo
     enddo
-    ii_zeta = ii_Op**2
   end subroutine ss_Spin_observables
 
 

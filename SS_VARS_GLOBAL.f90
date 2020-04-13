@@ -25,7 +25,7 @@ MODULE SS_VARS_GLOBAL
   real(8),dimension(:,:),allocatable      :: ss_dens   ,ss_dens_ineq
   real(8),dimension(:,:),allocatable      :: ss_lambda0,ss_lambda0_ineq 
   real(8),dimension(:,:),allocatable      :: ss_lambda ,ss_lambda_ineq 
-  real(8),dimension(:,:),allocatable      :: ss_zeta   ,ss_zeta_ineq
+  ! real(8),dimension(:,:),allocatable      :: ss_zeta   ,ss_zeta_ineq
   real(8),dimension(:,:),allocatable      :: ss_Sz     ,ss_Sz_ineq
   real(8),dimension(:,:),allocatable      :: ss_Op     ,ss_Op_ineq  
   real(8),dimension(:,:,:,:),allocatable  :: ss_SzSz   ,ss_SzSz_ineq

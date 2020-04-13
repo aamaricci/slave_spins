@@ -20,7 +20,7 @@ MODULE SS_SOLVE_MAIN
   integer,save                       :: siter=0
   integer                            :: iorb,ispin,ilat,ineq,io,il
   real(8),dimension(:,:),allocatable :: ss_lambda_init
-  real(8),dimension(:,:),allocatable :: ss_zeta_init
+  real(8),dimension(:,:),allocatable :: ss_Op_init
 
 contains
 
@@ -31,27 +31,25 @@ contains
     real(8),dimension(Niso)      :: apar
     real(8),dimension(2*Niso+1)  :: params1
     real(8),dimension(Niso+1)    :: apar1
-    real(8),dimension(Nineq*Nss) :: lambda,zeta
-    integer :: iter
-    real(8) :: chi
-    !
-    ! call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",[ss_lambda,ss_zeta,xmu])
+    real(8),dimension(Nineq*Nss) :: lambda,Op
+    integer                      :: iter
+    real(8)                      :: chi
     !
     !< Reduce parameters to Inequivalent sites only:
     do ineq=1,Nineq
        ilat = ss_ineq2ilat(ineq)
        ss_lambda_ineq(ineq,:) = ss_lambda(ilat,:)
-       ss_zeta_ineq(ineq,:)   = ss_zeta(ilat,:)
+       ss_Op_ineq(ineq,:)     = ss_Op(ilat,:)
     enddo
     !< Pack array:
     lambda =  ss_pack_array(ss_lambda_ineq,Nineq)
-    zeta   =  ss_pack_array(ss_zeta_ineq,Nineq)
+    Op     =  ss_pack_array(ss_Op_ineq,Nineq)
     !
     allocate(ss_lambda_init(Nineq,Nss));ss_lambda_init=ss_lambda_ineq
-    allocate(ss_zeta_init(Nineq,Nss))  ;ss_zeta_init  =ss_zeta_ineq
+    allocate(ss_Op_init(Nineq,Nss))  ;ss_Op_init  =ss_Op_ineq
     !
-    params  = [lambda(:Niso),zeta(:Niso)]
-    params1 = [xmu,params]
+    params  = [lambda(:Niso),Op(:Niso)]
+    params1 = [params,xmu]
     !
     apar  = [lambda(:Niso)]
     apar1 = [apar,xmu]
@@ -101,7 +99,6 @@ contains
        else
           call fsolve(ss_solve_gg,apar1,tol=solve_tolerance)
        endif
-
        !
     case default
        write(*,*)"ERROR in ss_solve(): no solve_method named as input *"//str(solve_method)//"*"
@@ -112,7 +109,7 @@ contains
     !
     !< store parameters:
     call save_array(trim(Pfile)//trim(ss_file_suffix)//".restart",&
-         [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_zeta,Nlat), xmu])
+         [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
     call ss_write_last()
     !
@@ -124,55 +121,51 @@ contains
 
 
 
-
-  !< solve the SS problem by optimizing the parameter vector X=[lambda,Z{,xmu}]
-  !  with the conditions:
-  !  n - Sz -1/2 =0
-  !  z_i - z_{i-1}=0
-  !  {n - filling=0}
+  !
+  !< Solve F(x)=0, w/ F:\RRR^{2Nlso+1}--->\RRR^{2Nlso+1}.
+  ! used in: FSOLVE, BROYDEN
   function ss_solve_full(aparams) result(fss)
     real(8),dimension(:),intent(in)  :: aparams !2*Nlso[+1]
     real(8),dimension(size(aparams)) :: fss
     logical                          :: bool
-    integer                          :: ilat,ineq,io,il,iorb,ispin,istart
-    real(8),dimension(Nineq,Nss)     :: TmpZeta
-    real(8),dimension(Nineq*Nss)     :: lambda,zeta,sz,Dens,zeta_prev
+    integer                          :: ilat,ineq,io,il,iorb,ispin
+    real(8),dimension(Nineq,Nss)     :: TmpOp
+    real(8),dimension(Nineq*Nss)     :: lambda,Op,sz,Dens,Op_prev
     !
     bool = (size(aparams)==2*Niso+1)
-    istart=0 ; if(bool)istart=1
     !
     siter = siter+1
     if(verbose>2)call start_loop(siter,Niter,"FSOLVE-iter")
     !
     !< extract the input for ineq. sites
-    if(bool)xmu   = aparams(istart)
-    lambda(:Niso) = aparams(istart+1:istart+Niso)
-    zeta(:Niso)   = aparams(istart+Niso+1:istart+2*Niso)
-
-    ! lambda(:Niso) = aparams(1:Niso)
-    ! zeta(:Niso)   = aparams(Niso+1:2*Niso)
-    ! if(bool)xmu   = aparams(2*Niso+1)
+    lambda(:Niso) = aparams(1:Niso)
+    Op(:Niso)     = aparams(Niso+1:2*Niso)
+    if(bool)xmu   = aparams(2*Niso+1)
+    !
+    !< Symmetrize:
     if(Nspin==1)then
-       call ss_spin_symmetry(lambda,Nineq)
-       call ss_spin_symmetry(zeta,Nineq)
+       call ss_spin_symmetry(ss_lambda,Nlat)
+       call ss_spin_symmetry(ss_Op,Nlat)
     endif
+    !
+    !< Map onto ineq. arrays
     ss_lambda_ineq = ss_unpack_array(lambda,Nineq)
-    ss_zeta_ineq   = ss_unpack_array(zeta,Nineq)
+    ss_Op_ineq     = ss_unpack_array(Op,Nineq)
     !
     !< propagate input to all sites
     do ilat=1,Nlat
        ineq = ss_ilat2ineq(ilat)
        ss_lambda(ilat,:) = ss_lambda_ineq(ineq,:)
-       ss_zeta(ilat,:)   = ss_zeta_ineq(ineq,:)
+       ss_Op(ilat,:)     = ss_Op_ineq(ineq,:)
     enddo
     !
     !< store parameters:
     call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",&
-         [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_zeta,Nlat), xmu])
+         [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
-    !< save input zeta 
-    zeta_prev = ss_pack_array(ss_zeta_ineq,Nineq)
-    TmpZeta   = ss_zeta_ineq
+    !< save input
+    Op_prev = ss_pack_array(ss_Op_ineq,Nineq)
+    TmpOp   = ss_Op_ineq
     !
     !< Solve Fermions:
     call ss_solve_fermions    
@@ -185,10 +178,8 @@ contains
        ineq = ss_ilat2ineq(ilat)
        ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
        ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
-       ss_Zeta(ilat,:)     = ss_Zeta_ineq(ineq,:)
        ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
     enddo
-    if(Nspin==1)call ss_spin_symmetry(ss_zeta,Nlat)
     !
     ! < Constraint:
     do ineq=1,Nineq
@@ -197,22 +188,17 @@ contains
     enddo
     Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
     Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
-    Zeta    = ss_pack_array(ss_zeta_ineq,Nineq)
+    Op      = ss_pack_array(ss_Op_ineq,Nineq)
     !
-    if(bool)fss(istart) = sum(ss_dens) - filling
-    fss(istart+1:istart+Niso)           = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
-    fss(istart+Niso+1:istart+2*Niso)    = zeta(1:Niso) - zeta_prev(1:Niso)
+    fss(1:Niso)           = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
+    fss(Niso+1:2*Niso)    = Op(1:Niso) - Op_prev(1:Niso)
+    if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
     !
-    ! fss(1:Niso)           = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
-    ! fss(Niso+1:2*Niso)    = zeta(1:Niso) - zeta_prev(1:Niso)
-    ! if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
-
-    !
-    call ss_print_screen(TmpZeta)
+    call ss_print_screen(TmpOp)
     if(verbose>1)then
-       write(*,"(A11,50G18.9)")"F_cnstr   =",fss(istart+1:istart+Niso)
-       write(*,"(A11,50G18.9)")"F_zeta    =",fss(istart+Niso+1:istart+2*Niso)
-       if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(istart)!fss(2*Niso+1)
+       write(*,"(A11,50G18.9)")"F_cnstr   =",fss(1:Niso)
+       write(*,"(A11,50G18.9)")"F_Op      =",fss(Niso+1:2*Niso)
+       if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(2*Niso+1)
        write(*,*)""
     end if
     !
@@ -224,14 +210,22 @@ contains
   end function ss_solve_full
 
 
+
+
+
+
+
+  !
+  !< Solve F(x)=0, w/ F:\RRR^{2Nlso+1}--->\RRR
+  ! used in: CONJUGATE GRADIENT FMIN
   function ss_solve_cg(aparams) result(chi2)
     real(8),dimension(:)             :: aparams !2*Nlso[+1]
     real(8),dimension(size(aparams)) :: fss
     real(8)                          :: chi2
     logical                          :: bool
     integer                          :: ilat,ineq,io,il,iorb,ispin
-    real(8),dimension(Nineq,Nss)     :: TmpZeta
-    real(8),dimension(Nineq*Nss)     :: lambda,zeta,sz,Dens,zeta_prev
+    real(8),dimension(Nineq,Nss)     :: TmpOp
+    real(8),dimension(Nineq*Nss)     :: lambda,Op,sz,Dens,Op_prev
     !
     bool = (size(aparams)==2*Niso+1)
     !
@@ -240,29 +234,33 @@ contains
     !
     !< extract the input for ineq. sites
     lambda(:Niso) = aparams(1:Niso)
-    zeta(:Niso)   = aparams(Niso+1:2*Niso)
+    Op(:Niso)     = aparams(Niso+1:2*Niso)
     if(bool)xmu   = aparams(2*Niso+1)
+    !
+    !< Symmetrize:
     if(Nspin==1)then
-       call ss_spin_symmetry(lambda,Nineq)
-       call ss_spin_symmetry(zeta,Nineq)
+       call ss_spin_symmetry(ss_lambda,Nlat)
+       call ss_spin_symmetry(ss_Op,Nlat)
     endif
+    !
+    !< Map onto ineq. arrays
     ss_lambda_ineq = ss_unpack_array(lambda,Nineq)
-    ss_zeta_ineq   = ss_unpack_array(zeta,Nineq)
+    ss_Op_ineq     = ss_unpack_array(Op,Nineq)
     !
     !< propagate input to all sites
     do ilat=1,Nlat
        ineq = ss_ilat2ineq(ilat)
        ss_lambda(ilat,:) = ss_lambda_ineq(ineq,:)
-       ss_zeta(ilat,:)   = ss_zeta_ineq(ineq,:)
+       ss_Op(ilat,:)     = ss_Op_ineq(ineq,:)
     enddo
     !
     !< store parameters:
     call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",&
-         [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_zeta,Nlat), xmu])
+         [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
-    !< save input zeta 
-    zeta_prev = ss_pack_array(ss_zeta_ineq,Nineq)
-    TmpZeta   = ss_zeta_ineq
+    !< save input  
+    Op_prev = ss_pack_array(ss_Op_ineq,Nineq)
+    TmpOp   = ss_Op_ineq
     !
     !< Solve Fermions:
     call ss_solve_fermions    
@@ -275,10 +273,8 @@ contains
        ineq = ss_ilat2ineq(ilat)
        ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
        ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
-       ss_Zeta(ilat,:)     = ss_Zeta_ineq(ineq,:)
        ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
     enddo
-    if(Nspin==1)call ss_spin_symmetry(ss_zeta,Nlat)
     !
     ! < Constraint:
     do ineq=1,Nineq
@@ -287,18 +283,18 @@ contains
     enddo
     Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
     Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
-    Zeta    = ss_pack_array(ss_zeta_ineq,Nineq)
+    Op      = ss_pack_array(ss_Op_ineq,Nineq)
     !
     fss(1:Niso)           = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
-    fss(Niso+1:2*Niso)    = abs(zeta(1:Niso) - zeta_prev(1:Niso))
+    fss(Niso+1:2*Niso)    = Op(1:Niso) - Op_prev(1:Niso)
     if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
     !
     chi2 = sum(abs(Fss)**2)/size(Fss)
     !
-    call ss_print_screen(TmpZeta)
+    call ss_print_screen(TmpOp)
     if(verbose>1)then
        write(*,"(A11,50G18.9)")"F_cnstr   =",fss(1:Niso)
-       write(*,"(A11,50G18.9)")"F_zeta    =",fss(Niso+1:2*Niso)
+       write(*,"(A11,50G18.9)")"F_Op      =",fss(Niso+1:2*Niso)
        if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(2*Niso+1)
        write(*,*)""
     end if
@@ -312,14 +308,20 @@ contains
 
 
 
+
+
+
+  !
+  !< Solve F(x)=0, w/ F:\RRR^{Nlso+1}--->\RRR^{2Nlso+1}.
+  ! used in: LEASTSQ
   function ss_solve_least(aparams,m) result(fss)
     real(8),dimension(:)         :: aparams
     integer                      :: m
     real(8),dimension(m)         :: fss
     logical                      :: bool
     integer                      :: ilat,ineq,io,il,iorb,ispin
-    real(8),dimension(Nineq,Nss) :: TmpZeta
-    real(8),dimension(Nineq*Nss) :: lambda,zeta,sz,Dens,zeta_prev
+    real(8),dimension(Nineq,Nss) :: TmpOp
+    real(8),dimension(Nineq*Nss) :: lambda,Op,sz,Dens,Op_prev
     !
     bool = (size(aparams)==Niso+1)
     !
@@ -329,23 +331,27 @@ contains
     !< extract the input for ineq. sites
     lambda(:Niso) = aparams(1:Niso)
     if(bool)xmu   = aparams(Niso+1)
-    if(Nspin==1)call ss_spin_symmetry(lambda,Nineq)
+    !
+    !< Symmetrize:
+    if(Nspin==1)call ss_spin_symmetry(ss_lambda,Nlat)
+    !
+    !< Map onto ineq. arrays
     ss_lambda_ineq = ss_unpack_array(lambda,Nineq)
     !
     !< propagate input to all sites
     do ilat=1,Nlat
        ineq = ss_ilat2ineq(ilat)
        ss_lambda(ilat,:) = ss_lambda_ineq(ineq,:)
-       ss_zeta(ilat,:)   = ss_zeta_ineq(ineq,:) !from prev. loop
+       ss_Op(ilat,:)     = ss_Op_ineq(ineq,:) !From previous loop
     enddo
     !
     !< store parameters:
     call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",&
-         [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_zeta,Nlat), xmu])
+         [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
-    !< save input zeta 
-    zeta_prev = ss_pack_array(ss_zeta_ineq,Nineq)
-    TmpZeta   = ss_zeta_ineq
+    !< save input  
+    Op_prev = ss_pack_array(ss_Op_ineq,Nineq)
+    TmpOp   = ss_Op_ineq
     !
     !< Solve Fermions:
     call ss_solve_fermions    
@@ -358,10 +364,8 @@ contains
        ineq = ss_ilat2ineq(ilat)
        ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
        ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
-       ss_Zeta(ilat,:)     = ss_Zeta_ineq(ineq,:)
        ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
     enddo
-    if(Nspin==1)call ss_spin_symmetry(ss_zeta,Nlat)
     !
     ! < Constraint:
     do ineq=1,Nineq
@@ -370,16 +374,16 @@ contains
     enddo
     Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
     Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
-    Zeta    = ss_pack_array(ss_zeta_ineq,Nineq)
+    Op      = ss_pack_array(ss_Op_ineq,Nineq)
     !
     fss(1:Niso)           = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
-    fss(Niso+1:2*Niso)    = abs(zeta(1:Niso) - zeta_prev(1:Niso))
+    fss(Niso+1:2*Niso)    = Op(1:Niso)   - Op_prev(1:Niso)
     if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
     !
-    call ss_print_screen(TmpZeta)
+    call ss_print_screen(TmpOp)
     if(verbose>1)then
        write(*,"(A11,50G18.9)")"F_cnstr   =",fss(1:Niso)
-       write(*,"(A11,50G18.9)")"F_zeta    =",fss(Niso+1:2*Niso)
+       write(*,"(A11,50G18.9)")"F_Op      =",fss(Niso+1:2*Niso)
        if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(2*Niso+1)
        write(*,*)""
     end if
@@ -388,7 +392,7 @@ contains
     !
     call ss_write_last()
     !
-    if(siter>=Niter)stop "SS_SOLVE_FULL warning: iter > Niter"
+    if(siter>=Niter)stop "SS_SOLVE_LEASTSQ warning: iter > Niter"
   end function ss_solve_least
 
 
@@ -397,31 +401,42 @@ contains
 
 
 
+
+
+
+
+
+  !
+  !< Solve G(x)=0, w/ G:\RRR^{Nlso+1}--->\RRR^{Nlso+1}.
+  ! used in: FSOLVE, BROYDEN, with G!=F and with an internal
+  ! Z-loop
   function ss_solve_gg(aparams) result(fss)
     real(8),dimension(:),intent(in)  :: aparams
     real(8),dimension(size(aparams)) :: fss
     integer                          :: iter,Nsuccess=0
     logical                          :: z_converged,bool
-    real(8),dimension(Nineq*Nss)     :: lambda,zeta,sz,Dens,zeta_prev,Fzeta
+    real(8),dimension(Nineq*Nss)     :: lambda,Op,sz,Dens,Op_prev
     !
     bool = size(aparams)==Niso+1
     !
     ! > Retrieve ss_lambda:
     lambda(:Niso) = aparams(1:Niso)
     if(bool)xmu   = aparams(Niso+1)
-    if(Nspin==1)call ss_spin_symmetry(lambda,Nineq)
+    !
+    !< Symmetrize:
+    if(Nspin==1)call ss_spin_symmetry(ss_lambda,Nlat)
+    !
+    !< Map onto ineq. arrays
     ss_lambda_ineq = ss_unpack_array(lambda,Nineq)
+    if(restart_init)ss_Op_ineq = ss_Op_init
+    !
+    !< propagate input to all sites
     do ilat=1,Nlat
        ineq = ss_ilat2ineq(ilat)
        ss_lambda(ilat,:) = ss_lambda_ineq(ineq,:)
+       ss_Op(ilat,:)     = ss_Op_ineq(ineq,:)
     enddo
     !
-    !> Retrieve starting ss_zeta:
-    if(zeta_restart_init)ss_zeta_ineq = ss_zeta_init
-    do ilat=1,Nlat
-       ineq = ss_ilat2ineq(ilat)
-       ss_zeta(ilat,:)   = ss_zeta_ineq(ineq,:)
-    enddo
     !
     !> Solve:
     if(verbose>2)call start_timer()
@@ -430,7 +445,7 @@ contains
        iter=iter+1
        call start_loop(iter,Niter,"Z-iter")
        !
-       zeta_prev = ss_pack_array(ss_zeta_ineq,Nineq)
+       Op_prev = ss_pack_array(ss_Op_ineq,Nineq)
        !
        !< Solve Fermions:
        call ss_solve_fermions   
@@ -443,10 +458,8 @@ contains
           ineq = ss_ilat2ineq(ilat)
           ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
           ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
-          ss_Zeta(ilat,:)     = ss_Zeta_ineq(ineq,:)
           ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
        enddo
-       if(Nspin==1)call ss_spin_symmetry(ss_zeta,Nlat)
        !
        do ineq=1,Nineq
           ilat = ss_ineq2ilat(ineq)
@@ -454,24 +467,13 @@ contains
        enddo
        Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
        Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
-       Zeta    = ss_pack_array(ss_zeta_ineq,Nineq)
+       Op      = ss_pack_array(ss_Op_ineq,Nineq)
        !
        call ss_print_screen
        !
-       zeta = loop_Wmix*zeta + (1d0-loop_Wmix)*zeta_prev
+       Op = loop_Wmix*Op + (1d0-loop_Wmix)*Op_prev
        !
-       ! Fzeta= zeta - zeta_prev
-       !
-       ! select case(loop_MixType)
-       ! case ("linear")            
-       !    call linear_mix(zeta,Fzeta,loop_Wmix)
-       ! case ("adaptive")
-       !    call adaptive_mix(zeta,Fzeta,loop_Wmix,iter)
-       ! case default
-       !    call broyden_mix(zeta,Fzeta,loop_Wmix,loop_Nmix,iter)
-       ! end select
-       !
-       z_converged = check_convergence(zeta-zeta_prev,loop_tolerance,Nsuccess,Niter)
+       z_converged = check_convergence(Op-Op_prev,loop_tolerance,Nsuccess,Niter)
        call end_loop() 
     end do
     !
@@ -497,8 +499,15 @@ contains
 
 
 
-  subroutine ss_print_screen(TmpZeta)
-    real(8),dimension(Nineq,Nss),optional :: TmpZeta
+  !##################################################################
+  !
+  !                     AUXILIARY FUNCTIONS
+  !
+  !##################################################################
+
+
+  subroutine ss_print_screen(TmpOp)
+    real(8),dimension(Nineq,Nss),optional :: TmpOp
     if(verbose>1)then
        do ineq=1,Nineq
           ilat = ss_ineq2ilat(ineq)
@@ -512,9 +521,9 @@ contains
           write(*,"(A7,12G18.9)")"Sz    =",ss_Sz_ineq(ineq,:Nspin*Norb)
           write(*,"(A7,12G18.9)")"Lambda=",ss_lambda_ineq(ineq,:Nspin*Norb)
           if(verbose>3)write(*,"(A7,12G18.9)")"Op    =",ss_Op_ineq(ineq,:Nspin*Norb)
-          if(verbose>4.AND.present(TmpZeta))&
-               write(*,"(A7,12G18.9)")"Z_prev=",TmpZeta(ineq,:Nspin*Norb)
-          write(*,"(A7,12G18.9)")"Z_ss  =",ss_zeta_ineq(ineq,:Nspin*Norb)
+          if(verbose>4.AND.present(TmpOp))&
+               write(*,"(A7,12G18.9)")"O_prev=",TmpOp(ineq,:Nspin*Norb)
+          write(*,"(A7,12G18.9)")"O_ss  =",ss_Op_ineq(ineq,:Nspin*Norb)
           write(*,*)" "
        enddo
     endif
@@ -622,36 +631,4 @@ contains
 END MODULE SS_SOLVE_MAIN
 
 
-!
-! case ("gg_broyden")
-!    lambda = ss_lambda(:Nlso)
-!    call broyden1(ss_solve_lambda,lambda,tolf=solve_tolerance)
-!    !
-! case ("gg_fsolve")
-!    lambda = ss_lambda(:Nlso)
-!    call fsolve(ss_solve_lambda,lambda,tol=solve_tolerance)
-!    !
-! case ("lf_solve")
-!    call ss_lf_solve()
-!
 
-
-! !< solve the SS problem by optimizing separately lambda or [lambda,xmu] and Z
-! !GG method: optimize broyden/fsolve in lambda and iterate over Z for any fixed lambda 
-! include "SS_MAIN/ss_main_solve_gg.h90"
-! !LF method: iterate over lambda, solve fermion at fixed lambda + broyden/fsolve for spins changing lambda, fix Z
-! include "SS_MAIN/ss_main_solve_lf.h90"
-
-
-! !< Internal use:
-! allocate(ss_lambda_init(Ns));ss_lambda_init=ss_lambda
-! allocate(ss_zeta_init(Ns))  ;ss_zeta_init  =ss_zeta
-
-
-! ss_Hdiag=.true.
-! allocate(Hcheck(Ns,Ns))
-! do ik=1,Nk
-!    Hcheck = ss_Hk(:,:,ik) + ss_Hloc
-!    if(sum(abs(Hcheck - diag(diagonal(Hcheck)))) > 1d-6)ss_Hdiag=.false.
-! enddo
-! deallocate(Hcheck)

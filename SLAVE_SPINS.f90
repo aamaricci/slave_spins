@@ -1,7 +1,7 @@
 MODULE SLAVE_SPINS
   USE SS_INPUT_VARS
   USE SS_IO,    only: &
-       ss_get_ssHk,&
+                                ! ss_get_ssHk,&
        ss_get_dens,&
        ss_get_zeta,&
        ss_get_lambda,&

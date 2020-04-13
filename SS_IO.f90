@@ -42,7 +42,7 @@ MODULE SS_IO
   public :: ss_get_lambda0  
   public :: ss_get_sz
   public :: ss_get_self
-  public :: ss_get_ssHk
+  ! public :: ss_get_ssHk
   !
   public :: ss_write_last
 
@@ -63,23 +63,17 @@ contains
     write(unit,"(90F15.9)")(uloc(iorb),iorb=1,Norb),Ust,Jh
     close(unit)
     !
-    TmpDens=ss_unpack_array(ss_Dens,Nlat)
-    ! TmpLambda= ss_unpack_array(ss_Lambda)
-    ! TmpZeta= ss_unpack_array(ss_Zeta)
-    ! TmpOp= ss_unpack_array(ss_Op)
-    ! TmpSz= ss_unpack_array(ss_Sz)
-
     do ilat=1,Nlat
        open(free_unit(unit),file="lambda_site"//str(ilat,4)//".ss")
        write(unit,*)ss_lambda(ilat,:)
        close(unit)
        !
        open(free_unit(unit),file="zeta_site"//str(ilat,4)//".ss")
-       write(unit,*)ss_zeta(ilat,:)
+       write(unit,*)ss_Op(ilat,:)**2
        close(unit)
        !
        open(free_unit(unit),file="dens_site"//str(ilat,4)//".ss")
-       write(unit,*)TmpDens(ilat,:)
+       write(unit,*)ss_Dens(ilat,:)
        close(unit)
        !
        open(free_unit(unit),file="sz_site"//str(ilat,4)//".ss")
@@ -157,8 +151,9 @@ contains
     !
     if(present(UserOrder))UserOrder_ = UserOrder
     !
-    Tmp  = ss_pack_array(ss_zeta,Nlat)
+    Tmp  = ss_pack_array(ss_Op,Nlat)
     zeta = ss_ss2user(Tmp(:Nlso),UserOrder_)
+    zeta = zeta**2
   end subroutine ss_get_zeta_Ns
   !
   subroutine ss_get_zeta_NN(zeta,UserOrder)
@@ -169,7 +164,7 @@ contains
     !
     if(present(UserOrder))UserOrder_ = UserOrder
     !
-    Tmp        = ss_pack_array(ss_zeta,Nlat)
+    Tmp        = ss_pack_array(ss_Op,Nlat)
     zeta_      = ss_ss2user(Tmp(:Nlso),UserOrder_)
     nUserOrder = ss_nOrder(UserOrder_)
     call assert_shape(zeta,nUserOrder(3:1:-1),"ss_get_zeta","zeta")
@@ -177,6 +172,7 @@ contains
        Ivec = ss_i2indices(io,nUserOrder)       
        zeta(Ivec(3),Ivec(2),Ivec(1)) = zeta_(io)
     enddo
+    zeta = zeta**2
   end subroutine ss_get_zeta_NN
 
 
@@ -316,32 +312,32 @@ contains
 
 
 
-  subroutine ss_get_ssHk(ssHk,UserOrder)
-    real(8),dimension(Ns)                                    :: Tmp,Lambda,Lambda0
-    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb,Nk) :: ssHk
-    character(len=*),dimension(3),optional                   :: UserOrder
-    complex(8),dimension(Ns,Ns)                              :: Hk_f,diagZ
-    integer,dimension(3)                                     :: Ivec,Jvec
-    integer,dimension(3)                                     :: UserIndex
-    integer,dimension(3)                                     :: nUserOrder
-    integer                                                  :: ik,i
-    integer                                                  :: iord,jord,iuser,juser
-    character(len=5),dimension(3)                            :: UserOrder_
-    !
-    if(present(UserOrder))UserOrder_ = UserOrder
-    !
-    Tmp   = ss_pack_array(ss_Zeta,Nlat)
-    diagZ = diag( sqrt(Tmp) )
-    !
-    Lambda  = ss_pack_array(ss_Lambda,Nlat)
-    Lambda0 = ss_pack_array(ss_Lambda0,Nlat)
-    do ik = 1,Nk 
-       Hk_f   = (diagZ .x. ss_Hk(:,:,ik)) .x. diagZ
-       Hk_f   = Hk_f + ss_Hloc - diag(lambda) + diag(lambda0)
-       !
-       ss_Hk(:,:,ik) = ss_ss2user(Hk_f(:Nlso,:Nlso),UserOrder_)
-    enddo
-  end subroutine ss_get_ssHk
+  ! subroutine ss_get_ssHk(ssHk,UserOrder)
+  !   real(8),dimension(Ns)                                    :: Tmp,Lambda,Lambda0
+  !   complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb,Nk) :: ssHk
+  !   character(len=*),dimension(3),optional                   :: UserOrder
+  !   complex(8),dimension(Ns,Ns)                              :: Hk_f,diagZ
+  !   integer,dimension(3)                                     :: Ivec,Jvec
+  !   integer,dimension(3)                                     :: UserIndex
+  !   integer,dimension(3)                                     :: nUserOrder
+  !   integer                                                  :: ik,i
+  !   integer                                                  :: iord,jord,iuser,juser
+  !   character(len=5),dimension(3)                            :: UserOrder_
+  !   !
+  !   if(present(UserOrder))UserOrder_ = UserOrder
+  !   !
+  !   Tmp   = ss_pack_array(ss_Zeta,Nlat)
+  !   diagZ = diag( sqrt(Tmp) )
+  !   !
+  !   Lambda  = ss_pack_array(ss_Lambda,Nlat)
+  !   Lambda0 = ss_pack_array(ss_Lambda0,Nlat)
+  !   do ik = 1,Nk 
+  !      Hk_f   = (diagZ .x. ss_Hk(:,:,ik)) .x. diagZ
+  !      Hk_f   = Hk_f + ss_Hloc - diag(lambda) + diag(lambda0)
+  !      !
+  !      ss_Hk(:,:,ik) = ss_ss2user(Hk_f(:Nlso,:Nlso),UserOrder_)
+  !   enddo
+  ! end subroutine ss_get_ssHk
 
 
 

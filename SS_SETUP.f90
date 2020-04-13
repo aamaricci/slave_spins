@@ -69,7 +69,6 @@ contains
     allocate(ss_Dens(Nlat,Nss), ss_Dens_ineq(Nineq,Nss))
     allocate(ss_Lambda0(Nlat,Nss), ss_Lambda0_ineq(Nineq,Nss))
     allocate( ss_lambda(Nlat,Nss), ss_lambda_ineq(Nineq,Nss) )
-    allocate( ss_zeta(Nlat,Nss),   ss_zeta_ineq(Nineq,Nss) )
     allocate( ss_Sz(Nlat,Nss), ss_Sz_ineq(Nineq,Nss))
     allocate( ss_Op(Nlat,Nss), ss_Op_ineq(Nineq,Nss))
     ss_weiss  = 0d0; ss_weiss_ineq  = 0d0
@@ -77,9 +76,8 @@ contains
     ss_dens   = 0d0; ss_dens_ineq   = 0d0
     ss_lambda0= 0d0; ss_lambda0_ineq= 0d0
     ss_lambda = 0d0;ss_lambda_ineq = 0d0
-    ss_zeta   = 1d0;ss_zeta_ineq   = 1d0
     ss_Sz     = 0d0; ss_Sz_ineq    = 0d0
-    ss_Op     = 0d0; ss_Op_ineq    = 0d0
+    ss_Op     = 1d0; ss_Op_ineq    = 1d0
     !
     allocate( ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
     ss_SzSz   = 0d0; ss_SzSz_ineq  = 0d0

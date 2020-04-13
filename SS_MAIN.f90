@@ -84,7 +84,7 @@ contains
        ss_Hloc = Htmp
     end select
     !
-    !< Init/Read the lambda/zeta input
+    !< Init/Read the lambda input
     if(filling/=0d0)call ss_solve_lambda0()
     call ss_init_params()
     !
@@ -92,7 +92,7 @@ contains
        do ineq=1,Nineq
           write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0(ineq,:)
           write(*,"(A7,12G18.9)")"Lam   =",ss_lambda(ineq,:)
-          write(*,"(A7,12G18.9)")"Z     =",ss_zeta(ineq,:)
+          write(*,"(A7,12G18.9)")"Op    =",ss_Op(ineq,:)
        enddo
        write(*,"(A7,12G18.9)")"mu    =",xmu
        write(*,*)" "
@@ -119,7 +119,6 @@ contains
     real(8),dimension(Nspin*Nlat*Norb)                    :: Eb,Db,Hloc_
     integer                                               :: ie,io,ilat
     character(len=5),dimension(3)                         :: UserOrder_
-    real(8),dimension(Nlat,2*Norb)                        :: TmpLambda0,TmpZeta,TmpLambda
     !
     UserOrder_ = [character(len=5) :: "Norb","Nspin","Nlat"];
     if(present(UserOrder))UserOrder_ = UserOrder
@@ -172,7 +171,7 @@ contains
        ss_Hloc = diag(Hloc_)
     end select
     !
-    !< Init/Read the lambda/zeta input
+    !< Init/Read the lambda input
     ! if(filling/=dble(Norb))call ss_solve_lambda0()
     if(filling/=0d0)call ss_solve_lambda0()
     call ss_init_params()
@@ -181,7 +180,7 @@ contains
        do ineq=1,Nineq
           write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0(ineq,:)
           write(*,"(A7,12G18.9)")"Lam   =",ss_lambda(ineq,:)
-          write(*,"(A7,12G18.9)")"Z     =",ss_zeta(ineq,:)
+          write(*,"(A7,12G18.9)")"Op    =",ss_Op(ineq,:)
        enddo
        write(*,"(A7,12G18.9)")"mu    =",xmu
        write(*,*)" "
@@ -200,7 +199,6 @@ contains
     logical                          :: IOfile
     real(8),dimension(:),allocatable :: params
     integer                          :: Len
-    real(8),dimension(Ns)            :: lambda,zeta
     inquire(file=trim(Pfile)//trim(ss_file_suffix)//".restart",exist=IOfile)
     if(IOfile)then
        len = file_length(trim(Pfile)//trim(ss_file_suffix)//".restart")
@@ -208,11 +206,11 @@ contains
        allocate(params(len))
        call read_array(trim(Pfile)//trim(ss_file_suffix)//".restart",params)
        ss_lambda = ss_unpack_array(params(1:Ns),Nlat)
-       ss_zeta   = ss_unpack_array(params(Ns+1:2*Ns),Nlat)
+       ss_op     = ss_unpack_array(params(Ns+1:2*Ns),Nlat)
        if(size(params)==2*Ns+1)xmu=params(2*Ns+1)
     else
        ss_lambda = -ss_lambda0
-       ss_zeta   = 1d0
+       ss_Op     = 1d0
     endif
   end subroutine ss_init_params
 
