@@ -135,12 +135,11 @@ contains
     !< Init the SS structure + memory allocation
     call assert_shape(Ebands,[Nspin*Nlat*Norb,Nk],"ss_init_dos","Ebands")
     call assert_shape(Dbands,[Nspin*Nlat*Norb,Nk],"ss_init_dos","Dbands")
-    Hloc_      = zero
+    Hloc_    = 0d0
     if(present(Hloc))then
        call assert_shape(Hloc,[Nspin*Nlat*Norb],"ss_init_dos","Hloc")
        Hloc_ = Hloc
     endif
-    print*,Hloc_
     !
     ss_Hk = zero
     ss_Wtk= 0d0

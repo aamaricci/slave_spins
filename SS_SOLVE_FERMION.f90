@@ -28,13 +28,13 @@ contains
     complex(8),dimension(Ns,Ns) :: Eweiss
     complex(8),dimension(Ns,Ns) :: diagO,diagR
     complex(8),dimension(Ns,Ns) :: rhoK
-    ! real(8),dimension(Ns)       :: sq_zeta
     real(8),dimension(Ns)       :: lambda,lambda0
     real(8),dimension(Ns)       :: dens
-    real(8),dimension(Ns)       :: weiss
     real(8),dimension(Ns)       :: const
     real(8),dimension(Ns)       :: Op
     real(8),dimension(Ns)       :: rhoDiag
+    !
+    complex(8),dimension(Ns)    :: weiss
     integer                     :: ik,i,j
     !
     if(Nspin==1)then
@@ -47,9 +47,9 @@ contains
     lambda0 = ss_pack_array(ss_Lambda0,Nlat)
     Op      = ss_pack_array(ss_Op,Nlat)
     !
-    diagO = diag(Op)
+    diagO   = one*diag(Op)
     !
-    Eweiss  = 0d0
+    Eweiss  = zero
     dens    = 0d0
     do ik = 1,Nk
        Hk_f   = (diagO .x. ss_Hk(:,:,ik)) .x. diagO
@@ -80,7 +80,6 @@ contains
           enddo
        enddo
     enddo
-    if(Nspin==1)call ss_spin_symmetry(weiss,Nlat)
     !
     ! Get C = ( n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
     const  = 1d0/(sqrt(dens*(1d0-dens))+mch) - 1d0
@@ -113,12 +112,13 @@ contains
     complex(8),dimension(Ns,Ns)    :: Uk_f,Eweiss,diagRho,Rho
     complex(8),dimension(Ns,Ns,Nk) :: rhoK
     real(8),dimension(Ns,Nk)       :: eK
-    real(8),dimension(Ns)          :: rhoDiag,Ek_f,lambda0,dens,weiss
+    real(8),dimension(Ns)          :: rhoDiag,Ek_f
+    real(8),dimension(Ns)          :: lambda0,dens
+    complex(8),dimension(Ns)       :: weiss
     integer                        :: ik,unit
     integer                        :: stride
     real(8)                        :: mu0,Dmin,Dmax
     integer                        :: info
-    real(8),dimension(Nlat,Nss)    :: TmpArray
     !
     do ik = 1,Nk
        Uk_f = ss_Hk(:,:,ik) + ss_Hloc
@@ -138,7 +138,7 @@ contains
     if(verbose>3)write(*,"(A6,12G18.9)")"mu0  =",mu0
     !
     !
-    Eweiss = 0d0    
+    Eweiss = zero 
     Dens   = 0d0
     do ik = 1,Nk 
        diagRho      = diag(step_fermi(eK(:,ik)-mu0))

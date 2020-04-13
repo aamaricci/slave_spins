@@ -18,8 +18,10 @@ MODULE SS_SETUP
   end interface ss_indx_reorder
 
   interface ss_spin_symmetry
-     module procedure :: ss_spin_symmetry_nlso
-     module procedure :: ss_spin_symmetry_nn
+     module procedure :: ss_spin_symmetry_nlso_d
+     module procedure :: ss_spin_symmetry_nlso_c
+     module procedure :: ss_spin_symmetry_nn_d
+     module procedure :: ss_spin_symmetry_nn_c
   end interface ss_spin_symmetry
 
   interface ss_user2ss
@@ -32,6 +34,15 @@ MODULE SS_SETUP
      module procedure :: ss_ss2user_mat
   end interface ss_ss2user
 
+  interface ss_pack_array
+     module procedure :: ss_pack_array_d
+     module procedure :: ss_pack_array_c
+  end interface ss_pack_array
+
+  interface ss_unpack_array
+     module procedure :: ss_unpack_array_d
+     module procedure :: ss_unpack_array_c
+  end interface ss_unpack_array
 
   public :: ss_setup_structure
   !
@@ -64,20 +75,22 @@ contains
     !
     call ss_setup_dimensions()
     !
-    allocate(ss_Weiss(Nlat,Nss), ss_Weiss_ineq(Nineq,Nss))
+
     allocate(ss_C(Nlat,Nss),ss_C_ineq(Nineq,Nss))
     allocate(ss_Dens(Nlat,Nss), ss_Dens_ineq(Nineq,Nss))
     allocate(ss_Lambda0(Nlat,Nss), ss_Lambda0_ineq(Nineq,Nss))
-    allocate( ss_lambda(Nlat,Nss), ss_lambda_ineq(Nineq,Nss) )
-    allocate( ss_Sz(Nlat,Nss), ss_Sz_ineq(Nineq,Nss))
-    allocate( ss_Op(Nlat,Nss), ss_Op_ineq(Nineq,Nss))
-    ss_weiss  = 0d0; ss_weiss_ineq  = 0d0
+    allocate(ss_lambda(Nlat,Nss), ss_lambda_ineq(Nineq,Nss) )
+    allocate(ss_Sz(Nlat,Nss), ss_Sz_ineq(Nineq,Nss))
+    allocate(ss_Op(Nlat,Nss), ss_Op_ineq(Nineq,Nss))
     ss_c      = 0d0; ss_c_ineq      = 0d0
     ss_dens   = 0d0; ss_dens_ineq   = 0d0
     ss_lambda0= 0d0; ss_lambda0_ineq= 0d0
     ss_lambda = 0d0;ss_lambda_ineq = 0d0
     ss_Sz     = 0d0; ss_Sz_ineq    = 0d0
-    ss_Op     = 1d0; ss_Op_ineq    = 1d0
+    ss_Op     = 1d0 ; ss_Op_ineq    = 1d0
+    !
+    allocate(ss_Weiss(Nlat,Nss), ss_Weiss_ineq(Nineq,Nss))
+    ss_weiss  = zero; ss_weiss_ineq  = zero
     !
     allocate( ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
     ss_SzSz   = 0d0; ss_SzSz_ineq  = 0d0
@@ -268,25 +281,47 @@ contains
 
 
 
-  subroutine ss_spin_symmetry_nlso(array,Nsite)
+  subroutine ss_spin_symmetry_nlso_d(array,Nsite)
     integer                      :: Nsite
     real(8),dimension(Nsite*Nss) :: array
     array(Nsite*Norb+1:) = array(1:Nsite*Norb)
-  end subroutine ss_spin_symmetry_nlso
+  end subroutine ss_spin_symmetry_nlso_d
 
-  subroutine ss_spin_symmetry_nn(array,Nsite)
+  subroutine ss_spin_symmetry_nlso_c(array,Nsite)
+    integer                      :: Nsite
+    complex(8),dimension(Nsite*Nss) :: array
+    array(Nsite*Norb+1:) = array(1:Nsite*Norb)
+  end subroutine ss_spin_symmetry_nlso_c
+
+  subroutine ss_spin_symmetry_nn_d(array,Nsite)
     integer                      :: Nsite
     real(8),dimension(Nsite,Nss) :: array
     integer                      :: isite
     do isite=1,Nsite
        array(isite,Norb+1:) = array(isite,1:Norb)
     enddo
-  end subroutine ss_spin_symmetry_nn
+  end subroutine ss_spin_symmetry_nn_d
+
+  subroutine ss_spin_symmetry_nn_c(array,Nsite)
+    integer                         :: Nsite
+    complex(8),dimension(Nsite,Nss) :: array
+    integer                         :: isite
+    do isite=1,Nsite
+       array(isite,Norb+1:) = array(isite,1:Norb)
+    enddo
+  end subroutine ss_spin_symmetry_nn_c
 
 
 
 
-  function ss_pack_array(Ain,Nsite) result(Aout)
+
+
+
+
+
+
+
+  function ss_pack_array_d(Ain,Nsite) result(Aout)
     integer                         :: Nsite
     real(8),dimension(Nsite,2*Norb) :: Ain
     real(8),dimension(2*Nsite*Norb) :: Aout
@@ -302,9 +337,27 @@ contains
           enddo
        enddo
     enddo
-  end function ss_pack_array
+  end function ss_pack_array_d
+  function ss_pack_array_c(Ain,Nsite) result(Aout)
+    integer                            :: Nsite
+    complex(8),dimension(Nsite,2*Norb) :: Ain
+    complex(8),dimension(2*Nsite*Norb) :: Aout
+    integer                            :: ispin,isite,iorb,io,ii
+    do ispin=1,2
+       do isite=1,Nsite
+          do iorb=1,Norb
+             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
+             io = Indices2i([iorb,ispin],[Norb,2])
+             !
+             Aout(ii) = Ain(isite,io)
+             !
+          enddo
+       enddo
+    enddo
+  end function ss_pack_array_c
 
-  function ss_unpack_array(Ain,Nsite) result(Aout)
+
+  function ss_unpack_array_d(Ain,Nsite) result(Aout)
     integer                         :: Nsite
     real(8),dimension(2*Nsite*Norb) :: Ain
     real(8),dimension(Nsite,2*Norb) :: Aout
@@ -320,7 +373,29 @@ contains
           enddo
        enddo
     enddo
-  end function ss_unpack_array
+  end function ss_unpack_array_d
+  function ss_unpack_array_c(Ain,Nsite) result(Aout)
+    integer                            :: Nsite
+    complex(8),dimension(2*Nsite*Norb) :: Ain
+    complex(8),dimension(Nsite,2*Norb) :: Aout
+    integer                            :: ispin,isite,iorb,io,ii
+    do ispin=1,2
+       do isite=1,Nsite
+          do iorb=1,Norb
+             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
+             io = Indices2i([iorb,ispin],[Norb,2])
+             !
+             Aout(isite,io) = Ain(ii)
+             !
+          enddo
+       enddo
+    enddo
+  end function ss_unpack_array_c
+
+
+
+
+
 
 
 
@@ -331,7 +406,6 @@ contains
     integer                        :: i
     forall(i=1:size(Ain))Aout(Index(i)) = Ain(i)
   end function indx_reorder
-
 
   function indices2i(ivec,Nvec) result(istate)
     integer,dimension(:)          :: ivec

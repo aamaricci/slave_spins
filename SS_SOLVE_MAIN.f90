@@ -46,7 +46,7 @@ contains
     Op     =  ss_pack_array(ss_Op_ineq,Nineq)
     !
     allocate(ss_lambda_init(Nineq,Nss));ss_lambda_init=ss_lambda_ineq
-    allocate(ss_Op_init(Nineq,Nss))  ;ss_Op_init  =ss_Op_ineq
+    allocate(ss_Op_init(Nineq,Nss))    ;ss_Op_init  =ss_Op_ineq
     !
     params  = [lambda(:Niso),Op(:Niso)]
     params1 = [params,xmu]
@@ -167,12 +167,16 @@ contains
     Zeta_prev = ss_pack_array(ss_Op_ineq,Nineq);Zeta_prev=Zeta_Prev**2
     !
     !< Solve Fermions:
-    call ss_solve_fermions    
+    if(verbose>2)call start_timer
+    call ss_solve_fermions
+    if(verbose>2)call stop_timer
     !
     !< Solve Spins:
+    if(verbose>2)call start_timer
     do ineq=1,Nineq
        call ss_solve_spins(ineq)
     enddo
+    if(verbose>2)call stop_timer
     do ilat=1,Nlat
        ineq = ss_ilat2ineq(ilat)
        ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
@@ -181,10 +185,6 @@ contains
     enddo
     !
     ! < Constraint:
-    do ineq=1,Nineq
-       ilat = ss_ineq2ilat(ineq)
-       ss_Dens_ineq(ineq,:) = ss_Dens(ilat,:)
-    enddo
     Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
     Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
     Op      = ss_pack_array(ss_Op_ineq,Nineq)
