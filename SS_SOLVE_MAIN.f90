@@ -129,8 +129,8 @@ contains
     real(8),dimension(size(aparams)) :: fss
     logical                          :: bool
     integer                          :: ilat,ineq,io,il,iorb,ispin
-    real(8),dimension(Nineq,Nss)     :: TmpOp
-    real(8),dimension(Nineq*Nss)     :: lambda,Op,sz,Dens,Op_prev
+    real(8),dimension(Nineq,Nss)     :: TmpZ
+    real(8),dimension(Nineq*Nss)     :: lambda,Zeta,Op,sz,Dens,Zeta_prev
     !
     bool = (size(aparams)==2*Niso+1)
     !
@@ -164,8 +164,7 @@ contains
          [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
     !< save input
-    Op_prev = ss_pack_array(ss_Op_ineq,Nineq)
-    TmpOp   = ss_Op_ineq
+    Zeta_prev = ss_pack_array(ss_Op_ineq,Nineq);Zeta_prev=Zeta_Prev**2
     !
     !< Solve Fermions:
     call ss_solve_fermions    
@@ -189,15 +188,16 @@ contains
     Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
     Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
     Op      = ss_pack_array(ss_Op_ineq,Nineq)
+    Zeta    = Op**2
     !
     fss(1:Niso)           = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
-    fss(Niso+1:2*Niso)    = Op(1:Niso) - Op_prev(1:Niso)
+    fss(Niso+1:2*Niso)    = Zeta(1:Niso) - Zeta_prev(1:Niso)
     if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
     !
-    call ss_print_screen(TmpOp)
+    call ss_print_screen()
     if(verbose>1)then
        write(*,"(A11,50G18.9)")"F_cnstr   =",fss(1:Niso)
-       write(*,"(A11,50G18.9)")"F_Op      =",fss(Niso+1:2*Niso)
+       write(*,"(A11,50G18.9)")"F_z       =",fss(Niso+1:2*Niso)
        if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(2*Niso+1)
        write(*,*)""
     end if
@@ -224,8 +224,8 @@ contains
     real(8)                          :: chi2
     logical                          :: bool
     integer                          :: ilat,ineq,io,il,iorb,ispin
-    real(8),dimension(Nineq,Nss)     :: TmpOp
-    real(8),dimension(Nineq*Nss)     :: lambda,Op,sz,Dens,Op_prev
+    real(8),dimension(Nineq,Nss)     :: TmpZ
+    real(8),dimension(Nineq*Nss)     :: lambda,Op,sz,Dens,Zeta,Zeta_prev
     !
     bool = (size(aparams)==2*Niso+1)
     !
@@ -259,8 +259,8 @@ contains
          [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
     !< save input  
-    Op_prev = ss_pack_array(ss_Op_ineq,Nineq)
-    TmpOp   = ss_Op_ineq
+    Zeta_prev = ss_pack_array(ss_Op_ineq,Nineq);Zeta_prev=Zeta_prev**2
+    TmpZ      = ss_Op_ineq**2
     !
     !< Solve Fermions:
     call ss_solve_fermions    
@@ -284,17 +284,18 @@ contains
     Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
     Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
     Op      = ss_pack_array(ss_Op_ineq,Nineq)
+    Zeta    = Op**2
     !
     fss(1:Niso)           = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
-    fss(Niso+1:2*Niso)    = Op(1:Niso) - Op_prev(1:Niso)
+    fss(Niso+1:2*Niso)    = Zeta(1:Niso) - Zeta_prev(1:Niso)
     if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
     !
-    chi2 = sum(abs(Fss)**2)/size(Fss)
+    chi2 = dot_product(fss,fss)/size(Fss)
     !
-    call ss_print_screen(TmpOp)
+    call ss_print_screen(TmpZ)
     if(verbose>1)then
        write(*,"(A11,50G18.9)")"F_cnstr   =",fss(1:Niso)
-       write(*,"(A11,50G18.9)")"F_Op      =",fss(Niso+1:2*Niso)
+       write(*,"(A11,50G18.9)")"F_Z       =",fss(Niso+1:2*Niso)
        if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(2*Niso+1)
        write(*,*)""
     end if
@@ -320,8 +321,8 @@ contains
     real(8),dimension(m)         :: fss
     logical                      :: bool
     integer                      :: ilat,ineq,io,il,iorb,ispin
-    real(8),dimension(Nineq,Nss) :: TmpOp
-    real(8),dimension(Nineq*Nss) :: lambda,Op,sz,Dens,Op_prev
+    real(8),dimension(Nineq,Nss) :: TmpZ
+    real(8),dimension(Nineq*Nss) :: lambda,Op,sz,Dens,Zeta,Zeta_prev
     !
     bool = (size(aparams)==Niso+1)
     !
@@ -350,8 +351,8 @@ contains
          [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
     !< save input  
-    Op_prev = ss_pack_array(ss_Op_ineq,Nineq)
-    TmpOp   = ss_Op_ineq
+    Zeta_prev = ss_pack_array(ss_Op_ineq,Nineq);Zeta_prev=Zeta_prev**2
+    TmpZ      = ss_Op_ineq**2
     !
     !< Solve Fermions:
     call ss_solve_fermions    
@@ -375,15 +376,16 @@ contains
     Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
     Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
     Op      = ss_pack_array(ss_Op_ineq,Nineq)
+    Zeta    = Op**2
     !
     fss(1:Niso)           = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
-    fss(Niso+1:2*Niso)    = Op(1:Niso)   - Op_prev(1:Niso)
+    fss(Niso+1:2*Niso)    = Zeta(1:Niso) - Zeta_prev(1:Niso)
     if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
     !
-    call ss_print_screen(TmpOp)
+    call ss_print_screen(TmpZ)
     if(verbose>1)then
        write(*,"(A11,50G18.9)")"F_cnstr   =",fss(1:Niso)
-       write(*,"(A11,50G18.9)")"F_Op      =",fss(Niso+1:2*Niso)
+       write(*,"(A11,50G18.9)")"F_Z       =",fss(Niso+1:2*Niso)
        if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(2*Niso+1)
        write(*,*)""
     end if
@@ -415,7 +417,7 @@ contains
     real(8),dimension(size(aparams)) :: fss
     integer                          :: iter,Nsuccess=0
     logical                          :: z_converged,bool
-    real(8),dimension(Nineq*Nss)     :: lambda,Op,sz,Dens,Op_prev
+    real(8),dimension(Nineq*Nss)     :: lambda,Op,sz,Dens,Zeta,Zeta_prev
     !
     bool = size(aparams)==Niso+1
     !
@@ -445,7 +447,7 @@ contains
        iter=iter+1
        call start_loop(iter,Niter,"Z-iter")
        !
-       Op_prev = ss_pack_array(ss_Op_ineq,Nineq)
+       Zeta_prev = ss_pack_array(ss_Op_ineq,Nineq);Zeta_prev=Zeta_prev**2
        !
        !< Solve Fermions:
        call ss_solve_fermions   
@@ -468,12 +470,13 @@ contains
        Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
        Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
        Op      = ss_pack_array(ss_Op_ineq,Nineq)
+       Zeta    = Op**2
        !
        call ss_print_screen
        !
-       Op = loop_Wmix*Op + (1d0-loop_Wmix)*Op_prev
+       Zeta = loop_Wmix*Zeta + (1d0-loop_Wmix)*Zeta_prev
        !
-       z_converged = check_convergence(Op-Op_prev,loop_tolerance,Nsuccess,Niter)
+       z_converged = check_convergence((Zeta-Zeta_prev),loop_tolerance,Nsuccess,Niter)
        call end_loop() 
     end do
     !
@@ -506,8 +509,8 @@ contains
   !##################################################################
 
 
-  subroutine ss_print_screen(TmpOp)
-    real(8),dimension(Nineq,Nss),optional :: TmpOp
+  subroutine ss_print_screen(Tmp)
+    real(8),dimension(Nineq,Nss),optional :: Tmp
     if(verbose>1)then
        do ineq=1,Nineq
           ilat = ss_ineq2ilat(ineq)
@@ -521,9 +524,9 @@ contains
           write(*,"(A7,12G18.9)")"Sz    =",ss_Sz_ineq(ineq,:Nspin*Norb)
           write(*,"(A7,12G18.9)")"Lambda=",ss_lambda_ineq(ineq,:Nspin*Norb)
           if(verbose>3)write(*,"(A7,12G18.9)")"Op    =",ss_Op_ineq(ineq,:Nspin*Norb)
-          if(verbose>4.AND.present(TmpOp))&
-               write(*,"(A7,12G18.9)")"O_prev=",TmpOp(ineq,:Nspin*Norb)
-          write(*,"(A7,12G18.9)")"O_ss  =",ss_Op_ineq(ineq,:Nspin*Norb)
+          if(verbose>4.AND.present(Tmp))&
+               write(*,"(A7,12G18.9)")"Z_prev=",Tmp(ineq,:Nspin*Norb)
+          write(*,"(A7,12G18.9)")"Z_ss  =",ss_Op_ineq(ineq,:Nspin*Norb)**2
           write(*,*)" "
        enddo
     endif
