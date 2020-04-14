@@ -73,19 +73,22 @@ contains
     !
     !
     !Build spin Hamiltonian and write it onto ss_Evecs
-    if(verbose>2)call start_timer
+    if(verbose>3)call start_timer
     call ss_build_Hs()
-    if(verbose>2)call stop_timer("ss_build_Hs")
-    if(verbose>2)call start_timer
+    if(verbose>3)call stop_timer("build_Hs")
+    !
     if(lanc_solve)then
+       if(verbose>3)call start_timer
        call sp_eigh(spMatVec_cc,ss_Evals,ss_Evecs,iverbose=(verbose>5))
+       if(verbose>3)call stop_timer("sp_eigh")
        Nstate = lanc_Neigen
     else
+       if(verbose>3)call start_timer
        call sp_dump_matrix(spHs,ss_Evecs) !dimensions check is done internally
        call eigh(Ss_Evecs,Ss_Evals)
+       if(verbose>3)call stop_timer("eigh")
        Nstate=Ndim
     endif
-    if(verbose>2)call stop_timer("eigh")
     !
     ss_Ndegen=1
     do istate=2,Nstate
@@ -95,18 +98,17 @@ contains
     !
     call sp_delete_matrix(spHs)
     !
-
     !
     !
     !< Get <Sz> and <O>, <O+>
     if(verbose>2)call start_timer
     call ss_Spin_observables()
-    if(verbose>2)call stop_timer
+    if(verbose>2)call stop_timer("<Sz>,<Op>")
     !
     !< Get Sz-Sz correlations:
     if(verbose>2)call start_timer
     call ss_SpinSpin_correlations()
-    if(verbose>2)call stop_timer
+    if(verbose>2)call stop_timer("<SzSz>")
     !
     !< Copy back into main arrays ss_XYZ at proper position
     ss_Sz_ineq(ineq,:) = ii_Sz
