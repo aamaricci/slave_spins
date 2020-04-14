@@ -59,53 +59,56 @@ contains
   subroutine ss_write_last()
     integer                        :: unit,units(4),i,iorb,jorb,ilat
     real(8),dimension(Nlat,2*Norb) :: TmpDens
-    open(free_unit(unit),file="hubbards.ss")
-    write(unit,"(90F15.9)")(uloc(iorb),iorb=1,Norb),Ust,Jh
-    close(unit)
-    !
-    do ilat=1,Nlat
-       open(free_unit(unit),file="lambda_site"//str(ilat,4)//".ss")
-       write(unit,*)ss_lambda(ilat,:)
+    if(master)then
+       !       
+       open(free_unit(unit),file="hubbards.ss")
+       write(unit,"(90F15.9)")(uloc(iorb),iorb=1,Norb),Ust,Jh
        close(unit)
        !
-       open(free_unit(unit),file="zeta_site"//str(ilat,4)//".ss")
-       write(unit,*)ss_Op(ilat,:)**2
-       close(unit)
-       !
-       open(free_unit(unit),file="dens_site"//str(ilat,4)//".ss")
-       write(unit,*)ss_Dens(ilat,:)
-       close(unit)
-       !
-       open(free_unit(unit),file="sz_site"//str(ilat,4)//".ss")
-       write(unit,*)ss_Sz(ilat,:)
-       close(unit)
-       !
-       open(free_unit(unit),file="Op_site"//str(ilat,4)//".ss")
-       write(unit,*)ss_Op(ilat,:)
-       close(unit)
-       !
-       units = free_units(4)
-       open(units(1),file="SzSz_uu_site"//str(ilat,4)//".ss")
-       open(units(2),file="SzSz_dd_site"//str(ilat,4)//".ss")
-       open(units(3),file="SzSz_ud_site"//str(ilat,4)//".ss")
-       open(units(4),file="SzSz_du_site"//str(ilat,4)//".ss")
-       do iorb=1,Norb
-          do jorb=1,Norb
-             do i=1,4
-                write(units(i),*)iorb,jorb,ss_SzSz(ilat,i,iorb,jorb)
+       do ilat=1,Nlat
+          open(free_unit(unit),file="lambda_site"//str(ilat,4)//".ss")
+          write(unit,*)ss_lambda(ilat,:)
+          close(unit)
+          !
+          open(free_unit(unit),file="zeta_site"//str(ilat,4)//".ss")
+          write(unit,*)ss_Op(ilat,:)**2
+          close(unit)
+          !
+          open(free_unit(unit),file="dens_site"//str(ilat,4)//".ss")
+          write(unit,*)ss_Dens(ilat,:)
+          close(unit)
+          !
+          open(free_unit(unit),file="sz_site"//str(ilat,4)//".ss")
+          write(unit,*)ss_Sz(ilat,:)
+          close(unit)
+          !
+          open(free_unit(unit),file="Op_site"//str(ilat,4)//".ss")
+          write(unit,*)ss_Op(ilat,:)
+          close(unit)
+          !
+          units = free_units(4)
+          open(units(1),file="SzSz_uu_site"//str(ilat,4)//".ss")
+          open(units(2),file="SzSz_dd_site"//str(ilat,4)//".ss")
+          open(units(3),file="SzSz_ud_site"//str(ilat,4)//".ss")
+          open(units(4),file="SzSz_du_site"//str(ilat,4)//".ss")
+          do iorb=1,Norb
+             do jorb=1,Norb
+                do i=1,4
+                   write(units(i),*)iorb,jorb,ss_SzSz(ilat,i,iorb,jorb)
+                enddo
              enddo
           enddo
-       enddo
-       do i=1,4
-          close(units(i))
+          do i=1,4
+             close(units(i))
+          enddo
+          !
        enddo
        !
-    enddo
-    !
-    open(free_unit(unit),file="mu.ss")
-    write(unit,*)xmu
-    close(unit)
-    !
+       open(free_unit(unit),file="mu.ss")
+       write(unit,*)xmu
+       close(unit)
+       !
+    endif
   end subroutine ss_write_last
 
 

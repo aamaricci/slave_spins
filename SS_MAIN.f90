@@ -41,6 +41,10 @@ contains
     integer                                                        :: ik
     character(len=5),dimension(3)                                  :: UserOrder_
     !
+#ifdef _MPI
+    if(check_MPI())master = get_master_MPI()
+#endif
+    !
     UserOrder_ = [character(len=5) :: "Norb","Nspin","Nlat"];
     if(present(UserOrder))UserOrder_ = UserOrder
     !
@@ -88,7 +92,7 @@ contains
     if(filling/=0d0)call ss_solve_lambda0()
     call ss_init_params()
     !
-    if(verbose>2)then
+    if(master.AND.verbose>2)then
        do ineq=1,Nineq
           write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0(ineq,:)
           write(*,"(A7,12G18.9)")"Lam   =",ss_lambda(ineq,:)
@@ -119,6 +123,10 @@ contains
     real(8),dimension(Nspin*Nlat*Norb)                    :: Eb,Db,Hloc_
     integer                                               :: ie,io,ilat
     character(len=5),dimension(3)                         :: UserOrder_
+    !
+#ifdef _MPI
+    if(check_MPI())master = get_master_MPI()
+#endif
     !
     UserOrder_ = [character(len=5) :: "Norb","Nspin","Nlat"];
     if(present(UserOrder))UserOrder_ = UserOrder
@@ -175,7 +183,7 @@ contains
     if(filling/=0d0)call ss_solve_lambda0()
     call ss_init_params()
     !
-    if(verbose>2)then
+    if(master.AND.verbose>2)then
        do ineq=1,Nineq
           write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0(ineq,:)
           write(*,"(A7,12G18.9)")"Lam   =",ss_lambda(ineq,:)

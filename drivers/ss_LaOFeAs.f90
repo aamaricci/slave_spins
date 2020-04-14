@@ -3,6 +3,9 @@ program ss_LaOFeAs
   !
   USE SCIFOR
   USE DMFT_TOOLS
+#ifdef _MPI
+  USE MPI
+#endif
   implicit none
 
 
@@ -14,7 +17,13 @@ program ss_LaOFeAs
   complex(8),dimension(:,:),allocatable   :: Hloc
   real(8),allocatable                     :: Dens(:),Zeta(:), Self(:)
   character(len=20)                       :: w90file,InputFile
-  real(8)                                 :: ef
+  real(8)                                 :: ef=1d0
+  logical                                 :: master=.true.
+
+#ifdef _MPI
+  call init_MPI
+  master = get_master_MPI()
+#endif
 
 
   call parse_cmd_variable(InputFile,"INPUTFILE",default="inputLaOFeAs.conf")
@@ -39,32 +48,21 @@ program ss_LaOFeAs
   call TB_build_bk(verbose=.true.)
 
   !METHOD 1 (setup W90 --> use internal W90 model)
-  call TB_w90_setup(reg(w90file),nlat=Nlat,nspin=Nspin,norb=Norb)
+  call TB_w90_setup(reg(w90file),nlat=Nlat,nspin=Nspin,norb=Norb,verbose=.true.)
   call TB_w90_FermiLevel([Nkx,Nkx,Nkx],dble(Nlso),Ef)
 
   !SOLVE AND PLOT THE FULLY HOMOGENOUS PROBLEM:
   Nktot=Nkx*Nkx*Nkx ;   write(*,*) "Using Nk_total="//txtfy(Nktot)
   allocate(Hk(Nlso,Nlso,Nktot))
+  call start_timer
   call TB_build_model(Hk,TB_w90_model,Nlso,[Nkx,Nkx,Nkx])
+  call stop_timer("TB_build_model")
 
   allocate(Hloc(Nlso,Nlso))
   Hloc= sum(Hk(:,:,:),dim=3)/Nktot
   where(abs(Hloc)<1d-6)Hloc=zero
-  call TB_write_Hloc(Hloc,"w90Hloc.dat")
+  if(master)call TB_write_Hloc(Hloc,"w90Hloc.dat")
 
-  ! !solve along a path in the 3D BZ.
-  Npts = 9
-  Nk=(Npts-1)*Nkpath
-  allocate(kpath(Npts,3))
-  kpath(1,:)=[0.5d0,0.5d0,0d0]
-  kpath(2,:)=[0.5d0,0.5d0,0.5d0]
-  kpath(3,:)=[0d0,0d0,0d0]
-  kpath(4,:)=[0.5d0,0d0,0d0]
-  kpath(5,:)=[0.5d0,0.5d0,0d0]
-  kpath(6,:)=[0d0,0d0,0d0]
-  kpath(7,:)=[0d0,0d0,0.5d0]
-  kpath(8,:)=[0.5d0,0d0,0.5d0]
-  kpath(9,:)=[0.5d0,0.5d0,0.5d0]
 
 
   !SOLVE SS:
@@ -81,14 +79,32 @@ program ss_LaOFeAs
   call TB_w90_Zeta(zeta)
   call TB_w90_Self(diag(self))
 
+  ! !solve along a path in the 3D BZ.
+  Npts = 9
+  Nk=(Npts-1)*Nkpath
+  allocate(kpath(Npts,3))
+  kpath(1,:)=[0.5d0,0.5d0,0d0]
+  kpath(2,:)=[0.5d0,0.5d0,0.5d0]
+  kpath(3,:)=[0d0,0d0,0d0]
+  kpath(4,:)=[0.5d0,0d0,0d0]
+  kpath(5,:)=[0.5d0,0.5d0,0d0]
+  kpath(6,:)=[0d0,0d0,0d0]
+  kpath(7,:)=[0d0,0d0,0.5d0]
+  kpath(8,:)=[0.5d0,0d0,0.5d0]
+  kpath(9,:)=[0.5d0,0.5d0,0.5d0]
+
   !Solve for the renormalized bands:
-  call TB_Solve_model(TB_w90_model,Nlso,kpath,Nkpath,&
-       colors_name=[green,red,blue,green,green,green,red,blue,green,green],&
+  if(master)call TB_Solve_model(TB_w90_model,Nlso,kpath,Nkpath,&
+       colors_name=[red,green,green,green,blue,red,green,green,green,blue],&
        points_name=[character(len=40) ::'M', 'R', 'G', 'X', 'M', 'G', 'Z','A', 'R'],&
        file="zBands_LaOFeAs",iproject=.true.)
 
 
   call TB_w90_delete()
 
+
+#ifdef _MPI
+  call finalize_MPI()
+#endif
 
 end program ss_LaOFeAs

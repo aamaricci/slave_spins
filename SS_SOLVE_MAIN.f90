@@ -54,7 +54,7 @@ contains
     apar  = [lambda(:Niso)]
     apar1 = [apar,xmu]
     !
-    call start_timer
+    if(master)call start_timer
     !
     select case(solve_method)
     case ("fsolve")
@@ -105,10 +105,10 @@ contains
        stop
     end select
     !
-    call stop_timer
+    if(master)call stop_timer
     !
     !< store parameters:
-    call save_array(trim(Pfile)//trim(ss_file_suffix)//".restart",&
+    if(master)call save_array(trim(Pfile)//trim(ss_file_suffix)//".restart",&
          [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
     call ss_write_last()
@@ -135,7 +135,7 @@ contains
     bool = (size(aparams)==2*Niso+1)
     !
     siter = siter+1
-    if(verbose>2)call start_loop(siter,Niter,"FSOLVE-iter")
+    call start_loop(siter,Niter,"FSOLVE-iter")
     !
     !< extract the input for ineq. sites
     lambda(:Niso) = aparams(1:Niso)
@@ -160,23 +160,23 @@ contains
     enddo
     !
     !< store parameters:
-    call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",&
+    if(master)call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",&
          [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
     !< save input
     Zeta_prev = ss_pack_array(ss_Op_ineq,Nineq);Zeta_prev=Zeta_Prev**2
     !
     !< Solve Fermions:
-    if(verbose>2)call start_timer
+    if(master.AND.verbose>2)call start_timer
     call ss_solve_fermions
-    if(verbose>2)call stop_timer
+    if(master.AND.verbose>2)call stop_timer("solve fermions")
     !
     !< Solve Spins:
-    if(verbose>2)call start_timer
+    if(master.AND.verbose>2)call start_timer
     do ineq=1,Nineq
        call ss_solve_spins(ineq)
     enddo
-    if(verbose>2)call stop_timer
+    if(master.AND.verbose>2)call stop_timer("solve spins")
     do ilat=1,Nlat
        ineq = ss_ilat2ineq(ilat)
        ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
@@ -195,14 +195,14 @@ contains
     if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
     !
     call ss_print_screen()
-    if(verbose>1)then
+    if(master.AND.verbose>1)then
        write(*,"(A11,50G18.9)")"F_cnstr   =",fss(1:Niso)
        write(*,"(A11,50G18.9)")"F_z       =",fss(Niso+1:2*Niso)
        if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(2*Niso+1)
        write(*,*)""
     end if
     !
-    if(verbose>2)call end_loop()
+    call end_loop()
     !
     call ss_write_last()
     !
@@ -230,7 +230,7 @@ contains
     bool = (size(aparams)==2*Niso+1)
     !
     siter = siter+1
-    if(verbose>2)call start_loop(siter,Niter,"FSOLVE-iter")
+    call start_loop(siter,Niter,"FSOLVE-iter")
     !
     !< extract the input for ineq. sites
     lambda(:Niso) = aparams(1:Niso)
@@ -255,7 +255,7 @@ contains
     enddo
     !
     !< store parameters:
-    call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",&
+    if(master)call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",&
          [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
     !< save input  
@@ -263,12 +263,16 @@ contains
     TmpZ      = ss_Op_ineq**2
     !
     !< Solve Fermions:
-    call ss_solve_fermions    
+    if(master.AND.verbose>2)call start_timer
+    call ss_solve_fermions
+    if(master.AND.verbose>2)call stop_timer("solve fermions")
     !
     !< Solve Spins:
+    if(master.AND.verbose>2)call start_timer
     do ineq=1,Nineq
        call ss_solve_spins(ineq)
     enddo
+    if(master.AND.verbose>2)call stop_timer("solve spins")
     do ilat=1,Nlat
        ineq = ss_ilat2ineq(ilat)
        ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
@@ -293,14 +297,14 @@ contains
     chi2 = dot_product(fss,fss)/size(Fss)
     !
     call ss_print_screen(TmpZ)
-    if(verbose>1)then
+    if(master.AND.verbose>1)then
        write(*,"(A11,50G18.9)")"F_cnstr   =",fss(1:Niso)
        write(*,"(A11,50G18.9)")"F_Z       =",fss(Niso+1:2*Niso)
        if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(2*Niso+1)
        write(*,*)""
-    end if
+    endif
     !
-    if(verbose>2)call end_loop()
+    call end_loop()
     !
     call ss_write_last()
     !
@@ -327,7 +331,7 @@ contains
     bool = (size(aparams)==Niso+1)
     !
     siter = siter+1
-    if(verbose>2)call start_loop(siter,Niter,"LEASTSQ-iter")
+    call start_loop(siter,Niter,"LEASTSQ-iter")
     !
     !< extract the input for ineq. sites
     lambda(:Niso) = aparams(1:Niso)
@@ -347,20 +351,23 @@ contains
     enddo
     !
     !< store parameters:
-    call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",&
+    if(master)call save_array(trim(Pfile)//trim(ss_file_suffix)//".used",&
          [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
     !< save input  
     Zeta_prev = ss_pack_array(ss_Op_ineq,Nineq);Zeta_prev=Zeta_prev**2
     TmpZ      = ss_Op_ineq**2
     !
-    !< Solve Fermions:
-    call ss_solve_fermions    
+    if(master.AND.verbose>2)call start_timer
+    call ss_solve_fermions
+    if(master.AND.verbose>2)call stop_timer("solve fermions")
     !
     !< Solve Spins:
+    if(master.AND.verbose>2)call start_timer
     do ineq=1,Nineq
        call ss_solve_spins(ineq)
     enddo
+    if(master.AND.verbose>2)call stop_timer("solve spins")
     do ilat=1,Nlat
        ineq = ss_ilat2ineq(ilat)
        ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
@@ -383,14 +390,14 @@ contains
     if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
     !
     call ss_print_screen(TmpZ)
-    if(verbose>1)then
+    if(master.AND.verbose>1)then
        write(*,"(A11,50G18.9)")"F_cnstr   =",fss(1:Niso)
        write(*,"(A11,50G18.9)")"F_Z       =",fss(Niso+1:2*Niso)
        if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(2*Niso+1)
        write(*,*)""
-    end if
+    endif
     !
-    if(verbose>2)call end_loop()
+    call end_loop()
     !
     call ss_write_last()
     !
@@ -441,7 +448,8 @@ contains
     !
     !
     !> Solve:
-    if(verbose>2)call start_timer()
+    if(master.AND.verbose>2)call start_timer()
+    !
     z_converged=.false. ; iter=0
     do while(.not.z_converged.AND.iter<=Niter)
        iter=iter+1
@@ -449,13 +457,16 @@ contains
        !
        Zeta_prev = ss_pack_array(ss_Op_ineq,Nineq);Zeta_prev=Zeta_prev**2
        !
-       !< Solve Fermions:
-       call ss_solve_fermions   
+       if(master.AND.verbose>2)call start_timer
+       call ss_solve_fermions
+       if(master.AND.verbose>2)call stop_timer("solve fermions")
        !
        !< Solve Spins:
+       if(master.AND.verbose>2)call start_timer
        do ineq=1,Nineq
           call ss_solve_spins(ineq)
        enddo
+       if(master.AND.verbose>2)call stop_timer("solve spins")
        do ilat=1,Nlat
           ineq = ss_ilat2ineq(ilat)
           ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
@@ -476,7 +487,10 @@ contains
        !
        Zeta = loop_Wmix*Zeta + (1d0-loop_Wmix)*Zeta_prev
        !
-       z_converged = check_convergence((Zeta-Zeta_prev),loop_tolerance,Nsuccess,Niter)
+       if(master)z_converged = check_convergence((Zeta-Zeta_prev),loop_tolerance,Nsuccess,Niter)
+#ifdef _MPI
+       if(check_MPI())call bcast_MPI(MPI_COMM_WORLD,z_converged)
+#endif
        call end_loop() 
     end do
     !
@@ -484,12 +498,12 @@ contains
     fss(1:Niso)         = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
     if(bool)fss(Niso+1) = sum(ss_Dens) - filling
     !
-    if(verbose>1)then
+    if(master.AND.verbose>1)then
        write(*,"(A11,50G18.9)")"F_cnstr   =",fss(1:Niso)
        if(bool)write(*,"(A11,G18.9)")"F_filling =",fss(Niso+1)
        write(*,*)""
     endif
-    if(verbose>2)call stop_timer()
+    if(master.AND.verbose>2)call stop_timer()
     !
     call ss_write_last()
     !
@@ -511,7 +525,7 @@ contains
 
   subroutine ss_print_screen(Tmp)
     real(8),dimension(Nineq,Nss),optional :: Tmp
-    if(verbose>1)then
+    if(master.AND.verbose>1)then
        do ineq=1,Nineq
           ilat = ss_ineq2ilat(ineq)
           write(*,*)" SITE= "//str(ilat,4)
@@ -542,14 +556,16 @@ contains
     loop_name="main-loop";if(present(name))loop_name=name
     unit_    =6          ;if(present(unit))unit_=unit
     id_      =0          ;if(present(id))id_=id
-    write(unit_,*)
-    if(.not.present(max))then
-       write(unit_,"(A,I5)")"-----"//trim(adjustl(trim(loop_name))),loop,"-----"
-    else
-       write(unit_,"(A,I5,A,I5,A)")"-----"//trim(adjustl(trim(loop_name))),loop,&
-            " (max:",max,")-----"
+    if(master.AND.verbose>2)then
+       write(unit_,*)
+       if(.not.present(max))then
+          write(unit_,"(A,I5)")"-----"//trim(adjustl(trim(loop_name))),loop,"-----"
+       else
+          write(unit_,"(A,I5,A,I5,A)")"-----"//trim(adjustl(trim(loop_name))),loop,&
+               " (max:",max,")-----"
+       endif
+       call start_timer
     endif
-    call start_timer
   end subroutine start_loop
 
 
@@ -558,10 +574,12 @@ contains
     integer          :: unit_,id_
     unit_=6 ; if(present(unit))unit_=unit
     id_  =0 ; if(present(id))id_=id
-    write(unit_,"(A)")"====================================="
-    call stop_timer
-    write(unit_,*)
-    write(unit_,*)
+    if(master.AND.verbose>2)then
+       write(unit_,"(A)")"====================================="
+       call stop_timer
+       write(unit_,*)
+       write(unit_,*)
+    endif
   end subroutine end_loop
 
 

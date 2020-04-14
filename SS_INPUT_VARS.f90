@@ -28,14 +28,12 @@ MODULE SS_INPUT_VARS
   integer              :: verbose             !
   logical              :: lanc_solve
   integer              :: lanc_neigen
+  integer              :: blacs_nblock
   character(len=24)    :: solve_method        !Pick the solve method to be used in ss_solve: broyden, hybrd
   real(8)              :: solve_tolerance !Tolerance on the constraint fixing
   logical              :: restart_init   
   real(8)              :: loop_tolerance       !
   real(8)              :: loop_Wmix
-  ! integer              :: loop_Nmix       !
-  ! character(len=10)    :: loop_MixType
-  ! integer              :: loop_Nitermax
   
 
   !Some parameters for function dimension:
@@ -58,9 +56,18 @@ contains
   !PURPOSE  : READ THE INPUT FILE AND SETUP GLOBAL VARIABLES
   !+-------------------------------------------------------------------+
   subroutine ss_read_input(INPUTunit)
+#ifdef _MPI
+    USE MPI
+    USE SF_MPI
+#endif
     character(len=*) :: INPUTunit
+    logical          :: master=.true.
     integer          :: i
     !
+#ifdef _MPI
+    if(check_MPI())master=get_Master_MPI()       
+#endif
+
     !Store the name of the input file:
     ss_input_file=str(INPUTunit)
     !
@@ -82,10 +89,7 @@ contains
     call parse_input_variable(restart_init,"restart_init",INPUTunit,default=.true.,comment="Restart the Zeta convergence loop from init Z_0 [T] or not (F)")
     call parse_input_variable(loop_tolerance,"loop_tolerance",INPUTunit,default=1d-6,comment="Tolerance on the loop convergence error")
     call parse_input_variable(loop_wmix,"loop_wmix",INPUTunit,default=1d0,comment="Weight for the linear or Broyden mixing procedure")
-    ! call parse_input_variable(loop_nmix,"loop_nmix",INPUTunit,default=0,comment="Mixing number in the Broyden procedure. 0=linear mix [default]")
-    ! call parse_input_variable(loop_mixtype,"loop_MixType",INPUTunit,default="broyden",comment="Type of mixing procedure: linear, adaptive, broyden [default]")
-    ! call parse_input_variable(loop_Nitermax,"loop_Nitermax",INPUTunit,default=100,comment="Max number of iterations in the zeta convergence loop")
-
+    call parse_input_variable(blacs_nblock,"BLACS_NBLOCK",INPUTunit,default=4,comment="Block size to be used in BLACS operations")
     call parse_input_variable(Lmats,"LMATS",INPUTunit,default=1000,comment="Number of Matsubara frequencies.")
     call parse_input_variable(Lreal,"LREAL",INPUTunit,default=1000,comment="Number of real-axis frequencies.")
     call parse_input_variable(wini,"WINI",INPUTunit,default=-5.d0,comment="Smallest real-axis frequency")
@@ -97,10 +101,12 @@ contains
     call parse_input_variable(solve_method,"SOLVE_METHOD",INPUTunit,default="fsolve",comment="Pick the solve method to be used in ss_solve: broyden, fsolve")
     !
     !
-    call print_input()
-    call save_input(INPUTunit)
-    call scifor_version()
-    call code_version(revision)
+    if(master)then
+       call print_input()
+       call save_input(INPUTunit)
+       call scifor_version()
+       call code_version(revision)
+    endif
     !Act on the input variable only after printing.
     !In the new parser variables are hard-linked into the list:
     !any change to the variable is immediately copied into the list... (if you delete .ed it won't be printed out)

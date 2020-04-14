@@ -18,24 +18,23 @@ MODULE SS_SOLVE_FERMION
 contains
 
 
-
-
   subroutine ss_solve_fermions()
     complex(8),dimension(Ns,Ns) :: Hk_f
     complex(8),dimension(Ns,Ns) :: Uk_f
     real(8),dimension(Ns)       :: Ek_f
     !
-    complex(8),dimension(Ns,Ns) :: Eweiss
+    complex(8),dimension(Ns,Ns) :: Eweiss,Eweiss_tmp
     complex(8),dimension(Ns,Ns) :: diagO,diagR
     complex(8),dimension(Ns,Ns) :: rhoK
     real(8),dimension(Ns)       :: lambda,lambda0
-    real(8),dimension(Ns)       :: dens
+    real(8),dimension(Ns)       :: dens,dens_tmp
     real(8),dimension(Ns)       :: const
     real(8),dimension(Ns)       :: Op
     real(8),dimension(Ns)       :: rhoDiag
     !
     complex(8),dimension(Ns)    :: weiss
     integer                     :: ik,i,j
+
     !
     if(Nspin==1)then
        call ss_spin_symmetry(ss_lambda0,Nlat)
@@ -49,19 +48,39 @@ contains
     !
     diagO   = one*diag(Op)
     !
-    Eweiss  = zero
-    dens    = 0d0
-    do ik = 1,Nk
+
+#ifdef _MPI
+    if(check_MPI())then
+       mpi_rank=get_rank_MPI()
+       mpi_size=get_size_MPI()
+    else
+       mpi_rank=0
+       mpi_size=1
+    endif
+#endif
+    Eweiss_tmp  = zero;Eweiss=zero
+    dens_tmp    = 0d0 ;dens=0d0
+    do ik=1+mpi_rank,Nk,mpi_size
        Hk_f   = (diagO .x. ss_Hk(:,:,ik)) .x. diagO
        Uk_f   = Hk_f + ss_Hloc - xmu*eye(Ns)  - diag(lambda) + diag(lambda0)
-       !
        call eigh(Uk_f,Ek_f)
        diagR  = diag(step_fermi(Ek_f))
        RhoK   = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
-       !
-       Eweiss = Eweiss + ss_Hk(:,:,ik)*RhoK*ss_Wtk(:,:,ik)
-       dens   = dens + diagonal(RhoK*ss_Wtk(:,:,ik))
+       Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*RhoK*ss_Wtk(:,:,ik)
+       dens_tmp   = dens_tmp + diagonal(RhoK*ss_Wtk(:,:,ik))
     enddo
+#ifdef _MPI
+    if(check_MPI())then
+       call AllReduce_MPI(MPI_COMM_WORLD,Eweiss_tmp,Eweiss)
+       call AllReduce_MPI(MPI_COMM_WORLD,dens_tmp,dens)
+    else
+       Eweiss = Eweiss_tmp
+       dens   = dens_tmp
+    endif
+#else
+    Eweiss = Eweiss_tmp
+    dens   = dens_tmp
+#endif
     if(Nspin==1)call ss_spin_symmetry(dens,Nlat)
     !
     ! Get H_{a,s} = \sum_{b} sqrt(Z_{b,s})* sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
@@ -109,23 +128,43 @@ contains
 
 
   subroutine ss_solve_lambda0()
-    complex(8),dimension(Ns,Ns)    :: Uk_f,Eweiss,diagRho,Rho
-    complex(8),dimension(Ns,Ns,Nk) :: rhoK
-    real(8),dimension(Ns,Nk)       :: eK
+    complex(8),dimension(Ns,Ns)    :: Uk_f,Eweiss,diagRho,Rho,Eweiss_tmp
+    complex(8),dimension(Ns,Ns,Nk) :: rhoK,rhoK_tmp
+    real(8),dimension(Ns,Nk)       :: eK,eK_tmp
     real(8),dimension(Ns)          :: rhoDiag,Ek_f
-    real(8),dimension(Ns)          :: lambda0,dens
+    real(8),dimension(Ns)          :: lambda0,dens,dens_tmp
     complex(8),dimension(Ns)       :: weiss
     integer                        :: ik,unit
     integer                        :: stride
     real(8)                        :: mu0,Dmin,Dmax
     integer                        :: info
     !
-    do ik = 1,Nk
+#ifdef _MPI
+    if(check_MPI())then
+       mpi_rank=get_rank_MPI()
+       mpi_size=get_size_MPI()
+    endif
+#endif
+    ek_tmp=0d0   ;ek=0d0
+    rhoK_tmp=zero;rhoK=zero
+    do ik=1+mpi_rank,Nk,mpi_size
        Uk_f = ss_Hk(:,:,ik) + ss_Hloc
        call eigh(Uk_f,Ek_f)
-       eK(:,ik)     = Ek_f
-       rhoK(:,:,ik) = Uk_f
+       eK_tmp(:,ik)     = Ek_f
+       rhoK_tmp(:,:,ik) = Uk_f
     enddo
+#ifdef _MPI
+    if(check_MPI())then
+       call AllReduce_MPI(MPI_COMM_WORLD,eK_tmp,eK)
+       call AllReduce_MPI(MPI_COMM_WORLD,rhoK_tmp,rhoK)
+    else
+       eK   = eK_tmp
+       rhoK = rhoK_tmp
+    endif
+#else
+    eK   = eK_tmp
+    rhoK = rhoK_tmp
+#endif
     !
     Dmin = minval(Ek)
     Dmax = maxval(Ek)
@@ -135,22 +174,34 @@ contains
        write(*,*)"ERROR ss_get_lambda0: fzero returned info>1 ",info
        stop
     endif
-    if(verbose>3)write(*,"(A6,12G18.9)")"mu0  =",mu0
+    if(master.AND.verbose>3)write(*,"(A6,12G18.9)")"mu0  =",mu0
     !
     !
-    Eweiss = zero 
-    Dens   = 0d0
-    do ik = 1,Nk 
+    Eweiss_tmp  = zero;Eweiss=zero
+    dens_tmp    = 0d0 ;dens=0d0
+    do ik=1+mpi_rank,Nk,mpi_size
        diagRho      = diag(step_fermi(eK(:,ik)-mu0))
        Uk_f         = rhoK(:,:,ik)
        rhoK(:,:,ik) = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
-       Eweiss       = Eweiss  + ss_Hk(:,:,ik)*rhoK(:,:,ik)*ss_Wtk(:,:,ik) !element wise product
-       Dens         = Dens + diagonal(rhoK(:,:,ik)*ss_Wtk(:,:,ik))        !element wise product
+       Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*rhoK(:,:,ik)*ss_Wtk(:,:,ik)
+       dens_tmp   = dens_tmp + diagonal(rhoK(:,:,ik)*ss_Wtk(:,:,ik))
     enddo
+#ifdef _MPI
+    if(check_MPI())then
+       call AllReduce_MPI(MPI_COMM_WORLD,Eweiss_tmp,Eweiss)
+       call AllReduce_MPI(MPI_COMM_WORLD,dens_tmp,dens)
+    else
+       Eweiss = Eweiss_tmp
+       dens   = dens_tmp
+    endif
+#else
+    Eweiss = Eweiss_tmp
+    dens   = dens_tmp
+#endif
     ss_Dens = ss_unpack_array(Dens,Nlat)
     if(Nspin==1)call ss_spin_symmetry(ss_Dens,Nlat)
     !
-    if(verbose>2)then
+    if(master.AND.verbose>2)then
        do ilat=1,Nlat
           write(*,"(A6,12G18.9)")"N0   =",ss_Dens(ilat,:Nspin*Norb),&
                sum(ss_dens(Ilat,:))*(3-Nspin),filling
@@ -180,11 +231,13 @@ contains
     ss_Lambda0 = ss_unpack_array(lambda0,Nlat)
     if(Nspin==1)call ss_spin_symmetry(ss_Lambda0,Nlat)
     !
-    do ilat=1,Nlat
-       open(free_unit(unit),file="lambda0_site"//str(ilat,4)//".ss")
-       write(unit,*)ss_lambda0(ilat,:)
-       close(unit)
-    enddo
+    if(master)then
+       do ilat=1,Nlat
+          open(free_unit(unit),file="lambda0_site"//str(ilat,4)//".ss")
+          write(unit,*)ss_lambda0(ilat,:)
+          close(unit)
+       enddo
+    endif
     !
   contains
 
@@ -199,7 +252,7 @@ contains
          Rho     = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
          ndens   = ndens + diagonal(Rho*ss_Wtk(:,:,ik))     !element wise product
       enddo
-      if(verbose>4)write(*,"(A9,3G18.9)")"Ef,N0   =",mu,sum(ndens),filling
+      if(master.AND.verbose>3)write(*,"(A9,3G18.9)")"Ef,N0   =",mu,sum(ndens),filling
       dens = sum(ndens)-filling
     end function get_dens
   end subroutine ss_solve_lambda0

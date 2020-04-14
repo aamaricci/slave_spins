@@ -73,20 +73,20 @@ contains
     !
     !
     !Build spin Hamiltonian and write it onto ss_Evecs
-    if(verbose>3)call start_timer
+    if(master.AND.verbose>3)call start_timer
     call ss_build_Hs()
-    if(verbose>3)call stop_timer("build_Hs")
+    if(master.AND.verbose>3)call stop_timer("build_Hs")
     !
     if(lanc_solve)then
-       if(verbose>3)call start_timer
+       if(master.AND.verbose>3)call start_timer
        call sp_eigh(spMatVec_cc,ss_Evals,ss_Evecs,iverbose=(verbose>5))
-       if(verbose>3)call stop_timer("sp_eigh")
+       if(master.AND.verbose>3)call stop_timer("sp_eigh")
        Nstate = lanc_Neigen
     else
-       if(verbose>3)call start_timer
+       if(master.AND.verbose>3)call start_timer
        call sp_dump_matrix(spHs,ss_Evecs) !dimensions check is done internally
        call eigh(Ss_Evecs,Ss_Evals)
-       if(verbose>3)call stop_timer("eigh")
+       if(master.AND.verbose>3)call stop_timer("eigh")
        Nstate=Ndim
     endif
     !
@@ -101,14 +101,10 @@ contains
     !
     !
     !< Get <Sz> and <O>, <O+>
-    if(verbose>2)call start_timer
     call ss_Spin_observables()
-    if(verbose>2)call stop_timer("<Sz>,<Op>")
     !
     !< Get Sz-Sz correlations:
-    if(verbose>2)call start_timer
     call ss_SpinSpin_correlations()
-    if(verbose>2)call stop_timer("<SzSz>")
     !
     !< Copy back into main arrays ss_XYZ at proper position
     ss_Sz_ineq(ineq,:) = ii_Sz
@@ -282,19 +278,6 @@ contains
   !MATRIX-VECTOR OPERATION USING SPARSE STRUCTURE
   !##################################################################
   !##################################################################
-  subroutine spMatVec_dd(Nloc,v,Hv)
-    integer                 :: Nloc
-    real(8),dimension(Nloc) :: v
-    real(8),dimension(Nloc) :: Hv
-    integer                 :: i,j
-    Hv=zero
-    do i=1,Nloc
-       matmul: do j=1,spHs%row(i)%Size
-          Hv(i) = Hv(i) + dreal(spHs%row(i)%vals(j))*v(spHs%row(i)%cols(j))
-       end do matmul
-    end do
-  end subroutine spMatVec_dd
-
   subroutine spMatVec_cc(Nloc,v,Hv)
     integer                         :: Nloc
     complex(8),dimension(Nloc)      :: v
