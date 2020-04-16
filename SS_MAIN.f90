@@ -60,33 +60,37 @@ contains
     !< Init the SS structure + memory allocation
     call assert_shape(hk_user,[Nlso,Nlso,Nk],"ss_init_hk","hk_user")
     !
-    !< Init the Hk structures
-    Htmp = sum(Hk_user,dim=3)/Nk;where(abs(Htmp)<1d-6)Htmp=zero
-    !
-    if(present(Hloc).AND.(sum(abs(Htmp))>1d-12))&
-         stop "ss_init: Hloc seems to be present twice: in _Hloc and _Hk"
-    !
-    do ik=1,Nk
-       !< if order of Hk_user is not correct set the SS_order function to actual reorder
-       Hk = ss_user2ss(Hk_user(:,:,ik),UserOrder_)
-       !
-       select case(Nspin)
-       case default
-          ss_Hk(:,:,ik)  = kron(pauli_0,Hk - Htmp)
-       case (2)
-          ss_Hk(:,:,ik)  = Hk - Htmp
-       end select
-       ss_Wtk(:,:,ik) = 1d0/Nk  !Wtk_user(ik)
-    end do
-    !
     !< Init local non-interacting part 
-    if(present(Hloc))Htmp = Hloc !Htmp should necessarily be zero (if condition above)
+    if(present(Hloc))then
+       Hk = Hloc 
+    else
+       Hk = sum(Hk_user,dim=3)/Nk
+       where(abs(Htmp)<1d-6)Htmp=zero
+    endif
+    !< Reorder it
+    Htmp = ss_user2ss(Hk,UserOrder_)
+    ! 
     select case(Nspin)
     case default
        ss_Hloc = kron(pauli_0,Htmp)
     case (2)
        ss_Hloc = Htmp
     end select
+    !
+    !< Init the Hk structures
+    do ik=1,Nk
+       !< if order of Hk_user is not correct set the SS_order function to actual reorder
+       Hk = ss_user2ss(Hk_user(:,:,ik),UserOrder_)
+       !
+       select case(Nspin)
+       case default
+          ss_Hk(:,:,ik)  = kron(pauli_0,Hk) - ss_Hloc
+       case (2)
+          ss_Hk(:,:,ik)  = Hk - ss_Hloc
+       end select
+       ss_Wtk(:,:,ik) = 1d0/Nk  !Wtk_user(ik)
+    end do
+    !
     !
     !< Init/Read the lambda input
     if(filling/=0d0)call ss_solve_lambda0()

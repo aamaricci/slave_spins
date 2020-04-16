@@ -79,7 +79,7 @@ contains
     !
     if(lanc_solve)then
        if(master.AND.verbose>3)call start_timer
-       call sp_eigh(spMatVec_cc,ss_Evals,ss_Evecs,iverbose=(verbose>5))
+       call sp_eigh(spMatVec_cc,ss_Evals,ss_Evecs,Nitermax=1000,iverbose=(verbose>5))
        if(master.AND.verbose>3)call stop_timer("sp_eigh")
        Nstate = lanc_Neigen
     else
@@ -146,13 +146,13 @@ contains
        !< sum_{m,s}lambda_{m,s}*(Sz_{m,s}+1/2)
        htmp = htmp + sum(ii_lambda*(Sz+0.5d0))
        !
-       !< Ust/2 * ( sum_{m,s}Sz_{m,s} )**2
-       htmp = htmp + Ust/2*sum(Sz)**2
-       !
        !< (U-Ust)/2 * sum_{m} (sum_s Sz_{m,s})**2
        do iorb=1,Norb
           htmp = htmp  + (Uloc(iorb)-Ust)/2d0*sum(tSz(:,iorb))**2
        enddo
+       !
+       !< Ust/2 * ( sum_{m,s}Sz_{m,s} )**2
+       htmp = htmp + Ust/2*sum(tSz)**2
        !
        !< -Jh/2 * sum_s (sum_m Sz_{m,s})**2
        do ispin=1,2

@@ -164,7 +164,8 @@ contains
          [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
     !< save input
-    Zeta_prev = ss_pack_array(ss_Op_ineq,Nineq);Zeta_prev=Zeta_Prev**2
+    Zeta_prev = ss_pack_array(ss_Op_ineq**2,Nineq)
+    ! Zeta_prev = Zeta_Prev**2
     !
     !< Solve Fermions:
     if(master.AND.verbose>2)call start_timer
@@ -535,7 +536,7 @@ contains
           write(*,"(A7,12G18.9)")"mu    =",xmu
           write(*,"(A7,12G18.9)")"N     =",ss_Dens_ineq(ineq,:Nspin*Norb),&
                sum(ss_Dens_ineq(ineq,:Nspin*Norb))*(3-Nspin),filling/Nlat
-          write(*,"(A7,12G18.9)")"Sz    =",ss_Sz_ineq(ineq,:Nspin*Norb)
+          write(*,"(A7,12G18.9)")"Sz+1/2=",ss_Sz_ineq(ineq,:Nspin*Norb)+0.5d0
           write(*,"(A7,12G18.9)")"Lambda=",ss_lambda_ineq(ineq,:Nspin*Norb)
           if(verbose>3)write(*,"(A7,12G18.9)")"Op    =",ss_Op_ineq(ineq,:Nspin*Norb)
           if(verbose>4.AND.present(Tmp))&

@@ -63,10 +63,8 @@ program ss_LaOFeAs
   where(abs(Hloc)<1d-6)Hloc=zero
   if(master)call TB_write_Hloc(Hloc,"w90Hloc.dat")
 
-
-
   !SOLVE SS:
-  call ss_solve(Hk,ineq_sites=[1,1])
+  call ss_solve(Hk,Hloc=Hloc,ineq_sites=[1,1])
 
 
   !Retrieve Zeta and ReSigma(0)=lambda0-lambda
@@ -76,7 +74,7 @@ program ss_LaOFeAs
   call ss_get_Self(self)
 
   !Push em to Wannier 90 setup
-  call TB_w90_Zeta(zeta)
+  ! call TB_w90_Zeta(zeta)
   call TB_w90_Self(diag(self))
 
   ! !solve along a path in the 3D BZ.

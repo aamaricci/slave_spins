@@ -12,7 +12,7 @@ MODULE SS_SOLVE_FERMION
   public :: ss_solve_fermions
 
 
-  real(8),parameter :: mch=1d-9
+  real(8),parameter :: mch=1d-6
   integer           :: iorb,jorb,ispin,io,jo,ilat,jlat,ineq
 
 contains
@@ -48,7 +48,6 @@ contains
     !
     diagO   = one*diag(Op)
     !
-
 #ifdef _MPI
     if(check_MPI())then
        mpi_rank=get_rank_MPI()
@@ -61,7 +60,8 @@ contains
     Eweiss_tmp  = zero;Eweiss=zero
     dens_tmp    = 0d0 ;dens=0d0
     do ik=1+mpi_rank,Nk,mpi_size
-       Hk_f   = (diagO .x. ss_Hk(:,:,ik)) .x. diagO
+       Uk_f   = ss_Hk(:,:,ik)
+       Hk_f   = (diagO .x. Uk_f) .x. diagO
        Uk_f   = Hk_f + ss_Hloc - xmu*eye(Ns)  - diag(lambda) + diag(lambda0)
        call eigh(Uk_f,Ek_f)
        diagR  = diag(step_fermi(Ek_f))
@@ -100,7 +100,7 @@ contains
        enddo
     enddo
     !
-    ! Get C = ( n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
+    ! Get C = (n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
     const  = 1d0/(sqrt(dens*(1d0-dens))+mch) - 1d0
     !
     ss_Dens = ss_unpack_array(dens,Nlat)
@@ -225,8 +225,8 @@ contains
     enddo
     !
     !< Get Lambda0 = -2* h0_{m,s}*[n0_{m,s}-0.5]/[n0_{m,s}*(1-n0_{m,s})]
-    lambda0 = -2d0*Weiss*(Dens-0.5d0)/(Dens*(1d0-Dens)+mch)
-    xmu     =  2*sum(lambda0)/Ns + mu0!2*ss_lambda0(1)+mu0
+    lambda0 = -2d0*abs(Weiss)*(Dens-0.5d0)/(Dens*(1d0-Dens)+mch)
+    xmu     =  mu0 + 2d0*sum(lambda0)/Ns!2*ss_lambda0(1)+mu0
     !
     ss_Lambda0 = ss_unpack_array(lambda0,Nlat)
     if(Nspin==1)call ss_spin_symmetry(ss_Lambda0,Nlat)

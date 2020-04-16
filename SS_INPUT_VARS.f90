@@ -28,13 +28,12 @@ MODULE SS_INPUT_VARS
   integer              :: verbose             !
   logical              :: lanc_solve
   integer              :: lanc_neigen
-  integer              :: blacs_nblock
   character(len=24)    :: solve_method        !Pick the solve method to be used in ss_solve: broyden, hybrd
   real(8)              :: solve_tolerance !Tolerance on the constraint fixing
   logical              :: restart_init   
   real(8)              :: loop_tolerance       !
   real(8)              :: loop_Wmix
-  
+
 
   !Some parameters for function dimension:
   !=========================================================
@@ -89,7 +88,6 @@ contains
     call parse_input_variable(restart_init,"restart_init",INPUTunit,default=.true.,comment="Restart the Zeta convergence loop from init Z_0 [T] or not (F)")
     call parse_input_variable(loop_tolerance,"loop_tolerance",INPUTunit,default=1d-6,comment="Tolerance on the loop convergence error")
     call parse_input_variable(loop_wmix,"loop_wmix",INPUTunit,default=1d0,comment="Weight for the linear or Broyden mixing procedure")
-    call parse_input_variable(blacs_nblock,"BLACS_NBLOCK",INPUTunit,default=4,comment="Block size to be used in BLACS operations")
     call parse_input_variable(Lmats,"LMATS",INPUTunit,default=1000,comment="Number of Matsubara frequencies.")
     call parse_input_variable(Lreal,"LREAL",INPUTunit,default=1000,comment="Number of real-axis frequencies.")
     call parse_input_variable(wini,"WINI",INPUTunit,default=-5.d0,comment="Smallest real-axis frequency")

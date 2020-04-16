@@ -6,14 +6,15 @@ program ss_bethe
   !
   implicit none
   complex(8),allocatable,dimension(:,:,:) :: Hk
-  real(8)                                 :: ts(5)
-  real(8)                                 :: Mh(5)
-  integer                                 :: Nkx,Nktot,Nlso,ilat,Npts,Nkpath
+  complex(8),allocatable,dimension(:,:) :: Hloc
+  ! real(8)                                 :: ts(5)
+  ! real(8)                                 :: Mh(5)
+  integer                                 :: Nkx,Nktot,Nlso,ilat,Npts,Nkpath,ik
   real(8),dimension(:,:),allocatable      :: kpath
-  real(8),dimension(:),allocatable        :: Zeta,Self
+  real(8),dimension(:),allocatable        :: Zeta,Self,Mh
 
-  call parse_input_variable(ts,"ts","inputSS.conf",default=[1d0,1d0,1d0,1d0,1d0])
-  call parse_input_variable(Mh,"Mh","inputSS.conf",default=[0d0,0d0,0d0,0d0,0d0])
+  ! call parse_input_variable(ts,"ts","inputSS.conf",default=[1d0,1d0,1d0,1d0,1d0])
+  ! call parse_input_variable(Mh,"Mh","inputSS.conf",default=[0d0,0d0,0d0,0d0,0d0])
   call parse_input_variable(Nkx,"Nkx","inputSS.conf",default=20)
   call parse_input_variable(nkpath,"NKPATH","inputSS.conf",default=500)
   call ss_read_input('inputSS.conf')
@@ -33,10 +34,13 @@ program ss_bethe
 
   Nktot = Nkx**2
 
+  allocate(Hloc(Nlso,Nlso))
+  call TB_read_Hloc(Hloc,"w90Hloc")
+  allocate(Mh(Nlso))
+  Mh=diagonal(Hloc)
+
   allocate(Hk(Nlso,Nlso,Nktot))
-
   call TB_set_bk([pi2,0d0],[0d0,pi2])
-
   call TB_build_model(Hk,hk_model,Nlso,[Nkx,Nkx])
 
   call ss_solve(Hk,ineq_sites=(/(1,ilat=1,Nlat)/) )
@@ -50,15 +54,15 @@ program ss_bethe
   kpath(4,:)=[0d0,0d0]
   kpath = kpath*pi
 
-  !Retrieve Zeta and ReSigma(0)=lambda0-lambda
-  allocate(Zeta(Nlso))
-  allocate(Self(Nlso))
-  call ss_get_zeta(zeta)
-  call ss_get_Self(self)
+  ! !Retrieve Zeta and ReSigma(0)=lambda0-lambda
+  ! allocate(Zeta(Nlso))
+  ! allocate(Self(Nlso))
+  ! call ss_get_zeta(zeta)
+  ! call ss_get_Self(self)
 
   !Solve for the renormalized bands:
   call TB_Solve_model(hk_model,Nlso,kpath,Nkpath,&
-       colors_name=[blue,red],&
+       colors_name=[black,red,blue,green,magenta],&
        points_name=[character(len=40) ::'G', 'M', 'X', 'G'],&
        file="zBands_2d",iproject=.false.)
 
@@ -77,7 +81,7 @@ contains
     cy = cos(ky)
     hk = zero
     do i=1,N
-       hk(i,i) = Mh(i)-2d0*ts(i)*(cx+cy)
+       hk(i,i) = Mh(i)-(cx+cy)
     enddo
     if(allocated(zeta))then
        diagZ = diag( sqrt(zeta) )
