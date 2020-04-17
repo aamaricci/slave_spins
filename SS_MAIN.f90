@@ -31,15 +31,16 @@ contains
 
   !< Init SS calculation by passing the Hamiltonian H(k)
   subroutine ss_solve_hk(hk_user,UserOrder,Hloc,ineq_sites)
-    complex(8),dimension(:,:,:)                                    :: hk_user  ![Nlso,Nlso,Nk]
-    character(len=*),dimension(3),optional                         :: UserOrder
-    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb),optional :: Hloc
-    integer,dimension(Nlat),optional                               :: ineq_sites
+    complex(8),dimension(:,:,:)                           :: hk_user  ![Nlso,Nlso,Nk]
+    character(len=*),dimension(3),optional                :: UserOrder
+    real(8),dimension(Nspin*Nlat*Norb),optional           :: Hloc
+    integer,dimension(Nlat),optional                      :: ineq_sites
     !
-    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb)          :: Htmp,Hk
-    complex(8),dimension(:,:),allocatable                          :: Hcheck
-    integer                                                        :: ik
-    character(len=5),dimension(3)                                  :: UserOrder_
+    real(8),dimension(Nspin*Nlat*Norb)                    :: Hdiag,Haux
+    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Htmp,Hk
+    complex(8),dimension(:,:),allocatable                 :: Hcheck
+    integer                                               :: ik
+    character(len=5),dimension(3)                         :: UserOrder_
     !
 #ifdef _MPI
     if(check_MPI())master = get_master_MPI()
@@ -60,33 +61,28 @@ contains
     !< Init the SS structure + memory allocation
     call assert_shape(hk_user,[Nlso,Nlso,Nk],"ss_init_hk","hk_user")
     !
-    !< Init local non-interacting part 
+    !< Init local non-interacting part and reorder it
     if(present(Hloc))then
-       Hk = Hloc 
+       Hdiag = ss_user2ss(Hloc,UserOrder_) 
     else
-       Hk = sum(Hk_user,dim=3)/Nk
-       where(abs(Htmp)<1d-6)Htmp=zero
+       Haux  = diagonal( sum(Hk_user,dim=3)/Nk )
+       Hdiag = ss_user2ss(Haux,UserOrder_ )
+       where(abs(Hdiag)<1d-6)Hdiag=0d0
     endif
-    !< Reorder it
-    Htmp = ss_user2ss(Hk,UserOrder_)
-    ! 
-    select case(Nspin)
-    case default
-       ss_Hloc = kron(pauli_0,Htmp)
-    case (2)
-       ss_Hloc = Htmp
-    end select
     !
-    !< Init the Hk structures
+    ss_Hdiag(:Nlso) = Hdiag
+    if(Nspin==1)call ss_spin_symmetry(ss_Hdiag,Nlat)
+    !
+    !< Init the Hk structures, subtract the local, diagonal part, coupled to the density 
     do ik=1,Nk
        !< if order of Hk_user is not correct set the SS_order function to actual reorder
        Hk = ss_user2ss(Hk_user(:,:,ik),UserOrder_)
        !
        select case(Nspin)
        case default
-          ss_Hk(:,:,ik)  = kron(pauli_0,Hk) - ss_Hloc
+          ss_Hk(:,:,ik)  = kron(pauli_0,Hk) - diag(ss_Hdiag)
        case (2)
-          ss_Hk(:,:,ik)  = Hk - ss_Hloc
+          ss_Hk(:,:,ik)  = Hk - diag(ss_Hdiag)
        end select
        ss_Wtk(:,:,ik) = 1d0/Nk  !Wtk_user(ik)
     end do
@@ -124,7 +120,7 @@ contains
     !
     complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Htmp
     real(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb)    :: Wtmp
-    real(8),dimension(Nspin*Nlat*Norb)                    :: Eb,Db,Hloc_
+    real(8),dimension(Nspin*Nlat*Norb)                    :: Eb,Db,Hdiag
     integer                                               :: ie,io,ilat
     character(len=5),dimension(3)                         :: UserOrder_
     !
@@ -137,21 +133,24 @@ contains
     !
     Nk = size(Ebands,2)
     !
+    is_dos=.true.
+    !
     if(present(ineq_sites))then
        call ss_setup_structure(ineq_sites)
     else
        call ss_setup_structure()
     endif
-    is_dos=.true.
     !
     !< Init the SS structure + memory allocation
     call assert_shape(Ebands,[Nspin*Nlat*Norb,Nk],"ss_init_dos","Ebands")
     call assert_shape(Dbands,[Nspin*Nlat*Norb,Nk],"ss_init_dos","Dbands")
-    Hloc_    = 0d0
-    if(present(Hloc))then
-       call assert_shape(Hloc,[Nspin*Nlat*Norb],"ss_init_dos","Hloc")
-       Hloc_ = Hloc
-    endif
+    if(present(Hloc))call assert_shape(Hloc,[Nspin*Nlat*Norb],"ss_init_dos","Hloc")
+    !
+    !< Init local non-interacting part and reorder it
+    Hdiag = 0d0
+    if(present(Hloc))Hdiag = ss_user2ss(Hloc,UserOrder_)
+    ss_Hdiag(:Nlso) = Hdiag
+    if(Nspin==1)call ss_spin_symmetry(ss_Hdiag,Nlat)
     !
     ss_Hk = zero
     ss_Wtk= 0d0
@@ -161,7 +160,7 @@ contains
        Htmp=zero
        Wtmp=0d0
        do io=1,Nspin*Nlat*Norb
-          Htmp(io,io)  = one*Eb(io) !+ one*Hloc_(io)
+          Htmp(io,io)  = one*Eb(io)
           Wtmp(io,io)  = Db(io)
        end do
        !
@@ -175,12 +174,6 @@ contains
        end select
     end do
     !
-    select case(Nspin)
-    case default
-       ss_Hloc = kron(pauli_0,one*diag(Hloc_))
-    case (2)
-       ss_Hloc = diag(Hloc_)
-    end select
     !
     !< Init/Read the lambda input
     ! if(filling/=dble(Norb))call ss_solve_lambda0()

@@ -12,11 +12,10 @@ MODULE SS_SOLVE_FERMION
   public :: ss_solve_fermions
 
 
-  real(8),parameter :: mch=1d-6
+  real(8),parameter :: mch=1d-8
   integer           :: iorb,jorb,ispin,io,jo,ilat,jlat,ineq
 
 contains
-
 
   subroutine ss_solve_fermions()
     complex(8),dimension(Ns,Ns) :: Hk_f
@@ -62,7 +61,7 @@ contains
     do ik=1+mpi_rank,Nk,mpi_size
        Uk_f   = ss_Hk(:,:,ik)
        Hk_f   = (diagO .x. Uk_f) .x. diagO
-       Uk_f   = Hk_f + ss_Hloc - xmu*eye(Ns)  - diag(lambda) + diag(lambda0)
+       Uk_f   = Hk_f + diag(ss_Hdiag) - xmu*eye(Ns)  - diag(lambda) + diag(lambda0)
        call eigh(Uk_f,Ek_f)
        diagR  = diag(step_fermi(Ek_f))
        RhoK   = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
@@ -148,7 +147,7 @@ contains
     ek_tmp=0d0   ;ek=0d0
     rhoK_tmp=zero;rhoK=zero
     do ik=1+mpi_rank,Nk,mpi_size
-       Uk_f = ss_Hk(:,:,ik) + ss_Hloc
+       Uk_f = ss_Hk(:,:,ik) + diag(ss_Hdiag)
        call eigh(Uk_f,Ek_f)
        eK_tmp(:,ik)     = Ek_f
        rhoK_tmp(:,:,ik) = Uk_f

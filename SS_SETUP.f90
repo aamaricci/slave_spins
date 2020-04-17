@@ -98,11 +98,16 @@ contains
     allocate(ss_Hk(Ns,Ns,Nk))
     ss_Hk = zero
     !
+    ! if(is_dos)then
+    !    allocate(ss_Wtk(Ns,Nk))
+    ! else
+    !    allocate(ss_Wtk(1,Nk))
+    ! enddo
     allocate(ss_Wtk(Ns,Ns,Nk))
     ss_Wtk= 0d0
     !
-    allocate(ss_Hloc(Ns,Ns))
-    ss_Hloc = zero
+    allocate(ss_Hdiag(Ns))
+    ss_Hdiag = 0d0
   end subroutine ss_setup_structure
 
 
@@ -288,7 +293,7 @@ contains
   end subroutine ss_spin_symmetry_nlso_d
 
   subroutine ss_spin_symmetry_nlso_c(array,Nsite)
-    integer                      :: Nsite
+    integer                         :: Nsite
     complex(8),dimension(Nsite*Nss) :: array
     array(Nsite*Norb+1:) = array(1:Nsite*Norb)
   end subroutine ss_spin_symmetry_nlso_c

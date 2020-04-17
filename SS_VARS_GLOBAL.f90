@@ -20,8 +20,8 @@ MODULE SS_VARS_GLOBAL
   character(len=5),dimension(3)           :: DefOrder
   !
   complex(8),dimension(:,:,:),allocatable :: ss_Hk
-  real(8),dimension(:,:,:),allocatable    :: ss_Wtk
-  complex(8),dimension(:,:),allocatable   :: ss_Hloc           !local hamiltonian
+  real(8),dimension(:,:,:),allocatable      :: ss_Wtk
+  real(8),dimension(:),allocatable        :: ss_Hdiag
   !
   real(8),dimension(:,:),allocatable      :: ss_c      ,ss_c_ineq
   real(8),dimension(:,:),allocatable      :: ss_dens   ,ss_dens_ineq

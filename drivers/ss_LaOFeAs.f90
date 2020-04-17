@@ -18,7 +18,7 @@ program ss_LaOFeAs
   real(8),allocatable                     :: Dens(:),Zeta(:), Self(:)
   character(len=20)                       :: w90file,InputFile
   real(8)                                 :: ef=1d0
-  logical                                 :: master=.true.
+  logical                                 :: master=.true.,bool
 
 #ifdef _MPI
   call init_MPI
@@ -54,9 +54,18 @@ program ss_LaOFeAs
   !SOLVE AND PLOT THE FULLY HOMOGENOUS PROBLEM:
   Nktot=Nkx*Nkx*Nkx ;   write(*,*) "Using Nk_total="//txtfy(Nktot)
   allocate(Hk(Nlso,Nlso,Nktot))
+  ! call set_store_size(200)
+  ! inquire(file="LaOFeAs_hk.in",exist=bool)
+  ! if(bool)then
+  !    call read_array("LaOFeAs_hk.in",Hk)
+  ! else
+
   call start_timer
   call TB_build_model(Hk,TB_w90_model,Nlso,[Nkx,Nkx,Nkx])
   call stop_timer("TB_build_model")
+  ! call save_array("LaOFeAs_hk.in",Hk)
+  ! endif
+
 
   allocate(Hloc(Nlso,Nlso))
   Hloc= sum(Hk(:,:,:),dim=3)/Nktot
@@ -64,7 +73,7 @@ program ss_LaOFeAs
   if(master)call TB_write_Hloc(Hloc,"w90Hloc.dat")
 
   !SOLVE SS:
-  call ss_solve(Hk,Hloc=Hloc,ineq_sites=[1,1])
+  call ss_solve(Hk,ineq_sites=[1,1])
 
 
   !Retrieve Zeta and ReSigma(0)=lambda0-lambda
@@ -74,7 +83,7 @@ program ss_LaOFeAs
   call ss_get_Self(self)
 
   !Push em to Wannier 90 setup
-  ! call TB_w90_Zeta(zeta)
+  call TB_w90_Zeta(zeta)
   call TB_w90_Self(diag(self))
 
   ! !solve along a path in the 3D BZ.
@@ -93,7 +102,7 @@ program ss_LaOFeAs
 
   !Solve for the renormalized bands:
   if(master)call TB_Solve_model(TB_w90_model,Nlso,kpath,Nkpath,&
-       colors_name=[red,green,green,green,blue,red,green,green,green,blue],&
+       colors_name=[black,red,red,green,blue,black,red,red,green,blue],&
        points_name=[character(len=40) ::'M', 'R', 'G', 'X', 'M', 'G', 'Z','A', 'R'],&
        file="zBands_LaOFeAs",iproject=.true.)
 
