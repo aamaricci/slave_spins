@@ -49,7 +49,7 @@ program ss_LaOFeAs
 
   !METHOD 1 (setup W90 --> use internal W90 model)
   call TB_w90_setup(reg(w90file),nlat=Nlat,nspin=Nspin,norb=Norb,verbose=.true.)
-  call TB_w90_FermiLevel([Nkx,Nkx,Nkx],dble(Nlso),Ef)
+  call TB_w90_FermiLevel([Nkx,Nkx,Nkx],filling,Ef)
 
   !SOLVE AND PLOT THE FULLY HOMOGENOUS PROBLEM:
   Nktot=Nkx*Nkx*Nkx ;   write(*,*) "Using Nk_total="//txtfy(Nktot)

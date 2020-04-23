@@ -98,12 +98,11 @@ contains
     allocate(ss_Hk(Ns,Ns,Nk))
     ss_Hk = zero
     !
-    ! if(is_dos)then
-    !    allocate(ss_Wtk(Ns,Nk))
-    ! else
-    !    allocate(ss_Wtk(1,Nk))
-    ! enddo
-    allocate(ss_Wtk(Ns,Ns,Nk))
+    if(is_dos)then
+       allocate(ss_Wtk(Ns,Nk))
+    else
+       allocate(ss_Wtk(1,Nk))
+    end if
     ss_Wtk= 0d0
     !
     allocate(ss_Hdiag(Ns))

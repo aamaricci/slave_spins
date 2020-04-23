@@ -84,8 +84,8 @@ contains
        case (2)
           ss_Hk(:,:,ik)  = Hk - diag(ss_Hdiag)
        end select
-       ss_Wtk(:,:,ik) = 1d0/Nk  !Wtk_user(ik)
     end do
+    ss_Wtk(1,:) = 1d0/Nk
     !
     !
     !< Init/Read the lambda input
@@ -119,7 +119,7 @@ contains
     integer,dimension(Nlat),optional                      :: ineq_sites
     !
     complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Htmp
-    real(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb)    :: Wtmp
+    real(8),dimension(Nspin*Nlat*Norb)                    :: Wtmp
     real(8),dimension(Nspin*Nlat*Norb)                    :: Eb,Db,Hdiag
     integer                                               :: ie,io,ilat
     character(len=5),dimension(3)                         :: UserOrder_
@@ -158,19 +158,17 @@ contains
        Eb = ss_user2ss(Ebands(:,ie),UserOrder_)
        Db = ss_user2ss(Dbands(:,ie),UserOrder_)
        Htmp=zero
-       Wtmp=0d0
        do io=1,Nspin*Nlat*Norb
           Htmp(io,io)  = one*Eb(io)
-          Wtmp(io,io)  = Db(io)
        end do
        !
        select case(Nspin)
        case default
           ss_Hk(:,:,ie)  = kron(pauli_0,Htmp)
-          ss_Wtk(:,:,ie) = kron(pauli_0,one*Wtmp)
+          ss_Wtk(:,ie)   = [Db,Db]
        case (2)
           ss_Hk(:,:,ie)  = Htmp
-          ss_Wtk(:,:,ie) = Wtmp
+          ss_Wtk(:,ie)   = Db
        end select
     end do
     !

@@ -12,8 +12,9 @@ MODULE SS_SOLVE_FERMION
   public :: ss_solve_fermions
 
 
-  real(8),parameter :: mch=1d-8
-  integer           :: iorb,jorb,ispin,io,jo,ilat,jlat,ineq
+  real(8),parameter                  :: mch=1d-8
+  integer                            :: iorb,jorb,ispin,io,jo,ilat,jlat,ineq
+
 
 contains
 
@@ -21,6 +22,7 @@ contains
     complex(8),dimension(Ns,Ns) :: Hk_f
     complex(8),dimension(Ns,Ns) :: Uk_f
     real(8),dimension(Ns)       :: Ek_f
+    real(8),dimension(Ns,Ns)    :: Wtk
     !
     complex(8),dimension(Ns,Ns) :: Eweiss,Eweiss_tmp
     complex(8),dimension(Ns,Ns) :: diagO,diagR
@@ -32,7 +34,7 @@ contains
     real(8),dimension(Ns)       :: rhoDiag
     !
     complex(8),dimension(Ns)    :: weiss
-    integer                     :: ik,i,j
+    integer                     :: ik,i,j,N
 
     !
     if(Nspin==1)then
@@ -56,17 +58,20 @@ contains
        mpi_size=1
     endif
 #endif
+    !
     Eweiss_tmp  = zero;Eweiss=zero
     dens_tmp    = 0d0 ;dens=0d0
     do ik=1+mpi_rank,Nk,mpi_size
        Uk_f   = ss_Hk(:,:,ik)
+       ! forall(i=1:Ns,j=1:Ns)Hk_f(i,j) = diagO(i)*Uk_f(i,j)*diagO(j)
        Hk_f   = (diagO .x. Uk_f) .x. diagO
        Uk_f   = Hk_f + diag(ss_Hdiag) - xmu*eye(Ns)  - diag(lambda) + diag(lambda0)
        call eigh(Uk_f,Ek_f)
        diagR  = diag(step_fermi(Ek_f))
        RhoK   = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
-       Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*RhoK*ss_Wtk(:,:,ik)
-       dens_tmp   = dens_tmp + diagonal(RhoK*ss_Wtk(:,:,ik))
+       Wtk = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
+       Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*RhoK*Wtk
+       dens_tmp   = dens_tmp + diagonal(RhoK)*ss_Wtk(:,ik)
     enddo
 #ifdef _MPI
     if(check_MPI())then
@@ -125,15 +130,15 @@ contains
 
 
 
-
   subroutine ss_solve_lambda0()
     complex(8),dimension(Ns,Ns)    :: Uk_f,Eweiss,diagRho,Rho,Eweiss_tmp
     complex(8),dimension(Ns,Ns,Nk) :: rhoK,rhoK_tmp
     real(8),dimension(Ns,Nk)       :: eK,eK_tmp
+    real(8),dimension(Ns,Ns)       :: Wtk
     real(8),dimension(Ns)          :: rhoDiag,Ek_f
     real(8),dimension(Ns)          :: lambda0,dens,dens_tmp
     complex(8),dimension(Ns)       :: weiss
-    integer                        :: ik,unit
+    integer                        :: ik,unit,N
     integer                        :: stride
     real(8)                        :: mu0,Dmin,Dmax
     integer                        :: info
@@ -144,6 +149,7 @@ contains
        mpi_size=get_size_MPI()
     endif
 #endif
+    !
     ek_tmp=0d0   ;ek=0d0
     rhoK_tmp=zero;rhoK=zero
     do ik=1+mpi_rank,Nk,mpi_size
@@ -182,8 +188,9 @@ contains
        diagRho      = diag(step_fermi(eK(:,ik)-mu0))
        Uk_f         = rhoK(:,:,ik)
        rhoK(:,:,ik) = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
-       Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*rhoK(:,:,ik)*ss_Wtk(:,:,ik)
-       dens_tmp   = dens_tmp + diagonal(rhoK(:,:,ik)*ss_Wtk(:,:,ik))
+       Wtk = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
+       Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*rhoK(:,:,ik)*Wtk
+       dens_tmp   = dens_tmp + diagonal(rhoK(:,:,ik)*Wtk)
     enddo
 #ifdef _MPI
     if(check_MPI())then
@@ -243,14 +250,25 @@ contains
     function get_dens(mu) result(dens)
       real(8),intent(in)          :: mu
       real(8)                     :: dens
-      real(8),dimension(Ns)       :: ndens
-      ndens = 0d0
-      do ik = 1,Nk 
+      real(8),dimension(Ns)       :: ndens,ndens_tmp
+      ndens_tmp = 0d0
+      ndens     = 0d0
+      do ik=1+mpi_rank,Nk,mpi_size
          diagRho = diag(step_fermi(eK(:,ik)-mu))
          Uk_f    = rhoK(:,:,ik)
          Rho     = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
-         ndens   = ndens + diagonal(Rho*ss_Wtk(:,:,ik))     !element wise product
+         Wtk     = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
+         ndens_tmp = ndens_tmp + diagonal(Rho*Wtk)
       enddo
+#ifdef _MPI
+      if(check_MPI())then
+         call AllReduce_MPI(MPI_COMM_WORLD,ndens_tmp,ndens)
+      else
+         ndens   = ndens_tmp
+      endif
+#else
+      ndens   = ndens_tmp
+#endif
       if(master.AND.verbose>3)write(*,"(A9,3G18.9)")"Ef,N0   =",mu,sum(ndens),filling
       dens = sum(ndens)-filling
     end function get_dens
