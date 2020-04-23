@@ -534,8 +534,7 @@ contains
           if(verbose>3)write(*,"(A7,12G18.9)")"C     =",ss_C_ineq(ineq,:Nspin*Norb)
           !
           write(*,"(A7,12G18.9)")"mu    =",xmu
-          write(*,"(A7,12G18.9)")"N     =",ss_Dens_ineq(ineq,:Nspin*Norb),&
-               sum(ss_Dens_ineq(ineq,:Nspin*Norb))*(3-Nspin),filling/Nlat
+          write(*,"(A7,12G18.9)")"N     =",ss_Dens_ineq(ineq,:Nspin*Norb),sum(ss_Dens),filling
           write(*,"(A7,12G18.9)")"Sz+1/2=",ss_Sz_ineq(ineq,:Nspin*Norb)+0.5d0
           write(*,"(A7,12G18.9)")"Lambda=",ss_lambda_ineq(ineq,:Nspin*Norb)
           if(verbose>3)write(*,"(A7,12G18.9)")"Op    =",ss_Op_ineq(ineq,:Nspin*Norb)
