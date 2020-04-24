@@ -49,22 +49,16 @@ program ss_LaOFeAs
 
   !METHOD 1 (setup W90 --> use internal W90 model)
   call TB_w90_setup(reg(w90file),nlat=Nlat,nspin=Nspin,norb=Norb,verbose=.true.)
-  call TB_w90_FermiLevel([Nkx,Nkx,Nkx],filling,Ef)
+  !call TB_w90_FermiLevel([Nkx,Nkx,Nkx],dble(Nlso))!filling,Ef)
 
   !SOLVE AND PLOT THE FULLY HOMOGENOUS PROBLEM:
   Nktot=Nkx*Nkx*Nkx ;   write(*,*) "Using Nk_total="//txtfy(Nktot)
   allocate(Hk(Nlso,Nlso,Nktot))
-  ! call set_store_size(200)
-  ! inquire(file="LaOFeAs_hk.in",exist=bool)
-  ! if(bool)then
-  !    call read_array("LaOFeAs_hk.in",Hk)
-  ! else
+
 
   call start_timer
   call TB_build_model(Hk,TB_w90_model,Nlso,[Nkx,Nkx,Nkx])
   call stop_timer("TB_build_model")
-  ! call save_array("LaOFeAs_hk.in",Hk)
-  ! endif
 
 
   allocate(Hloc(Nlso,Nlso))
