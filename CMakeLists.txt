@@ -182,7 +182,7 @@ SET(PREFIX  "$ENV{HOME}/.bin" CACHE PATH "Prefix prepended to install directorie
 SET(CMAKE_INSTALL_PREFIX "${PREFIX}" CACHE INTERNAL "Prefix prepended to install directories" FORCE)
 
 # define the executable to compiler
-SET(EXE ss_hm_bethe CACHE STRING "Driver code to compile")
+SET(EXE ss_DFT CACHE STRING "Driver code to compile")
 # SET(CMAKE_INSTALL_EXE "${EXE}" CACHE INTERNAL "Driver code to compile" FORCE)
 
 

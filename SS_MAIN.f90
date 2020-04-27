@@ -94,9 +94,9 @@ contains
     !
     if(master.AND.verbose>2)then
        do ineq=1,Nineq
-          write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0(ineq,:)
-          write(*,"(A7,12G18.9)")"Lam   =",ss_lambda(ineq,:)
-          write(*,"(A7,12G18.9)")"Op    =",ss_Op(ineq,:)
+          ilat = ss_ineq2ilat(ineq)
+          write(*,"(A7,12G18.9)")"Lam   =",ss_lambda(ilat,:Nspin*Norb)
+          write(*,"(A7,12G18.9)")"Op    =",ss_Op(ilat,:Nspin*Norb)
        enddo
        write(*,"(A7,12G18.9)")"mu    =",xmu
        write(*,*)" "
@@ -121,7 +121,7 @@ contains
     complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Htmp
     real(8),dimension(Nspin*Nlat*Norb)                    :: Wtmp
     real(8),dimension(Nspin*Nlat*Norb)                    :: Eb,Db,Hdiag
-    integer                                               :: ie,io,ilat
+    integer                                               :: ie,io,ilat,ineq
     character(len=5),dimension(3)                         :: UserOrder_
     !
 #ifdef _MPI
@@ -175,14 +175,14 @@ contains
     !
     !< Init/Read the lambda input
     ! if(filling/=dble(Norb))call ss_solve_lambda0()
-    if(filling/=0d0)call ss_solve_lambda0()
+    call ss_solve_lambda0()
     call ss_init_params()
     !
     if(master.AND.verbose>2)then
        do ineq=1,Nineq
-          write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0(ineq,:)
-          write(*,"(A7,12G18.9)")"Lam   =",ss_lambda(ineq,:)
-          write(*,"(A7,12G18.9)")"Op    =",ss_Op(ineq,:)
+          ilat = ss_ineq2ilat(ineq)
+          write(*,"(A7,12G18.9)")"Lam   =",ss_lambda(ilat,:)
+          write(*,"(A7,12G18.9)")"Op    =",ss_Op(ilat,:)
        enddo
        write(*,"(A7,12G18.9)")"mu    =",xmu
        write(*,*)" "
