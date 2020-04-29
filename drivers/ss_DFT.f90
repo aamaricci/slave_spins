@@ -8,19 +8,20 @@ program ss_DFT
 #endif
   implicit none
 
-  integer                                 :: Nk,Nktot,Nkpath,Nkx,Npts,Nlso
+  integer                                 :: Nktot,Nkpath,Nkx,Npts,Nlso
   integer                                 :: i,j,k,ik,ilat,iorb,jorb,io,ispin
   real(8),dimension(3)                    :: e1,e2,e3
   real(8),dimension(:,:),allocatable      :: kpath
   complex(8),dimension(:,:,:),allocatable :: Hk
   complex(8),dimension(:,:),allocatable   :: Hloc
   real(8),allocatable                     :: Dens(:),Zeta(:), Self(:),Tmp(:)
-  character(len=60)                       :: w90file,InputFile,latfile,kpathfile
+  character(len=60)                       :: w90file,InputFile,latfile,kpathfile,ineqfile
   character(len=40),allocatable           :: points_name(:)
   real(8)                                 :: ef
   logical                                 :: FSflag
   logical                                 :: master=.true.,bool
   integer                                 :: unit
+  integer,allocatable,dimension(:)        :: ineq_sites
 
 #ifdef _MPI
   call init_MPI
@@ -28,10 +29,11 @@ program ss_DFT
 #endif
 
 
-  call parse_cmd_variable(InputFile,"INPUTFILE",default="inputLaOFeAs.conf")
+  call parse_cmd_variable(InputFile,"INPUTFILE",default="inputDFT.conf")
   call parse_input_variable(w90file,"w90file",InputFile,default="hij.w90")
   call parse_input_variable(latfile,"latfile",InputFile,default="lat.conf")
   call parse_input_variable(kpathfile,"kpathfile",InputFile,default="kpath.conf")
+  call parse_input_variable(ineqfile,"ineqfile",InputFile,default="ineq.conf")
   call parse_input_variable(FSflag,"FSflag",InputFile,default=.false.)
   call parse_input_variable(Nkx,"NKX",InputFile,default=10)
   call parse_input_variable(nkpath,"NKPATH",InputFile,default=500)
@@ -71,7 +73,7 @@ program ss_DFT
 
   call TB_set_dos_lreal(256)
   call start_timer
-  call TB_build_model(Hk,Nlso,[Nkx,Nkx,Nkx],wdos=.false.)
+  call TB_build_model(Hk,Nlso,[Nkx,Nkx,Nkx],wdos=.true.)
   call stop_timer("TB_build_model")
 
 
@@ -80,8 +82,20 @@ program ss_DFT
   where(abs(Hloc)<1d-6)Hloc=zero
   if(master)call TB_write_Hloc(Hloc,"w90Hloc.dat")
 
+
+  allocate(ineq_sites(Nlat));ineq_sites=1
+  inquire(file=reg(ineqfile),exist=bool)
+  if(bool)then
+     open(free_unit(unit),file=reg(ineqfile))
+     do i=1,Nlat
+        read(unit,*)ineq_sites(i)
+        write(*,"(A,I5,A,I5)")"Site",i,"corresponds to ",ineq_sites(i)
+     enddo
+     close(unit)
+  endif
+
   !SOLVE SS:
-  call ss_solve(Hk,ineq_sites=[1,1])
+  call ss_solve(Hk,ineq_sites=ineq_sites)
 
 
 
@@ -102,7 +116,6 @@ program ss_DFT
   inquire(file=reg(kpathfile),exist=bool)
   if(bool)then
      Npts = file_length(reg(kpathfile))
-     Nk=(Npts-1)*Nkpath
      allocate(kpath(Npts,3))
      allocate(points_name(Npts))
      open(free_unit(unit),file=reg(kpathfile))
@@ -112,7 +125,6 @@ program ss_DFT
      close(unit)
   else
      Npts = 9
-     Nk=(Npts-1)*Nkpath
      allocate(kpath(Npts,3),points_name(Npts))
      kpath(1,:)=[0.5d0,0.5d0,0d0]
      kpath(2,:)=[0.5d0,0.5d0,0.5d0]
@@ -131,8 +143,9 @@ program ss_DFT
        points_name=points_name,& 
        file="zBands_ssDFT",iproject=.true.)
 
-  if(FSflag)then
 
+
+  if(FSflag)then
      inquire(file='zeta_self.restart',exist=bool)
      if(bool)then
         allocate(tmp(2*Nlat*Nspin*Norb))
@@ -149,6 +162,8 @@ program ss_DFT
           colors_name=[black,red,red,green,blue],&
           file='FS_ssDFT',cutoff=1d-1,Niter=3,Nsize=2)
   endif
+
+
 
   call TB_w90_delete()
 

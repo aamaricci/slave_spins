@@ -54,11 +54,11 @@ program ss_bethe
   kpath(4,:)=[0d0,0d0]
   kpath = kpath*pi
 
-  ! !Retrieve Zeta and ReSigma(0)=lambda0-lambda
-  ! allocate(Zeta(Nlso))
-  ! allocate(Self(Nlso))
-  ! call ss_get_zeta(zeta)
-  ! call ss_get_Self(self)
+  !Retrieve Zeta and ReSigma(0)=lambda0-lambda
+  allocate(Zeta(Nlso))
+  allocate(Self(Nlso))
+  call ss_get_zeta(zeta)
+  call ss_get_Self(self)
 
   !Solve for the renormalized bands:
   call TB_Solve_model(hk_model,Nlso,kpath,Nkpath,&

@@ -6,7 +6,7 @@ MODULE SS_MAIN
   !
   USE SF_PAULI
   USE SF_LINALG, only: kron
-  USE SF_TIMER, only: start_timer,stop_timer
+  USE SF_TIMER,  only: start_timer,stop_timer
   !
   implicit none
   private
@@ -67,7 +67,7 @@ contains
     else
        Haux  = diagonal( sum(Hk_user,dim=3)/Nk )
        Hdiag = ss_user2ss(Haux,UserOrder_ )
-       where(abs(Hdiag)<1d-6)Hdiag=0d0
+       where(abs(Hdiag)<1d-6)Hdiag=zero
     endif
     !
     ss_Hdiag(:Nlso) = Hdiag
@@ -89,7 +89,7 @@ contains
     !
     !
     !< Init/Read the lambda input
-    if(filling/=0d0)call ss_solve_lambda0()
+    if(use_lam0)call ss_solve_lambda0()
     call ss_init_params()
     !
     if(master.AND.verbose>2)then
@@ -175,7 +175,7 @@ contains
     !
     !< Init/Read the lambda input
     ! if(filling/=dble(Norb))call ss_solve_lambda0()
-    call ss_solve_lambda0()
+    if(use_lam0)call ss_solve_lambda0()
     call ss_init_params()
     !
     if(master.AND.verbose>2)then
@@ -211,7 +211,7 @@ contains
        ss_op     = ss_unpack_array(params(Ns+1:2*Ns),Nlat)
        if(size(params)==2*Ns+1)xmu=params(2*Ns+1)
     else
-       ss_lambda = -ss_lambda0
+       ss_lambda = ss_lambda0
        ss_Op     = 1d0
     endif
   end subroutine ss_init_params

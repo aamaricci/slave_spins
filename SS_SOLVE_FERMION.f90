@@ -12,7 +12,7 @@ MODULE SS_SOLVE_FERMION
   public :: ss_solve_fermions
 
 
-  real(8),parameter                  :: mch=1d-8
+  real(8),parameter                  :: mch=1d-6
   integer                            :: iorb,jorb,ispin,io,jo,ilat,jlat,ineq
 
 
@@ -25,7 +25,7 @@ contains
     real(8),dimension(Ns,Ns)    :: Wtk
     !
     complex(8),dimension(Ns,Ns) :: Eweiss,Eweiss_tmp
-    complex(8),dimension(Ns,Ns) :: diagO,diagR
+    complex(8),dimension(Ns,Ns) :: diagR!,diagO
     complex(8),dimension(Ns,Ns) :: rhoK
     real(8),dimension(Ns)       :: lambda,lambda0
     real(8),dimension(Ns)       :: dens,dens_tmp
@@ -47,7 +47,7 @@ contains
     lambda0 = ss_pack_array(ss_Lambda0,Nlat)
     Op      = ss_pack_array(ss_Op,Nlat)
     !
-    diagO   = one*diag(Op)
+    ! diagO   = one*diag(Op)
     !
 #ifdef _MPI
     if(check_MPI())then
@@ -62,9 +62,7 @@ contains
     Eweiss_tmp  = zero;Eweiss=zero
     dens_tmp    = 0d0 ;dens=0d0
     do ik=1+mpi_rank,Nk,mpi_size
-       Uk_f   = ss_Hk(:,:,ik)
-       ! forall(i=1:Ns,j=1:Ns)Hk_f(i,j) = Op(i)*Uk_f(i,j)*Op(j)
-       Hk_f   = (diagO .x. Uk_f) .x. diagO
+       forall(i=1:Ns,j=1:Ns)Hk_f(i,j) = Op(i)*ss_Hk(i,j,ik)*Op(j)
        Uk_f   = Hk_f + diag(ss_Hdiag) - xmu*eye(Ns)  - diag(lambda) + diag(lambda0)
        call eigh(Uk_f,Ek_f)
        diagR  = diag(step_fermi(Ek_f))
@@ -186,13 +184,17 @@ contains
        rhoK = rhoK_tmp
 #endif
        !
-       Dmin = minval(Ek); Dmax = maxval(Ek); mu0 = Dmin
-       call fzero(get_dens,mu0,Dmax,info,rguess=Dmin+0.5d0*(Dmax-Dmin))
-       if(info/=1)then
-          write(*,*)"ERROR ss_get_lambda0: fzero returned info>1 ",info
-          stop
+       if(filling/=0d0)then
+          Dmin = minval(Ek); Dmax = maxval(Ek); mu0 = Dmin
+          call fzero(get_dens,mu0,Dmax,info,rguess=Dmin+0.5d0*(Dmax-Dmin))
+          if(info/=1)then
+             write(*,*)"ERROR ss_get_lambda0: fzero returned info>1 ",info
+             stop
+          endif
+          if(master.AND.verbose>3)write(*,"(A6,12G18.9)")"mu0  =",mu0
+       else
+          mu0 = xmu
        endif
-       if(master.AND.verbose>3)write(*,"(A6,12G18.9)")"mu0  =",mu0
        !
        Eweiss_tmp  = zero;Eweiss=zero
        dens_tmp    = 0d0 ;dens=0d0
@@ -235,6 +237,7 @@ contains
        !
        !< Get Lambda0 = -2* h0_{m,s}*[n0_{m,s}-0.5]/[n0_{m,s}*(1-n0_{m,s})]
        lambda0 = -2d0*abs(Weiss)*(Dens-0.5d0)/(Dens*(1d0-Dens)+mch)
+       !where(dens==1d0.OR.dens==0d0)lambda0=0d0
     endif
 
     ss_Dens = ss_unpack_array(Dens,Nlat)
@@ -244,14 +247,15 @@ contains
        call ss_spin_symmetry(ss_Lambda0,Nlat)
     endif
     !
-    xmu     =  mu0 + 2d0*sum(lambda0)/Ns!2*ss_lambda0(1)+mu0
+    xmu = mu0 !+ 2d0*sum(lambda0)/Ns
+    !if(filling/=0d0)xmu =  mu0 + 2d0*sum(lambda0)/Ns
     !
     if(master)then
        if(verbose>2)then
           do ineq=1,Nineq
              ilat = ss_ineq2ilat(ineq)
              write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0(ilat,:Nspin*Norb)
-             write(*,"(A6,12G18.9)")"N0    =",ss_Dens(ilat,:Nspin*Norb),sum(ss_dens(Ilat,:))*(3-Nspin),filling
+             write(*,"(A6,12G18.9)")"N0    =",ss_Dens(ilat,:Nspin*Norb),sum(ss_dens(Ilat,:Nspin*Norb))*(3-Nspin),filling
           enddo
        endif
        do ilat=1,Nlat
@@ -263,9 +267,10 @@ contains
           write(unit,*)ss_dens(ilat,:)
           close(unit)
        enddo
-       call save_array(trim(Pfile)//"0"//trim(ss_file_suffix)//".restart",[lambda0,dens,mu0])
+       call save_array(trim(Pfile)//"0"//trim(ss_file_suffix)//".ss",[lambda0,dens,mu0])
     endif
     !
+
   contains
     !
     function get_dens(mu) result(dens)

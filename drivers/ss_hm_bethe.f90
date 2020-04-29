@@ -38,7 +38,7 @@ program ss_bethe
   call add_ctrl_var(eps,"eps")
 
 
-  if(Nspin/=1.OR.Norb>5.OR.Nlat>5)stop "Wrong setup from input file: Nspin!=1 OR Norb>5 OR Nlat>5"
+  if(Nspin/=1.OR.Norb>5.OR.Nlat>2)stop "Wrong setup from input file: Nspin!=1 OR Norb>5 OR Nlat>2"
   Nlso=Nlat*Nspin*Norb
 
 
@@ -59,6 +59,7 @@ program ss_bethe
   do io=1,Nlso
      Ebands(io,:) = linspace(-Wband(io),Wband(io),Le,mesh=de(io))
      Dbands(io,:) = dens_bethe(Ebands(io,:),Wband(io))*de(io)
+     call splot("dos_l"//str(io)//".ss",Ebands(io,:)+H0(io),Dbands(io,:)/de(io))
   enddo
   call TB_write_Hloc(one*diag(H0))
   !
