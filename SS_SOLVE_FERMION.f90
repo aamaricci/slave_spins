@@ -47,7 +47,6 @@ contains
     lambda0 = ss_pack_array(ss_Lambda0,Nlat)
     Op      = ss_pack_array(ss_Op,Nlat)
     !
-    ! diagO   = one*diag(Op)
     !
 #ifdef _MPI
     if(check_MPI())then
@@ -91,11 +90,11 @@ contains
     do ispin=1,2
        do ilat=1,Nlat
           do iorb=1,Norb
-             io = ss_Indices2i([iorb,ilat,ispin],nDefOrder)
+             io = ss_Indices2i([iorb,ilat,ispin],[Norb,Nlat,2])
              do jlat=1,Nlat
                 do jorb=1,Norb
-                   jo = ss_Indices2i([jorb,jlat,ispin],nDefOrder)
-                   weiss(io) = weiss(io) + Op(jo)*Eweiss(io,jo)   !sq_zeta(jo)*Eweiss(io,jo)
+                   jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,2])
+                   weiss(io) = weiss(io) + Op(jo)*Eweiss(io,jo)
                 enddo
              enddo
           enddo
@@ -224,10 +223,10 @@ contains
        do ispin=1,2
           do ilat=1,Nlat
              do iorb=1,Norb
-                io = ss_Indices2i([iorb,ilat,ispin],nDefOrder)
+                io = ss_Indices2i([iorb,ilat,ispin],[Norb,Nlat,2])
                 do jlat=1,Nlat
                    do jorb=1,Norb
-                      jo = ss_Indices2i([jorb,jlat,ispin],nDefOrder)
+                      jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,2])
                       Weiss(io) = Weiss(io) + Eweiss(io,jo)
                    enddo
                 enddo

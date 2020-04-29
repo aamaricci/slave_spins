@@ -73,7 +73,7 @@ program ss_DFT
 
   call TB_set_dos_lreal(256)
   call start_timer
-  call TB_build_model(Hk,Nlso,[Nkx,Nkx,Nkx],wdos=.true.)
+  call TB_build_model(Hk,Nlso,[Nkx,Nkx,Nkx],wdos=.false.)
   call stop_timer("TB_build_model")
 
 
