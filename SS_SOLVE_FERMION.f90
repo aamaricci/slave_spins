@@ -24,16 +24,20 @@ contains
     real(8),dimension(Nlso)         :: Ek_f
     real(8),dimension(Nlso,Nlso)    :: Wtk
     !
-    complex(8),dimension(Nlso,Nlso) :: Eweiss,Eweiss_tmp
-    real(8),dimension(Nlso)         :: dens,dens_tmp
-    complex(8),dimension(Nlso,Nlso) :: diagR
+    complex(8),dimension(Nlso,Nlso) :: Eweiss_,Eweiss_tmp
+    real(8),dimension(Nlso)         :: dens_,dens_tmp
+    complex(8),dimension(Nlso,Nlso) :: diagRho
     complex(8),dimension(Nlso,Nlso) :: rhoK
-    real(8),dimension(Ns)           :: lambda,lambda0
-    real(8),dimension(Ns)           :: const
-    real(8),dimension(Ns)           :: Op
-    real(8),dimension(Ns)           :: rhoDiag
+    complex(8),dimension(Nlso)      :: weiss_
+    real(8),dimension(Nlso)         :: const_      
     !
     complex(8),dimension(Ns)        :: weiss
+    complex(8),dimension(Ns)        :: dens
+    real(8),dimension(Ns)           :: const
+    real(8),dimension(Ns)           :: lambda
+    real(8),dimension(Ns)           :: lambda0
+    real(8),dimension(Ns)           :: Op
+    !
     integer                         :: ik,i,j,N
 
     !
@@ -58,34 +62,34 @@ contains
     endif
 #endif
     !
-    Eweiss_tmp  = zero;Eweiss=zero
-    dens_tmp    = 0d0 ;dens=0d0
+    Eweiss_tmp  = zero;Eweiss_=zero
+    dens_tmp    = 0d0 ;dens_=0d0
     do ik=1+mpi_rank,Nk,mpi_size
-       forall(i=1:Nlso,j=1:Nlso)Hk_f(i,j) = Op(i)*ss_Hk(i,j,ik)*Op(j)
+       forall(io=1:Nlso,jo=1:Nlso)Hk_f(io,jo) = Op(io)*ss_Hk(io,jo,ik)*Op(jo)
        Uk_f   = Hk_f + diag(ss_Hdiag)-xmu*eye(Nlso)-diag(lambda(:Nlso))+diag(lambda0(:Nlso))
        call eigh(Uk_f,Ek_f)
-       diagR  = diag(step_fermi(Ek_f))
-       RhoK   = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
-       Wtk    = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
+       diagRho  = diag(step_fermi(Ek_f))
+       RhoK     = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
+       Wtk      = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
        Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*RhoK*Wtk
        dens_tmp   = dens_tmp + diagonal(RhoK*Wtk)
     enddo
 #ifdef _MPI
     if(check_MPI())then
-       call AllReduce_MPI(MPI_COMM_WORLD,Eweiss_tmp,Eweiss)
-       call AllReduce_MPI(MPI_COMM_WORLD,dens_tmp,dens)
+       call AllReduce_MPI(MPI_COMM_WORLD,Eweiss_tmp,Eweiss_)
+       call AllReduce_MPI(MPI_COMM_WORLD,dens_tmp,dens_)
     else
-       Eweiss = Eweiss_tmp
-       dens   = dens_tmp
+       Eweiss_ = Eweiss_tmp
+       dens_   = dens_tmp
     endif
 #else
-    Eweiss = Eweiss_tmp
-    dens   = dens_tmp
+    Eweiss_ = Eweiss_tmp
+    dens_   = dens_tmp
 #endif
     !
     ! Get H_{a,s} = \sum_{b} sqrt(Z_{b,s})* sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
     !             = \sum_{b} sqrt(Z_{b,s})* Eweiss_{a,s,b,s}
-    weiss = 0d0
+    weiss_ = zero
     do ispin=1,Nspin
        do ilat=1,Nlat
           do iorb=1,Norb
@@ -93,7 +97,7 @@ contains
              do jlat=1,Nlat
                 do jorb=1,Norb
                    jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
-                   weiss(io) = weiss(io) + Op(jo)*Eweiss(io,jo)
+                   weiss_(io) = weiss_(io) + Op(jo)*Eweiss_(io,jo)
                 enddo
              enddo
           enddo
@@ -101,11 +105,28 @@ contains
     enddo
     !
     ! Get C = (n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
-    const  = 1d0/(sqrt(dens*(1d0-dens))+mch) - 1d0
+    const_  = 1d0/(sqrt(dens_*(1d0-dens_))+mch) - 1d0
+    !
+    !< Extend to Ns (full spin degeneracy)
+    select case(Nspin)
+    case default                !Ns = [Nlso,Nlso]
+       dens  = [dens_,dens_]
+       weiss = [weiss_,weiss_]
+       const = [const_,const_]
+    case(2)                     !Ns = Nlso
+       dens  = dens_
+       weiss = weiss_
+       const = const_
+    end select
     !
     ss_Dens = ss_unpack_array(dens,Nlat)
     ss_C    = ss_unpack_array(const,Nlat)
     ss_Weiss= ss_unpack_array(weiss,Nlat)
+    if(Nspin==1)then
+       call ss_spin_symmetry(ss_Dens,Nlat)
+       call ss_spin_symmetry(ss_C,Nlat)
+       call ss_spin_symmetry(ss_Weiss,Nlat)
+    endif
     !
     do ineq=1,Nineq
        ilat = ss_ineq2ilat(ineq)
@@ -114,11 +135,6 @@ contains
        ss_Weiss_ineq(ineq,:) = ss_Weiss(ilat,:)
     enddo
     !
-    if(Nspin==1)then
-       call ss_spin_symmetry(ss_Dens_ineq,Nineq)
-       call ss_spin_symmetry(ss_C_ineq,Nineq)
-       call ss_spin_symmetry(ss_Weiss_ineq,Nineq)
-    endif
     !
   end subroutine ss_solve_fermions
 
@@ -127,20 +143,28 @@ contains
 
 
   subroutine ss_solve_lambda0()
-    complex(8),dimension(Ns,Ns)      :: Uk_f,Eweiss,diagRho,Rho,Eweiss_tmp
-    complex(8),dimension(Ns,Ns,Nk)   :: rhoK,rhoK_tmp
-    real(8),dimension(Ns,Nk)         :: eK,eK_tmp
-    real(8),dimension(Ns,Ns)         :: Wtk
-    real(8),dimension(Ns)            :: rhoDiag,Ek_f
-    real(8),dimension(Ns)            :: lambda0,dens,dens_tmp
-    complex(8),dimension(Ns)         :: weiss
-    integer                          :: ik,unit,N
-    integer                          :: stride
-    real(8)                          :: mu0,Dmin,Dmax
-    integer                          :: info
-    logical                          :: IOfile
-    integer                          :: Len
-    real(8),dimension(:),allocatable :: params
+    complex(8),dimension(Nlso,Nlso)    :: Uk_f
+    real(8),dimension(Nlso)            :: Ek_f
+    real(8),dimension(Nlso,Nk)         :: eK,eK_tmp
+    complex(8),dimension(Nlso,Nlso,Nk) :: rhoK,rhoK_tmp
+    complex(8),dimension(Nlso,Nlso)    :: diagRho
+    complex(8),dimension(Nlso,Nlso)    :: Rho
+    real(8),dimension(Nlso,Nlso)       :: Wtk
+    complex(8),dimension(Nlso,Nlso)    :: Eweiss_,Eweiss_tmp
+    real(8),dimension(Nlso)            :: dens_,dens_tmp
+    complex(8),dimension(Nlso)         :: weiss_
+    !
+    real(8),dimension(Ns)              :: dens
+    real(8),dimension(Ns)              :: lambda0
+    complex(8),dimension(Ns)           :: weiss
+    real(8)                            :: mu0,Dmin,Dmax
+    integer                            :: ik,unit,N
+    integer                            :: stride
+    integer                            :: info
+    logical                            :: IOfile
+    integer                            :: Len
+    real(8),dimension(:),allocatable   :: params
+
     !
 #ifdef _MPI
     if(check_MPI())then
@@ -194,50 +218,58 @@ contains
           mu0 = xmu
        endif
        !
-       Eweiss_tmp  = zero;Eweiss=zero
-       dens_tmp    = 0d0 ;dens=0d0
+       Eweiss_tmp  = zero;Eweiss_=zero
+       dens_tmp    = 0d0 ;dens_=0d0
        do ik=1+mpi_rank,Nk,mpi_size
-          diagRho      = diag(step_fermi(eK(:,ik)-mu0))
-          Uk_f         = rhoK(:,:,ik)
-          rhoK(:,:,ik) = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
+          diagRho   = diag(step_fermi(eK(:,ik)-mu0))
+          Uk_f      = rhoK(:,:,ik)
+          Rho       = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
           Wtk = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
-          Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*rhoK(:,:,ik)*Wtk
-          dens_tmp   = dens_tmp + diagonal(rhoK(:,:,ik)*Wtk)
+          Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*Rho*Wtk
+          dens_tmp   = dens_tmp + diagonal(Rho*Wtk)
        enddo
 #ifdef _MPI
        if(check_MPI())then
-          call AllReduce_MPI(MPI_COMM_WORLD,Eweiss_tmp,Eweiss)
-          call AllReduce_MPI(MPI_COMM_WORLD,dens_tmp,dens)
+          call AllReduce_MPI(MPI_COMM_WORLD,Eweiss_tmp,Eweiss_)
+          call AllReduce_MPI(MPI_COMM_WORLD,dens_tmp,dens_)
        else
-          Eweiss = Eweiss_tmp
-          dens   = dens_tmp
+          Eweiss_ = Eweiss_tmp
+          dens_   = dens_tmp
        endif
 #else
-       Eweiss = Eweiss_tmp
-       dens   = dens_tmp
+       Eweiss_ = Eweiss_tmp
+       dens_   = dens_tmp
 #endif       
        !
        !< Get H_{a,s} = \sum_{b}sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
-       Weiss = 0d0
-       do ispin=1,2
+       weiss_ = zero
+       do ispin=1,Nspin
           do ilat=1,Nlat
              do iorb=1,Norb
-                io = ss_Indices2i([iorb,ilat,ispin],nDefOrder)
+                io = ss_Indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
                 do jlat=1,Nlat
                    do jorb=1,Norb
-                      jo = ss_Indices2i([jorb,jlat,ispin],nDefOrder)
-                      Weiss(io) = Weiss(io) + Eweiss(io,jo)
+                      jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
+                      weiss_(io) = weiss_(io) + Eweiss_(io,jo)
                    enddo
                 enddo
              enddo
           enddo
        enddo
        !
+       !< Extend to Ns (full spin degeneracy)
+       select case(Nspin)
+       case default                !Ns = [Nlso,Nlso]
+          dens  = [dens_,dens_]
+          weiss = [weiss_,weiss_]
+       case(2)                     !Ns = Nlso
+          dens  = dens_
+          weiss = weiss_
+       end select
        !< Get Lambda0 = -2* h0_{m,s}*[n0_{m,s}-0.5]/[n0_{m,s}*(1-n0_{m,s})]
        lambda0 = -2d0*abs(Weiss)*(Dens-0.5d0)/(Dens*(1d0-Dens)+mch)
-       !where(dens==1d0.OR.dens==0d0)lambda0=0d0
     endif
-
+    !
     ss_Dens = ss_unpack_array(Dens,Nlat)
     ss_Lambda0 = ss_unpack_array(lambda0,Nlat)
     if(Nspin==1)then
@@ -253,7 +285,7 @@ contains
           do ineq=1,Nineq
              ilat = ss_ineq2ilat(ineq)
              write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0(ilat,:Nspin*Norb)
-             write(*,"(A6,12G18.9)")"N0    =",ss_Dens(ilat,:Nspin*Norb),sum(ss_dens(Ilat,:Nspin*Norb))*(3-Nspin),filling
+             write(*,"(A6,12G18.9)")"N0    =",ss_Dens(ilat,:Nspin*Norb)
           enddo
        endif
        do ilat=1,Nlat
@@ -272,9 +304,9 @@ contains
   contains
     !
     function get_dens(mu) result(dens)
-      real(8),intent(in)          :: mu
-      real(8)                     :: dens
-      real(8),dimension(Ns)       :: ndens,ndens_tmp
+      real(8),intent(in)      :: mu
+      real(8)                 :: dens
+      real(8),dimension(Nlso) :: ndens,ndens_tmp
       ndens_tmp = 0d0
       ndens     = 0d0
       do ik=1+mpi_rank,Nk,mpi_size
@@ -282,7 +314,7 @@ contains
          Uk_f    = rhoK(:,:,ik)
          Rho     = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
          Wtk     = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
-         ndens_tmp = ndens_tmp + diagonal(Rho*Wtk)
+         ndens_tmp = ndens_tmp + diagonal(Rho*Wtk)*(3-Nspin) !because H(k) is Nlso, not Ns as filling
       enddo
 #ifdef _MPI
       if(check_MPI())then
