@@ -19,22 +19,22 @@ MODULE SS_SOLVE_FERMION
 contains
 
   subroutine ss_solve_fermions()
-    complex(8),dimension(Ns,Ns) :: Hk_f
-    complex(8),dimension(Ns,Ns) :: Uk_f
-    real(8),dimension(Ns)       :: Ek_f
-    real(8),dimension(Ns,Ns)    :: Wtk
+    complex(8),dimension(Nlso,Nlso) :: Hk_f
+    complex(8),dimension(Nlso,Nlso) :: Uk_f
+    real(8),dimension(Nlso)         :: Ek_f
+    real(8),dimension(Nlso,Nlso)    :: Wtk
     !
-    complex(8),dimension(Ns,Ns) :: Eweiss,Eweiss_tmp
-    complex(8),dimension(Ns,Ns) :: diagR!,diagO
-    complex(8),dimension(Ns,Ns) :: rhoK
-    real(8),dimension(Ns)       :: lambda,lambda0
-    real(8),dimension(Ns)       :: dens,dens_tmp
-    real(8),dimension(Ns)       :: const
-    real(8),dimension(Ns)       :: Op
-    real(8),dimension(Ns)       :: rhoDiag
+    complex(8),dimension(Nlso,Nlso) :: Eweiss,Eweiss_tmp
+    real(8),dimension(Nlso)         :: dens,dens_tmp
+    complex(8),dimension(Nlso,Nlso) :: diagR
+    complex(8),dimension(Nlso,Nlso) :: rhoK
+    real(8),dimension(Ns)           :: lambda,lambda0
+    real(8),dimension(Ns)           :: const
+    real(8),dimension(Ns)           :: Op
+    real(8),dimension(Ns)           :: rhoDiag
     !
-    complex(8),dimension(Ns)    :: weiss
-    integer                     :: ik,i,j,N
+    complex(8),dimension(Ns)        :: weiss
+    integer                         :: ik,i,j,N
 
     !
     if(Nspin==1)then
@@ -47,7 +47,6 @@ contains
     lambda0 = ss_pack_array(ss_Lambda0,Nlat)
     Op      = ss_pack_array(ss_Op,Nlat)
     !
-    ! diagO   = one*diag(Op)
     !
 #ifdef _MPI
     if(check_MPI())then
@@ -62,12 +61,12 @@ contains
     Eweiss_tmp  = zero;Eweiss=zero
     dens_tmp    = 0d0 ;dens=0d0
     do ik=1+mpi_rank,Nk,mpi_size
-       forall(i=1:Ns,j=1:Ns)Hk_f(i,j) = Op(i)*ss_Hk(i,j,ik)*Op(j)
-       Uk_f   = Hk_f + diag(ss_Hdiag) - xmu*eye(Ns)  - diag(lambda) + diag(lambda0)
+       forall(i=1:Nlso,j=1:Nlso)Hk_f(i,j) = Op(i)*ss_Hk(i,j,ik)*Op(j)
+       Uk_f   = Hk_f + diag(ss_Hdiag)-xmu*eye(Nlso)-diag(lambda(:Nlso))+diag(lambda0(:Nlso))
        call eigh(Uk_f,Ek_f)
        diagR  = diag(step_fermi(Ek_f))
        RhoK   = (Uk_f .x. diagR) .x. (conjg(transpose(Uk_f)))
-       Wtk = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
+       Wtk    = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
        Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*RhoK*Wtk
        dens_tmp   = dens_tmp + diagonal(RhoK*Wtk)
     enddo
@@ -83,19 +82,18 @@ contains
     Eweiss = Eweiss_tmp
     dens   = dens_tmp
 #endif
-    if(Nspin==1)call ss_spin_symmetry(dens,Nlat)
     !
     ! Get H_{a,s} = \sum_{b} sqrt(Z_{b,s})* sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
     !             = \sum_{b} sqrt(Z_{b,s})* Eweiss_{a,s,b,s}
     weiss = 0d0
-    do ispin=1,2
+    do ispin=1,Nspin
        do ilat=1,Nlat
           do iorb=1,Norb
-             io = ss_Indices2i([iorb,ilat,ispin],nDefOrder)
+             io = ss_Indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
              do jlat=1,Nlat
                 do jorb=1,Norb
-                   jo = ss_Indices2i([jorb,jlat,ispin],nDefOrder)
-                   weiss(io) = weiss(io) + Op(jo)*Eweiss(io,jo)   !sq_zeta(jo)*Eweiss(io,jo)
+                   jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
+                   weiss(io) = weiss(io) + Op(jo)*Eweiss(io,jo)
                 enddo
              enddo
           enddo

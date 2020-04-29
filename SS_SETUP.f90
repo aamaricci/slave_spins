@@ -95,17 +95,17 @@ contains
     allocate( ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
     ss_SzSz   = 0d0; ss_SzSz_ineq  = 0d0
     !
-    allocate(ss_Hk(Ns,Ns,Nk))
+    allocate(ss_Hk(Nlso,Nlso,Nk))
     ss_Hk = zero
     !
     if(is_dos)then
-       allocate(ss_Wtk(Ns,Nk))
+       allocate(ss_Wtk(Nlso,Nk))
     else
        allocate(ss_Wtk(1,Nk))
     end if
     ss_Wtk= 0d0
     !
-    allocate(ss_Hdiag(Ns))
+    allocate(ss_Hdiag(Nlso))
     ss_Hdiag = 0d0
   end subroutine ss_setup_structure
 

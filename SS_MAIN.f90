@@ -63,27 +63,18 @@ contains
     !
     !< Init local non-interacting part and reorder it
     if(present(Hloc))then
-       Hdiag = ss_user2ss(Hloc,UserOrder_) 
+       ss_Hdiag = ss_user2ss(Hloc,UserOrder_) 
     else
-       Haux  = diagonal( sum(Hk_user,dim=3)/Nk )
-       Hdiag = ss_user2ss(Haux,UserOrder_ )
-       where(abs(Hdiag)<1d-6)Hdiag=zero
+       Haux     = diagonal( sum(Hk_user,dim=3)/Nk )
+       ss_Hdiag = ss_user2ss(Haux,UserOrder_ )
+       where(abs(ss_Hdiag)<1d-6)ss_Hdiag=zero
     endif
-    !
-    ss_Hdiag(:Nlso) = Hdiag
-    if(Nspin==1)call ss_spin_symmetry(ss_Hdiag,Nlat)
     !
     !< Init the Hk structures, subtract the local, diagonal part, coupled to the density 
     do ik=1,Nk
        !< if order of Hk_user is not correct set the SS_order function to actual reorder
        Hk = ss_user2ss(Hk_user(:,:,ik),UserOrder_)
-       !
-       select case(Nspin)
-       case default
-          ss_Hk(:,:,ik)  = kron(pauli_0,Hk) - diag(ss_Hdiag)
-       case (2)
-          ss_Hk(:,:,ik)  = Hk - diag(ss_Hdiag)
-       end select
+       ss_Hk(:,:,ik) = Hk - diag(ss_Hdiag)
     end do
     ss_Wtk(1,:) = 1d0/Nk
     !
@@ -147,29 +138,19 @@ contains
     if(present(Hloc))call assert_shape(Hloc,[Nspin*Nlat*Norb],"ss_init_dos","Hloc")
     !
     !< Init local non-interacting part and reorder it
-    Hdiag = 0d0
-    if(present(Hloc))Hdiag = ss_user2ss(Hloc,UserOrder_)
-    ss_Hdiag(:Nlso) = Hdiag
-    if(Nspin==1)call ss_spin_symmetry(ss_Hdiag,Nlat)
+    ss_Hdiag = 0d0
+    if(present(Hloc))ss_Hdiag = ss_user2ss(Hloc,UserOrder_)
     !
     ss_Hk = zero
     ss_Wtk= 0d0
     do ie=1,Nk
        Eb = ss_user2ss(Ebands(:,ie),UserOrder_)
-       Db = ss_user2ss(Dbands(:,ie),UserOrder_)
-       Htmp=zero
        do io=1,Nspin*Nlat*Norb
-          Htmp(io,io)  = one*Eb(io)
+          ss_Hk(:,:,ie)  = one*Eb(io)
        end do
        !
-       select case(Nspin)
-       case default
-          ss_Hk(:,:,ie)  = kron(pauli_0,Htmp)
-          ss_Wtk(:,ie)   = [Db,Db]
-       case (2)
-          ss_Hk(:,:,ie)  = Htmp
-          ss_Wtk(:,ie)   = Db
-       end select
+       ss_Wtk(:,ie) = ss_user2ss(Dbands(:,ie),UserOrder_)
+       !
     end do
     !
     !
