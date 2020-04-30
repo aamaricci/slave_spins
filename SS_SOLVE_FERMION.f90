@@ -28,11 +28,11 @@ contains
     real(8),dimension(Nlso)         :: dens_,dens_tmp
     complex(8),dimension(Nlso,Nlso) :: diagRho
     complex(8),dimension(Nlso,Nlso) :: rhoK
-    complex(8),dimension(Nlso)      :: weiss_
+    real(8),dimension(Nlso)         :: weiss_
     real(8),dimension(Nlso)         :: const_      
     !
-    complex(8),dimension(Ns)        :: weiss
-    complex(8),dimension(Ns)        :: dens
+    real(8),dimension(Ns)           :: weiss
+    real(8),dimension(Ns)           :: dens
     real(8),dimension(Ns)           :: const
     real(8),dimension(Ns)           :: lambda
     real(8),dimension(Ns)           :: lambda0
@@ -62,7 +62,7 @@ contains
     endif
 #endif
     !
-    Eweiss_tmp  = zero;Eweiss_=zero
+    Eweiss_tmp  = 0d0 ;Eweiss_=0d0
     dens_tmp    = 0d0 ;dens_=0d0
     do ik=1+mpi_rank,Nk,mpi_size  
        forall(io=1:Nlso,jo=1:Nlso)Hk_f(io,jo) = Op(io)*ss_Hk(io,jo,ik)*Op(jo)
@@ -89,7 +89,7 @@ contains
     !
     ! Get H_{a,s} = \sum_{b} sqrt(Z_{b,s})* sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
     !             = \sum_{b} sqrt(Z_{b,s})* Eweiss_{a,s,b,s}
-    weiss_ = zero
+    weiss_ = 0d0
     do ispin=1,Nspin
        do ilat=1,Nlat
           do iorb=1,Norb
@@ -97,7 +97,7 @@ contains
              do jlat=1,Nlat
                 do jorb=1,Norb
                    jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
-                   weiss_(io) = weiss_(io) + Op(jo)*Eweiss_(io,jo)
+                   weiss_(io) = weiss_(io) + Op(jo)*dble(Eweiss_(io,jo))
                 enddo
              enddo
           enddo
@@ -152,11 +152,11 @@ contains
     real(8),dimension(Nlso,Nlso)       :: Wtk
     complex(8),dimension(Nlso,Nlso)    :: Eweiss_,Eweiss_tmp
     real(8),dimension(Nlso)            :: dens_,dens_tmp
-    complex(8),dimension(Nlso)         :: weiss_
+    real(8),dimension(Nlso)            :: weiss_
     !
     real(8),dimension(Ns)              :: dens
     real(8),dimension(Ns)              :: lambda0
-    complex(8),dimension(Ns)           :: weiss
+    real(8),dimension(Ns)              :: weiss
     real(8)                            :: mu0,Dmin,Dmax
     integer                            :: ik,unit,N
     integer                            :: stride
@@ -242,7 +242,7 @@ contains
 #endif       
        !
        !< Get H_{a,s} = \sum_{b}sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
-       weiss_ = zero
+       weiss_ = 0d0
        do ispin=1,Nspin
           do ilat=1,Nlat
              do iorb=1,Norb
@@ -250,7 +250,7 @@ contains
                 do jlat=1,Nlat
                    do jorb=1,Norb
                       jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
-                      weiss_(io) = weiss_(io) + Eweiss_(io,jo)
+                      weiss_(io) = weiss_(io) + dble(Eweiss_(io,jo))
                    enddo
                 enddo
              enddo
@@ -267,7 +267,7 @@ contains
           weiss = weiss_
        end select
        !< Get Lambda0 = -2* h0_{m,s}*[n0_{m,s}-0.5]/[n0_{m,s}*(1-n0_{m,s})]
-       lambda0 = -2d0*abs(Weiss)*(Dens-0.5d0)/(Dens*(1d0-Dens)+mch)
+       lambda0 = -2d0*(Weiss)*(Dens-0.5d0)/(Dens*(1d0-Dens)+mch)
     endif
     !
     ss_Dens = ss_unpack_array(Dens,Nlat)

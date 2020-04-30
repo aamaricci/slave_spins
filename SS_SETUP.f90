@@ -90,7 +90,7 @@ contains
     ss_Op     = 1d0 ; ss_Op_ineq    = 1d0
     !
     allocate(ss_Weiss(Nlat,Nss), ss_Weiss_ineq(Nineq,Nss))
-    ss_weiss  = zero; ss_weiss_ineq  = zero
+    ss_weiss  = 0d0; ss_weiss_ineq  = 0d0
     !
     allocate( ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
     ss_SzSz   = 0d0; ss_SzSz_ineq  = 0d0

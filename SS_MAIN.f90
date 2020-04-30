@@ -36,8 +36,7 @@ contains
     integer,dimension(Nlat),optional                      :: ineq_sites
     !
     real(8),dimension(Nspin*Nlat*Norb)                    :: Hdiag,Haux
-    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Htmp,Hk
-    complex(8),dimension(:,:),allocatable                 :: Hcheck
+    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Hk
     integer                                               :: ik
     character(len=5),dimension(3)                         :: UserOrder_
     !

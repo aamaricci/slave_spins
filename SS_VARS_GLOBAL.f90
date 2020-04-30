@@ -30,7 +30,7 @@ MODULE SS_VARS_GLOBAL
   real(8),dimension(:,:),allocatable      :: ss_Sz     ,ss_Sz_ineq
   real(8),dimension(:,:,:,:),allocatable  :: ss_SzSz   ,ss_SzSz_ineq
   real(8),dimension(:,:),allocatable      :: ss_Op     ,ss_Op_ineq  
-  complex(8),dimension(:,:),allocatable   :: ss_weiss  ,ss_weiss_ineq   !4<S^x_{m\sigma}><E_el>  
+  real(8),dimension(:,:),allocatable      :: ss_weiss  ,ss_weiss_ineq   !4<S^x_{m\sigma}><E_el>  
   !
   integer,dimension(:),allocatable        :: ss_ilat2ineq
   integer,dimension(:),allocatable        :: ss_ineq2ilat

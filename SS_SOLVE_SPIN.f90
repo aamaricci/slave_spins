@@ -11,22 +11,22 @@ MODULE SS_SOLVE_SPIN
   public :: ss_solve_spins
 
 
-  complex(8),allocatable,dimension(:,:),target :: ss_Evecs
-  real(8),allocatable,dimension(:)             :: ss_Evals
-  integer                                      :: ss_Ndegen
+  real(8),allocatable,dimension(:,:),target :: ss_Evecs
+  real(8),allocatable,dimension(:)          :: ss_Evals
+  integer                                   :: ss_Ndegen
   !
   !< site-resolved quantities, local to this module
-  real(8),dimension(:),allocatable             :: ii_lambda
-  real(8),dimension(:),allocatable             :: ii_c
-  real(8),dimension(:),allocatable             :: ii_Sz
-  real(8),dimension(:,:,:),allocatable         :: ii_SzSz
-  real(8),dimension(:),allocatable             :: ii_Op
-  complex(8),dimension(:),allocatable          :: ii_Weiss
+  real(8),dimension(:),allocatable          :: ii_lambda
+  real(8),dimension(:),allocatable          :: ii_c
+  real(8),dimension(:),allocatable          :: ii_Sz
+  real(8),dimension(:,:,:),allocatable      :: ii_SzSz
+  real(8),dimension(:),allocatable          :: ii_Op
+  real(8),dimension(:),allocatable          :: ii_Weiss
   !
-  integer                                      :: Ndim
-  integer                                      :: istate,jstate
-  integer                                      :: iorb,jorb,ilat,ispin
-  integer                                      :: io,il
+  integer                                   :: Ndim
+  integer                                   :: istate,jstate
+  integer                                   :: iorb,jorb,ilat,ispin
+  integer                                   :: io,il
 
   type(sparse_matrix_csr)                      :: spHs
 
@@ -50,7 +50,7 @@ contains
        allocate(Ss_Evecs(Ndim,Ndim))
     endif
     !
-    ss_Evecs=zero
+    ss_Evecs=0d0
     ss_Evals=0d0
     !
     !< get the ilat-th index corresponding to this ineq-site
@@ -79,7 +79,7 @@ contains
     !
     if(lanc_solve)then
        if(master.AND.verbose>3)call start_timer
-       call sp_eigh(spMatVec_cc,ss_Evals,ss_Evecs,Nitermax=1000,iverbose=(verbose>5))
+       call sp_eigh(spMatVec_p,ss_Evals,ss_Evecs,Nitermax=1000,iverbose=(verbose>5))
        if(master.AND.verbose>3)call stop_timer("sp_eigh")
        Nstate = lanc_Neigen
     else
@@ -128,7 +128,7 @@ contains
     integer,dimension(Nss)    :: Ivec
     real(8),dimension(Nss)    :: Sz
     real(8),dimension(2,Norb) :: tSz
-    complex(8)                :: htmp
+    real(8)                   :: htmp
     !
     do istate=1,Ndim
        Ivec = Bdecomp(istate,Nss)
@@ -141,7 +141,7 @@ contains
        enddo
        !
        !Diagonal elements
-       htmp = zero
+       htmp = 0d0
        !
        !< sum_{m,s}lambda_{m,s}*(Sz_{m,s}+1/2)
        htmp = htmp + sum(ii_lambda*(Sz+0.5d0))
@@ -180,13 +180,13 @@ contains
           if(Sz(io)/=0.5d0)cycle
           call Sminus(io,Istate,Jstate)
           htmp = ii_c(io)*ii_Weiss(io)
-          call sp_insert_element(spHs,conjg(htmp),Istate,Jstate)
+          call sp_insert_element(spHs,(htmp),Istate,Jstate)
        enddo
        do io=1,Nss
           if(Sz(io)/=-0.5d0)cycle
           call Splus(io,Istate,Jstate)
           htmp = ii_Weiss(io)
-          call sp_insert_element(spHs,conjg(htmp),Istate,Jstate)
+          call sp_insert_element(spHs,(htmp),Istate,Jstate)
        enddo
     enddo
     !
@@ -199,7 +199,7 @@ contains
     integer,dimension(Nss)          :: Ivec
     real(8),dimension(Nss)          :: Sz
     real(8)                         :: htmp
-    complex(8),dimension(:),pointer :: gs_vec
+    real(8),dimension(:),pointer    :: gs_vec
     !
     ii_Sz=0d0
     ii_Op=0d0
@@ -216,13 +216,13 @@ contains
              if(Sz(io)/=0.5d0)cycle
              call Sminus(io,Istate,Jstate)
              htmp = 1d0
-             ii_Op(io) = ii_Op(io) + conjg(gs_vec(Jstate))*htmp*gs_vec(Istate)/zeta_function
+             ii_Op(io) = ii_Op(io) + (gs_vec(Jstate))*htmp*gs_vec(Istate)/zeta_function
           enddo
           do io=1,Nss
              if(Sz(io)/=-0.5d0)cycle
              call Splus(io,Istate,Jstate)
              htmp = ii_c(io)
-             ii_Op(io) = ii_Op(io) + conjg(gs_vec(Jstate))*htmp*gs_vec(Istate)/zeta_function
+             ii_Op(io) = ii_Op(io) + (gs_vec(Jstate))*htmp*gs_vec(Istate)/zeta_function
           enddo
           !
        enddo
@@ -232,11 +232,11 @@ contains
 
 
   subroutine ss_SpinSpin_Correlations()
-    integer                         :: Idegen
-    integer,dimension(Nss)          :: Ivec
-    real(8),dimension(Nss)          :: Sz
-    complex(8),dimension(:),pointer :: gs_vec
-    real(8),dimension(Nss,Nss)      :: avSzSz
+    integer                      :: Idegen
+    integer,dimension(Nss)       :: Ivec
+    real(8),dimension(Nss)       :: Sz
+    real(8),dimension(:),pointer :: gs_vec
+    real(8),dimension(Nss,Nss)   :: avSzSz
     !
     if(.not.allocated(ss_Evecs))stop "SS_SPIN_CORR Error: ss_Evecs not allocated"
     !
@@ -278,10 +278,10 @@ contains
   !MATRIX-VECTOR OPERATION USING SPARSE STRUCTURE
   !##################################################################
   !##################################################################
-  subroutine spMatVec_cc(Nloc,v,Hv)
+  subroutine spMatVec_p(Nloc,v,Hv)
     integer                         :: Nloc
-    complex(8),dimension(Nloc)      :: v
-    complex(8),dimension(Nloc)      :: Hv
+    real(8),dimension(Nloc)      :: v
+    real(8),dimension(Nloc)      :: Hv
     integer                         :: i,j
     Hv=zero
     do i=1,Nloc
@@ -289,7 +289,7 @@ contains
           Hv(i) = Hv(i) + spHs%row(i)%vals(j)*v(spHs%row(i)%cols(j))
        end do matmul
     end do
-  end subroutine spMatVec_cc
+  end subroutine spMatVec_p
 
 
 
