@@ -64,12 +64,12 @@ contains
     !
     Eweiss_tmp  = zero;Eweiss_=zero
     dens_tmp    = 0d0 ;dens_=0d0
-    do ik=1+mpi_rank,Nk,mpi_size
+    do ik=1+mpi_rank,Nk,mpi_size  
        forall(io=1:Nlso,jo=1:Nlso)Hk_f(io,jo) = Op(io)*ss_Hk(io,jo,ik)*Op(jo)
-       Uk_f   = Hk_f + diag(ss_Hdiag)-xmu*eye(Nlso)-diag(lambda(:Nlso))+diag(lambda0(:Nlso))
+       Uk_f  = Hk_f + diag(ss_Hdiag - lambda(:Nlso) + lambda0(:Nlso)) - xmu*eye(Nlso)
        call eigh(Uk_f,Ek_f)
        diagRho  = diag(step_fermi(Ek_f))
-       RhoK     = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
+       RhoK     = (Uk_f .x. diagRho) .x. conjg(transpose(Uk_f))
        Wtk      = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
        Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*RhoK*Wtk
        dens_tmp   = dens_tmp + diagonal(RhoK*Wtk)

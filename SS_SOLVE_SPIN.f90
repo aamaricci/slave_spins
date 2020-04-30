@@ -286,7 +286,7 @@ contains
     Hv=zero
     do i=1,Nloc
        matmul: do j=1,spHs%row(i)%Size
-          Hv(i) = Hv(i) + dreal(spHs%row(i)%vals(j))*v(spHs%row(i)%cols(j))
+          Hv(i) = Hv(i) + spHs%row(i)%vals(j)*v(spHs%row(i)%cols(j))
        end do matmul
     end do
   end subroutine spMatVec_cc

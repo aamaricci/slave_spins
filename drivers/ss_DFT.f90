@@ -30,7 +30,7 @@ program ss_DFT
 
 
   call parse_cmd_variable(InputFile,"INPUTFILE",default="inputDFT.conf")
-  call parse_input_variable(w90file,"w90file",InputFile,default="hij.w90")
+  call parse_input_variable(w90file,"w90file",InputFile,default="hij.conf")
   call parse_input_variable(latfile,"latfile",InputFile,default="lat.conf")
   call parse_input_variable(kpathfile,"kpathfile",InputFile,default="kpath.conf")
   call parse_input_variable(ineqfile,"ineqfile",InputFile,default="ineq.conf")
@@ -95,7 +95,7 @@ program ss_DFT
   endif
 
   !SOLVE SS:
-  call ss_solve(Hk,ineq_sites=ineq_sites)
+  call ss_solve(Hk,ineq_sites=ineq_sites,UserOrder=[character(len=5)::"Norb","Nlat","Nspin"])
 
 
 

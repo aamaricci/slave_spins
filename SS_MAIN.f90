@@ -30,10 +30,9 @@ contains
 
 
   !< Init SS calculation by passing the Hamiltonian H(k)
-  subroutine ss_solve_hk(hk_user,UserOrder,Hloc,ineq_sites)
+  subroutine ss_solve_hk(hk_user,UserOrder,ineq_sites)
     complex(8),dimension(:,:,:)                           :: hk_user  ![Nlso,Nlso,Nk]
     character(len=*),dimension(3),optional                :: UserOrder
-    real(8),dimension(Nspin*Nlat*Norb),optional           :: Hloc
     integer,dimension(Nlat),optional                      :: ineq_sites
     !
     real(8),dimension(Nspin*Nlat*Norb)                    :: Hdiag,Haux
@@ -62,13 +61,9 @@ contains
     call assert_shape(hk_user,[Nlso,Nlso,Nk],"ss_init_hk","hk_user")
     !
     !< Init local non-interacting part and reorder it
-    if(present(Hloc))then
-       ss_Hdiag = ss_user2ss(Hloc,UserOrder_) 
-    else
-       Haux     = diagonal( sum(Hk_user,dim=3)/Nk )
-       ss_Hdiag = ss_user2ss(Haux,UserOrder_ )
-       where(abs(ss_Hdiag)<1d-6)ss_Hdiag=zero
-    endif
+    Haux     = diagonal( sum(Hk_user,dim=3)/Nk )
+    ss_Hdiag = ss_user2ss(Haux,UserOrder_ )
+    where(abs(ss_Hdiag)<1d-6)ss_Hdiag=zero
     !
     !< Init the Hk structures, subtract the local, diagonal part, coupled to the density 
     do ik=1,Nk
@@ -76,8 +71,8 @@ contains
        Hk = ss_user2ss(Hk_user(:,:,ik),UserOrder_)
        ss_Hk(:,:,ik) = Hk - diag(ss_Hdiag)
     end do
+    where(abs(ss_Hk)<1d-6)ss_Hk=zero
     ss_Wtk(1,:) = 1d0/Nk
-    !
     !
     !< Init/Read the lambda input
     if(use_lam0)call ss_solve_lambda0()
