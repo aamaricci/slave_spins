@@ -125,15 +125,12 @@ contains
 
 
   subroutine ss_build_Hs()
-    integer,dimension(Nss)    :: Ivec
     real(8),dimension(Nss)    :: Sz
     real(8),dimension(2,Norb) :: tSz
     real(8)                   :: htmp
     !
     do istate=1,Ndim
-       Ivec = Bdecomp(istate,Nss)
-       !
-       Sz = 0.5d0 ; where(Ivec==0)Sz=-0.5d0
+       Sz = Bdecomp(istate,Nss) - 0.5d0
        do ispin=1,2
           do iorb=1,Norb
              tSz(ispin,iorb) = Sz(iorb+(ispin-1)*Norb)
@@ -180,13 +177,13 @@ contains
           if(Sz(io)/=0.5d0)cycle
           call Sminus(io,Istate,Jstate)
           htmp = ii_c(io)*ii_Weiss(io)
-          call sp_insert_element(spHs,(htmp),Istate,Jstate)
+          call sp_insert_element(spHs,htmp,Istate,Jstate)
        enddo
        do io=1,Nss
           if(Sz(io)/=-0.5d0)cycle
           call Splus(io,Istate,Jstate)
           htmp = ii_Weiss(io)
-          call sp_insert_element(spHs,(htmp),Istate,Jstate)
+          call sp_insert_element(spHs,htmp,Istate,Jstate)
        enddo
     enddo
     !
@@ -195,11 +192,10 @@ contains
 
 
   subroutine ss_Spin_observables()
-    integer                         :: Idegen
-    integer,dimension(Nss)          :: Ivec
-    real(8),dimension(Nss)          :: Sz
-    real(8)                         :: htmp
-    real(8),dimension(:),pointer    :: gs_vec
+    integer                      :: Idegen
+    real(8),dimension(Nss)       :: Sz
+    real(8)                      :: htmp
+    real(8),dimension(:),pointer :: gs_vec
     !
     ii_Sz=0d0
     ii_Op=0d0
@@ -207,22 +203,21 @@ contains
        gs_vec => Ss_Evecs(:,Idegen)
        !
        do istate=1,Ndim
-          Ivec = Bdecomp(Istate,Nss)
-          Sz = 0.5d0 ; where(Ivec==0)Sz=-0.5d0
+          Sz = Bdecomp(Istate,Nss) - 0.5d0
           !
-          ii_Sz = ii_Sz + Sz*abs(gs_vec(istate))**2/zeta_function
+          ii_Sz = ii_Sz + Sz*gs_vec(istate)**2/zeta_function
           !
           do io=1,Nss
              if(Sz(io)/=0.5d0)cycle
              call Sminus(io,Istate,Jstate)
              htmp = 1d0
-             ii_Op(io) = ii_Op(io) + (gs_vec(Jstate))*htmp*gs_vec(Istate)/zeta_function
+             ii_Op(io) = ii_Op(io) + htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
           enddo
           do io=1,Nss
              if(Sz(io)/=-0.5d0)cycle
              call Splus(io,Istate,Jstate)
              htmp = ii_c(io)
-             ii_Op(io) = ii_Op(io) + (gs_vec(Jstate))*htmp*gs_vec(Istate)/zeta_function
+             ii_Op(io) = ii_Op(io) + htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
           enddo
           !
        enddo
@@ -233,7 +228,6 @@ contains
 
   subroutine ss_SpinSpin_Correlations()
     integer                      :: Idegen
-    integer,dimension(Nss)       :: Ivec
     real(8),dimension(Nss)       :: Sz
     real(8),dimension(:),pointer :: gs_vec
     real(8),dimension(Nss,Nss)   :: avSzSz
@@ -244,9 +238,8 @@ contains
     do Idegen=1,ss_Ndegen
        gs_vec => Ss_Evecs(:,Idegen)
        do istate=1,Ndim
-          Ivec = Bdecomp(Istate,Nss)
-          Sz = 0.5d0 ; where(Ivec==0)Sz=-0.5d0
-          avSzSz = avSzSz + outerprod(Sz,Sz)*abs(gs_vec(istate))**2/zeta_function
+          Sz = Bdecomp(Istate,Nss) - 0.5d0
+          avSzSz = avSzSz + outerprod(Sz,Sz)*gs_vec(istate)**2/zeta_function
        enddo
     enddo
     !

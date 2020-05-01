@@ -105,7 +105,7 @@ program ss_DFT
   allocate(Self(Nlat*Nspin*Norb))
   call ss_get_zeta(zeta)
   call ss_get_Self(self)
-  call save_array("zeta_self.restart",[zeta,self])
+  call save_array("renorm.save",[zeta,self])
 
   !Push em to Wannier 90 setup
   call TB_w90_Zeta(zeta)
@@ -146,7 +146,7 @@ program ss_DFT
 
 
   if(FSflag)then
-     inquire(file='zeta_self.restart',exist=bool)
+     inquire(file='renorm.save',exist=bool)
      if(bool)then
         allocate(tmp(2*Nlat*Nspin*Norb))
         call read_array("zeta_self.restart",tmp)

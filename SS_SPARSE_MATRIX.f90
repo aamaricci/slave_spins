@@ -184,8 +184,6 @@ contains
     if(iadd)then                            !this column exists so just sum it up       
        row%vals(pos)=row%vals(pos) + value  !add up value to the current one in %vals
     else                                    !this column is new. increase counter and store it 
-       ! row%vals = [row%vals,value]
-       ! row%cols = [row%cols,column]
        call add_to(row%vals,value)
        call add_to(row%cols,column)
        row%Size = row%Size + 1
@@ -216,8 +214,6 @@ contains
   !   if(iadd)then                            !this column exists so just sum it up       
   !      row%vals(pos)=row%vals(pos) + value  !add up value to the current one in %vals
   !   else                                    !this column is new. increase counter and store it 
-  !      ! row%vals = [row%vals,value]
-  !      ! row%cols = [row%cols,column]
   !      call add_to(row%vals,value)
   !      call add_to(row%cols,column)
   !      row%Size = row%Size + 1

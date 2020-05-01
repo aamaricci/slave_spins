@@ -186,8 +186,8 @@ contains
        ss_op     = ss_unpack_array(params(Ns+1:2*Ns),Nlat)
        if(size(params)==2*Ns+1)xmu=params(2*Ns+1)
     else
-       ss_lambda = ss_lambda0
-       ss_Op     = 1d0
+       ss_lambda =  ss_lambda0
+       ss_Op     =  1d0
     endif
   end subroutine ss_init_params
 
