@@ -24,7 +24,7 @@ contains
     real(8),dimension(Nlso)         :: Ek_f
     real(8),dimension(Nlso,Nlso)    :: Wtk
     !
-    complex(8),dimension(Nlso,Nlso) :: Eweiss_,Eweiss_tmp
+    real(8),dimension(Nlso,Nlso)    :: Eweiss_,Eweiss_tmp
     real(8),dimension(Nlso)         :: dens_,dens_tmp
     complex(8),dimension(Nlso,Nlso) :: diagRho
     complex(8),dimension(Nlso,Nlso) :: rhoK
@@ -71,7 +71,7 @@ contains
        diagRho  = diag(step_fermi(Ek_f))
        RhoK     = (Uk_f .x. diagRho) .x. conjg(transpose(Uk_f))
        Wtk      = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
-       Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*RhoK*Wtk
+       Eweiss_tmp = Eweiss_tmp + dreal(ss_Hk(:,:,ik)*RhoK*Wtk)
        dens_tmp   = dens_tmp + diagonal(RhoK*Wtk)
     enddo
 #ifdef _MPI
@@ -97,7 +97,7 @@ contains
              do jlat=1,Nlat
                 do jorb=1,Norb
                    jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
-                   weiss_(io) = weiss_(io) + Op(jo)*dble(Eweiss_(io,jo))
+                   weiss_(io) = weiss_(io) + Op(jo)*Eweiss_(io,jo)
                 enddo
              enddo
           enddo
@@ -150,7 +150,7 @@ contains
     complex(8),dimension(Nlso,Nlso)    :: diagRho
     complex(8),dimension(Nlso,Nlso)    :: Rho
     real(8),dimension(Nlso,Nlso)       :: Wtk
-    complex(8),dimension(Nlso,Nlso)    :: Eweiss_,Eweiss_tmp
+    real(8),dimension(Nlso,Nlso)       :: Eweiss_,Eweiss_tmp
     real(8),dimension(Nlso)            :: dens_,dens_tmp
     real(8),dimension(Nlso)            :: weiss_
     !
@@ -225,7 +225,7 @@ contains
           Uk_f      = rhoK(:,:,ik)
           Rho       = (Uk_f .x. diagRho) .x. (conjg(transpose(Uk_f)))
           Wtk = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
-          Eweiss_tmp = Eweiss_tmp + ss_Hk(:,:,ik)*Rho*Wtk
+          Eweiss_tmp = Eweiss_tmp + dreal(ss_Hk(:,:,ik)*Rho*Wtk)
           dens_tmp   = dens_tmp + diagonal(Rho*Wtk)
        enddo
 #ifdef _MPI
@@ -250,7 +250,7 @@ contains
                 do jlat=1,Nlat
                    do jorb=1,Norb
                       jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
-                      weiss_(io) = weiss_(io) + dble(Eweiss_(io,jo))
+                      weiss_(io) = weiss_(io) + Eweiss_(io,jo)
                    enddo
                 enddo
              enddo
@@ -277,8 +277,7 @@ contains
        call ss_spin_symmetry(ss_Lambda0,Nlat)
     endif
     !
-    xmu = mu0 !+ 2d0*sum(lambda0)/Ns
-    !if(filling/=0d0)xmu =  mu0 + 2d0*sum(lambda0)/Ns
+    xmu = mu0   
     !
     if(master)then
        if(verbose>2)then
