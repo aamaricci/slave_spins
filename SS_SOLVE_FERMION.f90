@@ -276,7 +276,7 @@ contains
        !
        !
        !< Get Lambda0 = -2* h0_{m,s}*[n0_{m,s}-0.5]/[n0_{m,s}*(1-n0_{m,s})]
-       lambda0 = -2d0*abs(Weiss)*(Dens-0.5d0)/(Dens*(1d0-Dens)+mch)
+       lambda0 = -2d0*Weiss*(Dens-0.5d0)/(Dens*(1d0-Dens)+mch)
        !
        !
     endif

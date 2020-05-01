@@ -8,7 +8,7 @@ program ss_DFT
 #endif
   implicit none
 
-  integer                                 :: Nktot,Nkpath,Nkx,Npts,Nlso
+  integer                                 :: Nktot,Nkpath,Nkvec(3),Npts,Nlso
   integer                                 :: i,j,k,ik,ilat,iorb,jorb,io,ispin
   real(8),dimension(3)                    :: e1,e2,e3
   real(8),dimension(:,:),allocatable      :: kpath
@@ -35,7 +35,7 @@ program ss_DFT
   call parse_input_variable(kpathfile,"kpathfile",InputFile,default="kpath.conf")
   call parse_input_variable(ineqfile,"ineqfile",InputFile,default="ineq.conf")
   call parse_input_variable(FSflag,"FSflag",InputFile,default=.false.)
-  call parse_input_variable(Nkx,"NKX",InputFile,default=10)
+  call parse_input_variable(Nkvec,"NKVEC",InputFile,default=[10,10,10])
   call parse_input_variable(nkpath,"NKPATH",InputFile,default=500)
   call ss_read_input(reg(InputFile))
   !
@@ -64,16 +64,16 @@ program ss_DFT
   call TB_set_ei(e1,e2,e3)
   call TB_build_bk(verbose=.true.)
   call TB_w90_setup(reg(w90file),nlat=Nlat,nspin=Nspin,norb=Norb,verbose=.true.)
-  call TB_w90_FermiLevel([Nkx,Nkx,Nkx],filling,Ef)
+  call TB_w90_FermiLevel(Nkvec,filling,Ef)
 
 
   !SOLVE AND PLOT THE FULLY HOMOGENOUS PROBLEM:
-  Nktot=Nkx*Nkx*Nkx ;   write(*,*) "Using Nk_total="//txtfy(Nktot)
+  Nktot=product(Nkvec) ;   write(*,*) "Using Nk_total="//txtfy(Nktot)
   allocate(Hk(Nlso,Nlso,Nktot))
 
   call TB_set_dos_lreal(256)
   call start_timer
-  call TB_build_model(Hk,Nlso,[Nkx,Nkx,Nkx],wdos=.false.)
+  call TB_build_model(Hk,Nlso,Nkvec,wdos=.false.)
   call stop_timer("TB_build_model")
 
 
@@ -158,7 +158,7 @@ program ss_DFT
         call TB_w90_Self(diag(self))
         deallocate(zeta,self)
      endif
-     call TB_FSurface(Nlso,0d0,[Nkx,Nkx],&
+     call TB_FSurface(Nlso,0d0,Nkvec(1:2),&
           colors_name=[black,red,red,green,blue],&
           file='FS_ssDFT',cutoff=1d-1,Niter=3,Nsize=2)
   endif
