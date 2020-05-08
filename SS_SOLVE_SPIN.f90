@@ -37,8 +37,9 @@ contains
 
 
   subroutine ss_solve_spins(ineq)
-    integer :: ineq,ilat
-    integer :: Nstate
+    integer                :: ineq,ilat
+    integer                :: Nstate
+    real(8),dimension(Nso) :: Lambda,Weiss,Const
     !
     Ndim = 2**Nss
     !
@@ -65,9 +66,18 @@ contains
     allocate(ii_Op(Nss))
     allocate(ii_Weiss(Nss))
     !
-    ii_Lambda = ss_Lambda(ilat,:)
-    ii_Weiss  = ss_Weiss(ilat,:)
-    ii_C      = ss_C(ilat,:)
+    Lambda = ss_Lambda(ilat,:)
+    Weiss  = ss_Weiss(ilat,:)
+    Const  = ss_C(ilat,:)
+    if(Nspin==1)then
+       ii_Lambda = [Lambda,Lambda]
+       ii_Weiss  = [Weiss,Weiss]
+       ii_C      = [Const,Const]
+    else
+       ii_Lambda = Lambda
+       ii_Weiss  = Weiss
+       ii_C      = Const
+    endif
     !
     call sp_init_matrix(spHs,Ndim)
     !
@@ -107,13 +117,9 @@ contains
     call ss_SpinSpin_correlations()
     !
     !< Copy back into main arrays ss_XYZ at proper position
-    ss_Sz_ineq(ineq,:) = ii_Sz
-    ss_Op_ineq(ineq,:) = ii_Op
+    ss_Sz_ineq(ineq,:) = ii_Sz(:Nso)
+    ss_Op_ineq(ineq,:) = ii_Op(:Nso)
     ss_SzSz_ineq(ineq,:,:,:) = ii_SzSz
-    if(Nspin==1)then
-       call ss_spin_symmetry(ss_Sz_ineq,Nineq)
-       call ss_spin_symmetry(ss_Op_ineq,Nineq)
-    endif
     !
     deallocate(ii_lambda,ii_Weiss,ii_c)
     deallocate(ii_Sz,ii_Op,ii_SzSz)

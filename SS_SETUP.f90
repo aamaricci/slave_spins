@@ -76,12 +76,12 @@ contains
     call ss_setup_dimensions()
     !
 
-    allocate(ss_C(Nlat,Nss),ss_C_ineq(Nineq,Nss))
-    allocate(ss_Dens(Nlat,Nss), ss_Dens_ineq(Nineq,Nss))
-    allocate(ss_Lambda0(Nlat,Nss), ss_Lambda0_ineq(Nineq,Nss))
-    allocate(ss_lambda(Nlat,Nss), ss_lambda_ineq(Nineq,Nss) )
-    allocate(ss_Sz(Nlat,Nss), ss_Sz_ineq(Nineq,Nss))
-    allocate(ss_Op(Nlat,Nss), ss_Op_ineq(Nineq,Nss))
+    allocate(ss_C(Nlat,Nso),ss_C_ineq(Nineq,Nso))
+    allocate(ss_Dens(Nlat,Nso), ss_Dens_ineq(Nineq,Nso))
+    allocate(ss_Lambda0(Nlat,Nso), ss_Lambda0_ineq(Nineq,Nso))
+    allocate(ss_lambda(Nlat,Nso), ss_lambda_ineq(Nineq,Nso) )
+    allocate(ss_Sz(Nlat,Nso), ss_Sz_ineq(Nineq,Nso))
+    allocate(ss_Op(Nlat,Nso), ss_Op_ineq(Nineq,Nso))
     ss_c      = 0d0; ss_c_ineq      = 0d0
     ss_dens   = 0d0; ss_dens_ineq   = 0d0
     ss_lambda0= 0d0; ss_lambda0_ineq= 0d0
@@ -89,7 +89,7 @@ contains
     ss_Sz     = 0d0; ss_Sz_ineq    = 0d0
     ss_Op     = 1d0 ; ss_Op_ineq    = 1d0
     !
-    allocate(ss_Weiss(Nlat,Nss), ss_Weiss_ineq(Nineq,Nss))
+    allocate(ss_Weiss(Nlat,Nso), ss_Weiss_ineq(Nineq,Nso))
     ss_weiss  = 0d0; ss_weiss_ineq  = 0d0
     !
     allocate( ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
@@ -122,6 +122,7 @@ contains
     !-TODO: Norb be the total number of orbitals P+D. Now it is only correlated orbitals.
     Nlso = Nlat*Norb*Nspin
     Niso = Nineq*Norb*Nspin
+    Nso  = Norb*Nspin
     !
     Ns   = 2*Nlat*Norb          !total number of parameters
     Nss  = 2*Norb
@@ -285,33 +286,36 @@ contains
 
 
 
+
+
+
   subroutine ss_spin_symmetry_nlso_d(array,Nsite)
     integer                      :: Nsite
-    real(8),dimension(Nsite*Nss) :: array
-    array(Nsite*Norb+1:) = array(1:Nsite*Norb)
+    real(8),dimension(Nsite*Nso) :: array
+    if(Nspin>1)array(Nsite*Norb+1:) = array(1:Nsite*Norb)
   end subroutine ss_spin_symmetry_nlso_d
 
   subroutine ss_spin_symmetry_nlso_c(array,Nsite)
     integer                         :: Nsite
-    complex(8),dimension(Nsite*Nss) :: array
-    array(Nsite*Norb+1:) = array(1:Nsite*Norb)
+    complex(8),dimension(Nsite*Nso) :: array
+    if(Nspin>1)array(Nsite*Norb+1:) = array(1:Nsite*Norb)
   end subroutine ss_spin_symmetry_nlso_c
 
   subroutine ss_spin_symmetry_nn_d(array,Nsite)
     integer                      :: Nsite
-    real(8),dimension(Nsite,Nss) :: array
+    real(8),dimension(Nsite,Nso) :: array
     integer                      :: isite
     do isite=1,Nsite
-       array(isite,Norb+1:) = array(isite,1:Norb)
+       if(Nspin>1)array(isite,Norb+1:) = array(isite,1:Norb)
     enddo
   end subroutine ss_spin_symmetry_nn_d
 
   subroutine ss_spin_symmetry_nn_c(array,Nsite)
     integer                         :: Nsite
-    complex(8),dimension(Nsite,Nss) :: array
+    complex(8),dimension(Nsite,Nso) :: array
     integer                         :: isite
     do isite=1,Nsite
-       array(isite,Norb+1:) = array(isite,1:Norb)
+       if(Nspin>1)array(isite,Norb+1:) = array(isite,1:Norb)
     enddo
   end subroutine ss_spin_symmetry_nn_c
 
@@ -326,15 +330,15 @@ contains
 
 
   function ss_pack_array_d(Ain,Nsite) result(Aout)
-    integer                         :: Nsite
-    real(8),dimension(Nsite,2*Norb) :: Ain
-    real(8),dimension(2*Nsite*Norb) :: Aout
-    integer                         :: ispin,isite,iorb,io,ii
-    do ispin=1,2
+    integer                             :: Nsite
+    real(8),dimension(Nsite,Nso)        :: Ain
+    real(8),dimension(Nspin*Nsite*Norb) :: Aout
+    integer                             :: ispin,isite,iorb,io,ii
+    do ispin=1,Nspin
        do isite=1,Nsite
           do iorb=1,Norb
              ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
-             io = Indices2i([iorb,ispin],[Norb,2])
+             io = Indices2i([iorb,ispin],[Norb,Nspin])
              !
              Aout(ii) = Ain(isite,io)
              !
@@ -343,15 +347,15 @@ contains
     enddo
   end function ss_pack_array_d
   function ss_pack_array_c(Ain,Nsite) result(Aout)
-    integer                            :: Nsite
-    complex(8),dimension(Nsite,2*Norb) :: Ain
-    complex(8),dimension(2*Nsite*Norb) :: Aout
-    integer                            :: ispin,isite,iorb,io,ii
-    do ispin=1,2
+    integer                                :: Nsite
+    complex(8),dimension(Nsite,Nso)        :: Ain
+    complex(8),dimension(Nspin*Nsite*Norb) :: Aout
+    integer                                :: ispin,isite,iorb,io,ii
+    do ispin=1,Nspin
        do isite=1,Nsite
           do iorb=1,Norb
              ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
-             io = Indices2i([iorb,ispin],[Norb,2])
+             io = Indices2i([iorb,ispin],[Norb,Nspin])
              !
              Aout(ii) = Ain(isite,io)
              !
@@ -362,15 +366,15 @@ contains
 
 
   function ss_unpack_array_d(Ain,Nsite) result(Aout)
-    integer                         :: Nsite
-    real(8),dimension(2*Nsite*Norb) :: Ain
-    real(8),dimension(Nsite,2*Norb) :: Aout
-    integer                         :: ispin,isite,iorb,io,ii
-    do ispin=1,2
+    integer                                :: Nsite
+    real(8),dimension(Nspin*Nsite*Norb)    :: Ain
+    real(8),dimension(Nsite,Nspin*Norb)    :: Aout
+    integer                                :: ispin,isite,iorb,io,ii
+    do ispin=1,Nspin
        do isite=1,Nsite
           do iorb=1,Norb
              ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
-             io = Indices2i([iorb,ispin],[Norb,2])
+             io = Indices2i([iorb,ispin],[Norb,Nspin])
              !
              Aout(isite,io) = Ain(ii)
              !
@@ -379,15 +383,15 @@ contains
     enddo
   end function ss_unpack_array_d
   function ss_unpack_array_c(Ain,Nsite) result(Aout)
-    integer                            :: Nsite
-    complex(8),dimension(2*Nsite*Norb) :: Ain
-    complex(8),dimension(Nsite,2*Norb) :: Aout
-    integer                            :: ispin,isite,iorb,io,ii
-    do ispin=1,2
+    integer                                :: Nsite
+    complex(8),dimension(Nspin*Nsite*Norb) :: Ain
+    complex(8),dimension(Nsite,Nspin*Norb) :: Aout
+    integer                                :: ispin,isite,iorb,io,ii
+    do ispin=1,Nspin
        do isite=1,Nsite
           do iorb=1,Norb
              ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
-             io = Indices2i([iorb,ispin],[Norb,2])
+             io = Indices2i([iorb,ispin],[Norb,Nspin])
              !
              Aout(isite,io) = Ain(ii)
              !

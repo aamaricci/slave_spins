@@ -14,7 +14,7 @@ MODULE SS_VARS_GLOBAL
 
   integer,save                            :: Ns,Nss       !# of levels total = 2*Nlat*Norb
   integer                                 :: Nk
-  integer                                 :: Nlso,Niso
+  integer                                 :: Nlso,Niso,Nso
   integer                                 :: Nineq
   integer,dimension(3)                    :: nDefOrder
   character(len=5),dimension(3)           :: DefOrder

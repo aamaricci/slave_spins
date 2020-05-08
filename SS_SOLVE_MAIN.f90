@@ -31,7 +31,7 @@ contains
     real(8),dimension(Niso)      :: apar
     real(8),dimension(2*Niso+1)  :: params1
     real(8),dimension(Niso+1)    :: apar1
-    real(8),dimension(Nineq*Nss) :: lambda,Op
+    real(8),dimension(Niso)      :: lambda,Op
     integer                      :: iter
     real(8)                      :: chi
     !
@@ -45,13 +45,13 @@ contains
     lambda =  ss_pack_array(ss_lambda_ineq,Nineq)
     Op     =  ss_pack_array(ss_Op_ineq,Nineq)
     !
-    allocate(ss_lambda_init(Nineq,Nss));ss_lambda_init=ss_lambda_ineq
-    allocate(ss_Op_init(Nineq,Nss))    ;ss_Op_init  =ss_Op_ineq
+    allocate(ss_lambda_init(Nineq,Nso));ss_lambda_init=ss_lambda_ineq
+    allocate(ss_Op_init(Nineq,Nso))    ;ss_Op_init  =ss_Op_ineq
     !
-    params  = [lambda(:Niso),Op(:Niso)]
+    params  = [lambda,Op]
     params1 = [params,xmu]
     !
-    apar  = [lambda(:Niso)]
+    apar  = [lambda]
     apar1 = [apar,xmu]
     !
     if(master)call start_timer
@@ -129,8 +129,8 @@ contains
     real(8),dimension(size(aparams)) :: fss
     logical                          :: bool
     integer                          :: ilat,ineq,io,il,iorb,ispin
-    real(8),dimension(Nineq,Nss)     :: TmpZ
-    real(8),dimension(Nineq*Nss)     :: lambda,Zeta,Op,sz,Dens,Zeta_prev
+    real(8),dimension(Nineq,Nso)     :: TmpZ
+    real(8),dimension(Nineq*Nso)     :: lambda,Zeta,Op,sz,Dens,Zeta_prev
     !
     bool = (size(aparams)==2*Niso+1)
     !
@@ -138,15 +138,9 @@ contains
     call start_loop(siter,Niter,"FSOLVE-iter")
     !
     !< extract the input for ineq. sites
-    lambda(:Niso) = aparams(1:Niso)
-    Op(:Niso)     = aparams(Niso+1:2*Niso)
-    if(bool)xmu   = aparams(2*Niso+1)
-    !
-    !< Symmetrize:
-    if(Nspin==1)then
-       call ss_spin_symmetry(ss_lambda,Nlat)
-       call ss_spin_symmetry(ss_Op,Nlat)
-    endif
+    lambda      = aparams(1:Niso)
+    Op          = aparams(Niso+1:2*Niso)
+    if(bool)xmu = aparams(2*Niso+1)
     !
     !< Map onto ineq. arrays
     ss_lambda_ineq = ss_unpack_array(lambda,Nineq)
@@ -186,14 +180,14 @@ contains
     enddo
     !
     ! < Constraint:
-    Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
-    Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
-    Op      = ss_pack_array(ss_Op_ineq,Nineq)
-    Zeta    = Op**2
+    Dens  = ss_pack_array(ss_Dens_ineq,Nineq)
+    Sz    = ss_pack_array(ss_Sz_ineq,Nineq)
+    Op    = ss_pack_array(ss_Op_ineq,Nineq)
+    Zeta  = Op**2
     !
-    fss(1:Niso)           = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
-    fss(Niso+1:2*Niso)    = Zeta(1:Niso) - Zeta_prev(1:Niso)
-    if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
+    fss(1:Niso)           = Dens - (Sz + 0.5d0)
+    fss(Niso+1:2*Niso)    = Zeta - Zeta_prev
+    if(bool)fss(2*Niso+1) = sum(ss_dens)*(3-Nspin) - filling
     !
     call ss_print_screen()
     if(master.AND.verbose>1)then
@@ -225,8 +219,8 @@ contains
     real(8)                          :: chi2
     logical                          :: bool
     integer                          :: ilat,ineq,io,il,iorb,ispin
-    real(8),dimension(Nineq,Nss)     :: TmpZ
-    real(8),dimension(Nineq*Nss)     :: lambda,Op,sz,Dens,Zeta,Zeta_prev
+    real(8),dimension(Nineq,Nso)     :: TmpZ
+    real(8),dimension(Nineq*Nso)     :: lambda,Op,sz,Dens,Zeta,Zeta_prev
     !
     bool = (size(aparams)==2*Niso+1)
     !
@@ -234,15 +228,9 @@ contains
     call start_loop(siter,Niter,"FSOLVE-iter")
     !
     !< extract the input for ineq. sites
-    lambda(:Niso) = aparams(1:Niso)
-    Op(:Niso)     = aparams(Niso+1:2*Niso)
-    if(bool)xmu   = aparams(2*Niso+1)
-    !
-    !< Symmetrize:
-    if(Nspin==1)then
-       call ss_spin_symmetry(ss_lambda,Nlat)
-       call ss_spin_symmetry(ss_Op,Nlat)
-    endif
+    lambda      = aparams(1:Niso)
+    Op          = aparams(Niso+1:2*Niso)
+    if(bool)xmu = aparams(2*Niso+1)
     !
     !< Map onto ineq. arrays
     ss_lambda_ineq = ss_unpack_array(lambda,Nineq)
@@ -291,8 +279,8 @@ contains
     Op      = ss_pack_array(ss_Op_ineq,Nineq)
     Zeta    = Op**2
     !
-    fss(1:Niso)           = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
-    fss(Niso+1:2*Niso)    = Zeta(1:Niso) - Zeta_prev(1:Niso)
+    fss(1:Niso)           = Dens - (Sz + 0.5d0)
+    fss(Niso+1:2*Niso)    = Zeta - Zeta_prev
     if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
     !
     chi2 = dot_product(fss,fss)/size(Fss)
@@ -326,8 +314,8 @@ contains
     real(8),dimension(m)         :: fss
     logical                      :: bool
     integer                      :: ilat,ineq,io,il,iorb,ispin
-    real(8),dimension(Nineq,Nss) :: TmpZ
-    real(8),dimension(Nineq*Nss) :: lambda,Op,sz,Dens,Zeta,Zeta_prev
+    real(8),dimension(Nineq,Nso) :: TmpZ
+    real(8),dimension(Nineq*Nso) :: lambda,Op,sz,Dens,Zeta,Zeta_prev
     !
     bool = (size(aparams)==Niso+1)
     !
@@ -335,8 +323,8 @@ contains
     call start_loop(siter,Niter,"LEASTSQ-iter")
     !
     !< extract the input for ineq. sites
-    lambda(:Niso) = aparams(1:Niso)
-    if(bool)xmu   = aparams(Niso+1)
+    lambda      = aparams(1:Niso)
+    if(bool)xmu = aparams(Niso+1)
     !
     !< Symmetrize:
     if(Nspin==1)call ss_spin_symmetry(ss_lambda,Nlat)
@@ -356,7 +344,7 @@ contains
          [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
     !
     !< save input  
-    Zeta_prev = ss_pack_array(ss_Op_ineq,Nineq);Zeta_prev=Zeta_prev**2
+    Zeta_prev = ss_pack_array(ss_Op_ineq**2,Nineq)
     TmpZ      = ss_Op_ineq**2
     !
     if(master.AND.verbose>2)call start_timer
@@ -386,8 +374,8 @@ contains
     Op      = ss_pack_array(ss_Op_ineq,Nineq)
     Zeta    = Op**2
     !
-    fss(1:Niso)           = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
-    fss(Niso+1:2*Niso)    = Zeta(1:Niso) - Zeta_prev(1:Niso)
+    fss(1:Niso)           = Dens - (Sz + 0.5d0)
+    fss(Niso+1:2*Niso)    = Zeta - Zeta_prev
     if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
     !
     call ss_print_screen(TmpZ)
@@ -425,13 +413,13 @@ contains
     real(8),dimension(size(aparams)) :: fss
     integer                          :: iter,Nsuccess=0
     logical                          :: z_converged,bool
-    real(8),dimension(Nineq*Nss)     :: lambda,Op,sz,Dens,Zeta,Zeta_prev
+    real(8),dimension(Nineq*Nso)     :: lambda,Op,sz,Dens,Zeta,Zeta_prev
     !
     bool = size(aparams)==Niso+1
     !
     ! > Retrieve ss_lambda:
-    lambda(:Niso) = aparams(1:Niso)
-    if(bool)xmu   = aparams(Niso+1)
+    lambda      = aparams(1:Niso)
+    if(bool)xmu = aparams(Niso+1)
     !
     !< Symmetrize:
     if(Nspin==1)call ss_spin_symmetry(ss_lambda,Nlat)
@@ -456,7 +444,7 @@ contains
        iter=iter+1
        call start_loop(iter,Niter,"Z-iter")
        !
-       Zeta_prev = ss_pack_array(ss_Op_ineq,Nineq);Zeta_prev=Zeta_prev**2
+       Zeta_prev = ss_pack_array(ss_Op_ineq**2,Nineq)
        !
        if(master.AND.verbose>2)call start_timer
        call ss_solve_fermions
@@ -496,7 +484,7 @@ contains
     end do
     !
     !<constraint:
-    fss(1:Niso)         = Dens(1:Niso) - (Sz(1:Niso) + 0.5d0)
+    fss(1:Niso)         = Dens - (Sz + 0.5d0)
     if(bool)fss(Niso+1) = sum(ss_Dens) - filling
     !
     if(master.AND.verbose>1)then
@@ -525,22 +513,22 @@ contains
 
 
   subroutine ss_print_screen(Tmp)
-    real(8),dimension(Nineq,Nss),optional :: Tmp
+    real(8),dimension(Nineq,Nso),optional :: Tmp
     if(master.AND.verbose>1)then
        do ineq=1,Nineq
           ilat = ss_ineq2ilat(ineq)
           write(*,*)" SITE= "//str(ilat,4)
           !
-          if(verbose>3)write(*,"(A7,12G18.9)")"C     =",ss_C_ineq(ineq,:Nspin*Norb)
+          if(verbose>3)write(*,"(A7,12G18.9)")"C     =",ss_C_ineq(ineq,:)
           !
           write(*,"(A7,12G18.9)")"mu    =",xmu
-          write(*,"(A7,12G18.9)")"N     =",ss_Dens_ineq(ineq,:Nspin*Norb),sum(ss_Dens),filling
-          write(*,"(A7,12G18.9)")"Sz+1/2=",ss_Sz_ineq(ineq,:Nspin*Norb)+0.5d0
-          write(*,"(A7,12G18.9)")"Lambda=",ss_lambda_ineq(ineq,:Nspin*Norb)
-          if(verbose>3)write(*,"(A7,12G18.9)")"Op    =",ss_Op_ineq(ineq,:Nspin*Norb)
+          write(*,"(A7,12G18.9)")"N     =",ss_Dens_ineq(ineq,:),sum(ss_Dens)*(3-Nspin),filling
+          write(*,"(A7,12G18.9)")"Sz+1/2=",ss_Sz_ineq(ineq,:)+0.5d0
+          write(*,"(A7,12G18.9)")"Lambda=",ss_lambda_ineq(ineq,:)
+          if(verbose>3)write(*,"(A7,12G18.9)")"Op    =",ss_Op_ineq(ineq,:)
           if(verbose>4.AND.present(Tmp))&
-               write(*,"(A7,12G18.9)")"Z_prev=",Tmp(ineq,:Nspin*Norb)
-          write(*,"(A7,12G18.9)")"Z_ss  =",ss_Op_ineq(ineq,:Nspin*Norb)**2
+               write(*,"(A7,12G18.9)")"Z_prev=",Tmp(ineq,:)
+          write(*,"(A7,12G18.9)")"Z_ss  =",ss_Op_ineq(ineq,:)**2
           write(*,*)" "
        enddo
     endif

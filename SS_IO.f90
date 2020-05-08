@@ -57,8 +57,7 @@ contains
 
 
   subroutine ss_write_last()
-    integer                        :: unit,units(4),i,iorb,jorb,ilat
-    real(8),dimension(Nlat,2*Norb) :: TmpDens
+    integer                            :: unit,units(4),i,iorb,jorb,ilat
     if(master)then
        !       
        open(free_unit(unit),file="hubbards.ss")
@@ -115,26 +114,26 @@ contains
 
 
   subroutine ss_get_dens_Ns(dens,UserOrder)
-    real(8),dimension(Ns)                  :: Tmp
+    real(8),dimension(Nspin*Nlat*Norb)     :: Tmp
     real(8),dimension(Nspin*Nlat*Norb)     :: dens
     character(len=*),dimension(3),optional :: UserOrder
     !
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Tmp  = ss_pack_array(ss_dens,Nlat)
-    dens = ss_ss2user(Tmp(:Nlso),UserOrder_)
+    dens = ss_ss2user(Tmp,UserOrder_)
   end subroutine ss_get_dens_Ns
   !
   subroutine ss_get_dens_NN(dens,UserOrder)
-    real(8),dimension(Ns)                  :: Tmp
-    real(8),dimension(:,:,:)               :: dens
-    real(8),dimension(Nspin*Nlat*Norb)     :: dens_
+    real(8),dimension(Nspin*Nlat*Norb) :: Tmp
+    real(8),dimension(:,:,:)           :: dens
+    real(8),dimension(Nspin*Nlat*Norb) :: dens_
     character(len=*),dimension(3),optional :: UserOrder
     !
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Tmp        = ss_pack_array(ss_dens,Nlat)
-    dens_      = ss_ss2user(Tmp(:Nlso),UserOrder_)
+    dens_      = ss_ss2user(Tmp,UserOrder_)
     nUserOrder = ss_nOrder(UserOrder_)
     call assert_shape(dens,nUserOrder(3:1:-1),"ss_get_dens","dens")
     do io=1,Nlso
@@ -148,19 +147,19 @@ contains
 
 
   subroutine ss_get_zeta_Ns(zeta,UserOrder)
-    real(8),dimension(Ns)                  :: Tmp
+    real(8),dimension(Nspin*Nlat*Norb)     :: Tmp
     real(8),dimension(Nspin*Nlat*Norb)     :: zeta
     character(len=*),dimension(3),optional :: UserOrder
     !
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Tmp  = ss_pack_array(ss_Op,Nlat)
-    zeta = ss_ss2user(Tmp(:Nlso),UserOrder_)
+    zeta = ss_ss2user(Tmp,UserOrder_)
     zeta = zeta**2
   end subroutine ss_get_zeta_Ns
   !
   subroutine ss_get_zeta_NN(zeta,UserOrder)
-    real(8),dimension(Ns)                  :: Tmp
+    real(8),dimension(Nspin*Nlat*Norb)     :: Tmp
     real(8),dimension(:,:,:)               :: zeta
     real(8),dimension(Nspin*Nlat*Norb)     :: zeta_
     character(len=*),dimension(3),optional :: UserOrder
@@ -168,7 +167,7 @@ contains
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Tmp        = ss_pack_array(ss_Op,Nlat)
-    zeta_      = ss_ss2user(Tmp(:Nlso),UserOrder_)
+    zeta_      = ss_ss2user(Tmp,UserOrder_)
     nUserOrder = ss_nOrder(UserOrder_)
     call assert_shape(zeta,nUserOrder(3:1:-1),"ss_get_zeta","zeta")
     do io=1,Nlso
@@ -183,18 +182,18 @@ contains
 
 
   subroutine ss_get_Sz_Ns(Sz,UserOrder)
-    real(8),dimension(Ns)                  :: Tmp
+    real(8),dimension(Nspin*Nlat*Norb)     :: Tmp
     real(8),dimension(Nspin*Nlat*Norb)     :: Sz
     character(len=*),dimension(3),optional :: UserOrder
     !
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Tmp  = ss_pack_array(ss_Sz,Nlat)
-    Sz   = ss_ss2user(Tmp(:Nlso),UserOrder_)
+    Sz   = ss_ss2user(Tmp,UserOrder_)
   end subroutine ss_get_Sz_Ns
   !
   subroutine ss_get_Sz_NN(Sz,UserOrder)
-    real(8),dimension(Ns)                  :: Tmp
+    real(8),dimension(Nspin*Nlat*Norb)     :: Tmp
     real(8),dimension(:,:,:)               :: Sz
     real(8),dimension(Nspin*Nlat*Norb)     :: Sz_
     character(len=*),dimension(3),optional :: UserOrder
@@ -202,7 +201,7 @@ contains
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Tmp      = ss_pack_array(ss_Sz,Nlat)
-    Sz_      = ss_ss2user(Tmp(:Nlso),UserOrder_)
+    Sz_      = ss_ss2user(Tmp,UserOrder_)
     nUserOrder = ss_nOrder(UserOrder_)
     call assert_shape(Sz,nUserOrder(3:1:-1),"ss_get_Sz","Sz")
     do io=1,Nlso
@@ -217,18 +216,18 @@ contains
 
 
   subroutine ss_get_Lambda_Ns(Lambda,UserOrder)
-    real(8),dimension(Ns)                  :: Tmp
+    real(8),dimension(Nspin*Nlat*Norb)     :: Tmp
     real(8),dimension(Nspin*Nlat*Norb)     :: Lambda
     character(len=*),dimension(3),optional :: UserOrder
     !
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Tmp    = ss_pack_array(ss_Lambda,Nlat)
-    Lambda = ss_ss2user(Tmp(:Nlso),UserOrder_)
+    Lambda = ss_ss2user(Tmp,UserOrder_)
   end subroutine ss_get_Lambda_Ns
   !
   subroutine ss_get_Lambda_NN(Lambda,UserOrder)
-    real(8),dimension(Ns)                  :: Tmp
+    real(8),dimension(Nspin*Nlat*Norb)     :: Tmp
     real(8),dimension(:,:,:)               :: Lambda
     real(8),dimension(Nspin*Nlat*Norb)     :: Lambda_
     character(len=*),dimension(3),optional :: UserOrder
@@ -236,7 +235,7 @@ contains
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Tmp          = ss_pack_array(ss_Lambda,Nlat)
-    Lambda_      = ss_ss2user(Tmp(:Nlso),UserOrder_)
+    Lambda_      = ss_ss2user(Tmp,UserOrder_)
     nUserOrder = ss_nOrder(UserOrder_)
     call assert_shape(Lambda,nUserOrder(3:1:-1),"ss_get_Lambda","Lambda")
     do io=1,Nlso
@@ -249,18 +248,18 @@ contains
 
 
   subroutine ss_get_Lambda0_Ns(Lambda0,UserOrder)
-    real(8),dimension(Ns)                  :: Tmp
+    real(8),dimension(Nspin*Nlat*Norb)     :: Tmp
     real(8),dimension(Nspin*Nlat*Norb)     :: Lambda0
     character(len=*),dimension(3),optional :: UserOrder
     !
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Tmp     = ss_pack_array(ss_Lambda0,Nlat)
-    Lambda0 = ss_ss2user(Tmp(:Nlso),UserOrder_)
+    Lambda0 = ss_ss2user(Tmp,UserOrder_)
   end subroutine ss_get_Lambda0_Ns
   !
   subroutine ss_get_Lambda0_NN(Lambda0,UserOrder)
-    real(8),dimension(Ns)                  :: Tmp
+    real(8),dimension(Nspin*Nlat*Norb)     :: Tmp
     real(8),dimension(:,:,:)               :: Lambda0
     real(8),dimension(Nspin*Nlat*Norb)     :: Lambda0_
     character(len=*),dimension(3),optional :: UserOrder
@@ -268,7 +267,7 @@ contains
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Tmp        = ss_pack_array(ss_Lambda0,Nlat)
-    Lambda0_   = ss_ss2user(Tmp(:Nlso),UserOrder_)
+    Lambda0_   = ss_ss2user(Tmp,UserOrder_)
     nUserOrder = ss_nOrder(UserOrder_)
     call assert_shape(Lambda0,nUserOrder(3:1:-1),"ss_get_Lambda0","Lambda0")
     do io=1,Nlso
@@ -282,7 +281,7 @@ contains
 
 
   subroutine ss_get_self_Ns(self,UserOrder)
-    real(8),dimension(Ns)                  :: Tmp,Tmp0
+    real(8),dimension(Nspin*Nlat*Norb)     :: Tmp,Tmp0
     real(8),dimension(Nlat*Nspin*Norb)     :: self
     character(len=*),dimension(3),optional :: UserOrder
     !
@@ -290,11 +289,11 @@ contains
     !
     Tmp  = ss_pack_array(ss_Lambda,Nlat)
     Tmp0 = ss_pack_array(ss_Lambda0,Nlat)
-    Self =  -ss_ss2user(Tmp(:Nlso),UserOrder_) + ss_ss2user(Tmp0(:Nlso),UserOrder_)
+    Self =  -ss_ss2user(Tmp,UserOrder_) + ss_ss2user(Tmp0(:Nlso),UserOrder_)
   end subroutine ss_get_self_Ns
 
   subroutine ss_get_self_NN(Self,UserOrder)
-    real(8),dimension(Ns)                  :: Tmp,Tmp0
+    real(8),dimension(Nspin*Nlat*Norb)     :: Tmp,Tmp0
     real(8),dimension(:,:,:)               :: Self
     real(8),dimension(Nspin*Nlat*Norb)     :: Self_
     character(len=*),dimension(3),optional :: UserOrder
@@ -303,7 +302,7 @@ contains
     !
     Tmp   = ss_pack_array(ss_Lambda,Nlat)
     Tmp0  = ss_pack_array(ss_Lambda0,Nlat)
-    Self_ = -ss_ss2user(Tmp(:Nlso),UserOrder_) + ss_ss2user(Tmp0(:Nlso),UserOrder_)
+    Self_ = -ss_ss2user(Tmp,UserOrder_) + ss_ss2user(Tmp0,UserOrder_)
     nUserOrder = ss_nOrder(UserOrder_)
     call assert_shape(Self,nUserOrder(3:1:-1),"ss_get_Self","Self")
     do io=1,Nlso
@@ -316,10 +315,10 @@ contains
 
 
   subroutine ss_get_ssHk(ssHk,UserOrder)
-    real(8),dimension(Ns)                                    :: Tmp,Lambda,Lambda0
+    real(8),dimension(Nspin*Nlat*Norb)                       :: Lambda,Lambda0,Op
     complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb,Nk) :: ssHk
     character(len=*),dimension(3),optional                   :: UserOrder
-    complex(8),dimension(Ns,Ns)                              :: Hk_f,diagO
+    complex(8),dimension(Nlso,Nlso)                          :: Hk_f
     integer,dimension(3)                                     :: Ivec,Jvec
     integer,dimension(3)                                     :: UserIndex
     integer,dimension(3)                                     :: nUserOrder
@@ -329,22 +328,15 @@ contains
     !
     if(present(UserOrder))UserOrder_ = UserOrder
     !
-    Tmp   = ss_pack_array(ss_Op,Nlat)
-    diagO = diag( Tmp )
-    !
+    Op      = ss_pack_array(ss_Op,Nlat)
     Lambda  = ss_pack_array(ss_Lambda,Nlat)
     Lambda0 = ss_pack_array(ss_Lambda0,Nlat)
-    do ik = 1,Nk 
-       Hk_f   = (diagO .x. ss_Hk(:,:,ik)) .x. diagO
-       Hk_f   = Hk_f + diag(ss_Hdiag) - diag(lambda) + diag(lambda0)
-       !
-       ss_Hk(:,:,ik) = ss_ss2user(Hk_f(:Nlso,:Nlso),UserOrder_)
+    do ik = 1,Nk
+       Hk_f   = ss_Hk(:,:,ik)*outerprod(Op,Op)
+       Hk_f   = Hk_f + diag(ss_Hdiag - lambda + lambda0)
+       ss_Hk(:,:,ik) = ss_ss2user(Hk_f,UserOrder_)
     enddo
   end subroutine ss_get_ssHk
-
-
-
-
 
 
   function ss_Norder(Order) result(nOrder)
@@ -352,17 +344,14 @@ contains
     integer,dimension(3)                                  :: Index
     integer,dimension(3)                                  :: nOrder
     integer                                               :: i
-    !
-    do i=1,3     
+    do i=1,3                                                                                                               
        Index(i:i)=findloc(Order,DefOrder(i))
     enddo
     if(any(Index==0))then
        print*,"SS_Norder ERROR: wrong entry in Index at: ",findloc(Index,0)
-       stop
+       stop              
     endif
-    !
-    nOrder = ss_indx_reorder(nDefOrder,Index)
+    nOrder = ss_indx_reorder(nDefOrder,Index)                         
   end function ss_Norder
-
 
 END MODULE SS_IO

@@ -80,8 +80,8 @@ contains
     if(master.AND.verbose>2)then
        do ineq=1,Nineq
           ilat = ss_ineq2ilat(ineq)
-          write(*,"(A7,12G18.9)")"Lam   =",ss_lambda(ilat,:Nspin*Norb)
-          write(*,"(A7,12G18.9)")"Op    =",ss_Op(ilat,:Nspin*Norb)
+          write(*,"(A7,12G18.9)")"Lam   =",ss_lambda(ilat,:)
+          write(*,"(A7,12G18.9)")"Op    =",ss_Op(ilat,:)
        enddo
        write(*,"(A7,12G18.9)")"mu    =",xmu
        write(*,*)" "
@@ -179,12 +179,12 @@ contains
     inquire(file=trim(Pfile)//trim(ss_file_suffix)//".restart",exist=IOfile)
     if(IOfile)then
        len = file_length(trim(Pfile)//trim(ss_file_suffix)//".restart")
-       if( (len/=2*Ns) .AND. (len/=2*Ns+1) )stop "SS_INIT_PARAMS ERROR: len!=2*Ns OR 2*Ns+1"
+       if( (len/=2*Nlso) .AND. (len/=2*Nlso+1) )stop "SS_INIT_PARAMS ERROR: len!=2*Nso OR 2*Nso+1"
        allocate(params(len))
        call read_array(trim(Pfile)//trim(ss_file_suffix)//".restart",params)
-       ss_lambda = ss_unpack_array(params(1:Ns),Nlat)
-       ss_op     = ss_unpack_array(params(Ns+1:2*Ns),Nlat)
-       if(size(params)==2*Ns+1)xmu=params(2*Ns+1)
+       ss_lambda = ss_unpack_array(params(1:Nlso),Nlat)
+       ss_op     = ss_unpack_array(params(Nlso+1:2*Nlso),Nlat)
+       if(size(params)==2*Nlso+1)xmu=params(2*Nlso+1)
     else
        ss_lambda = -ss_lambda0
        ss_Op     =  1d0
