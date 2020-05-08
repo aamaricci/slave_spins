@@ -13,31 +13,32 @@ MODULE SS_SOLVE_FERMION
 
 
   real(8),parameter                  :: mch=1d-6
-  integer                            :: iorb,jorb,ispin,io,jo,ilat,jlat,ineq
+  integer                            :: iorb,jorb,ispin,io,jo,ilat,jlat,ineq,ii,jj
 
 
 contains
 
   subroutine ss_solve_fermions()
-    complex(8),dimension(Nlso,Nlso) :: Hk_f
-    complex(8),dimension(Nlso,Nlso) :: Uk_f
-    real(8),dimension(Nlso)         :: Ek_f
-    real(8),dimension(Nlso,Nlso)    :: Wtk
+    complex(8),dimension(Nlso,Nlso)          :: Hk_f
+    complex(8),dimension(Nlso,Nlso)          :: Uk_f
+    real(8),dimension(Nlso)                  :: Ek_f
+    real(8),dimension(Nlso,Nlso)             :: Wtk
     !
-    real(8),dimension(Nlso,Nlso)    :: Eweiss_,Eweiss_tmp
-    real(8),dimension(Nlso)         :: dens_,dens_tmp
-    complex(8),dimension(Nlso,Nlso) :: rhoK
-    real(8),dimension(Nlso)         :: weiss_
-    real(8),dimension(Nlso)         :: const_      
+    real(8),dimension(Nlso,Nlso)             :: Eweiss_,Eweiss_tmp
+    real(8),dimension(Nlso)                  :: dens_,dens_tmp
+    complex(8),dimension(Nlso,Nlso)          :: rhoK
+    real(8),dimension(Nlso)                  :: weiss_
+    real(8),dimension(Nlso)                  :: const_      
     !
-    real(8),dimension(Ns)           :: weiss
-    real(8),dimension(Ns)           :: dens
-    real(8),dimension(Ns)           :: const
-    real(8),dimension(Ns)           :: lambda
-    real(8),dimension(Ns)           :: lambda0
-    real(8),dimension(Ns)           :: Op
+    real(8),dimension(Ns)                    :: weiss
+    real(8),dimension(Ns)                    :: dens
+    real(8),dimension(Ns)                    :: const
+    real(8),dimension(Ns)                    :: lambda
+    real(8),dimension(Ns)                    :: lambda0
+    real(8),dimension(Ns)                    :: Op
+    real(8),dimension(Nlat,Nspin*Norb,Nspin*Norb) :: fh
     !
-    integer                         :: ik,i,j,N
+    integer                                  :: ik,i,j,N
 
     !
     if(Nspin==1)then
@@ -65,7 +66,7 @@ contains
     dens_tmp    = 0d0 ;dens_=0d0
     do ik=1+mpi_rank,Nk,mpi_size
        Wtk= ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
-       forall(io=1:Nlso,jo=1:Nlso)Hk_f(io,jo) = Op(io)*ss_Hk(io,jo,ik)*Op(jo)
+       !       forall(io=1:Nlso,jo=1:Nlso)Hk_f(io,jo) = Op(io)*ss_Hk(io,jo,ik)*Op(jo)
        !
        Uk_f  = Hk_f + diag(ss_Hdiag - lambda(:Nlso) + lambda0(:Nlso))
        call eigh(Uk_f,Ek_f)
@@ -105,6 +106,7 @@ contains
           enddo
        enddo
     enddo
+
     !
     ! Get C = (n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
     const_  = 1d0/(sqrt(dens_*(1d0-dens_))+mch) - 1d0
@@ -145,26 +147,27 @@ contains
 
 
   subroutine ss_solve_lambda0()
-    complex(8),dimension(Nlso,Nlso)    :: Uk_f
-    real(8),dimension(Nlso)            :: Ek_f
-    real(8),dimension(Nlso,Nk)         :: eK,eK_tmp
-    complex(8),dimension(Nlso,Nlso,Nk) :: rhoK,rhoK_tmp
-    complex(8),dimension(Nlso,Nlso)    :: Rho
-    real(8),dimension(Nlso,Nlso)       :: Wtk
-    real(8),dimension(Nlso,Nlso)       :: Eweiss_,Eweiss_tmp
-    real(8),dimension(Nlso)            :: dens_,dens_tmp
-    real(8),dimension(Nlso)            :: weiss_
+    complex(8),dimension(Nlso,Nlso)          :: Uk_f
+    real(8),dimension(Nlso)                  :: Ek_f
+    real(8),dimension(Nlso,Nk)               :: eK,eK_tmp
+    complex(8),dimension(Nlso,Nlso,Nk)       :: rhoK,rhoK_tmp
+    complex(8),dimension(Nlso,Nlso)          :: Rho
+    real(8),dimension(Nlso,Nlso)             :: Wtk
+    real(8),dimension(Nlso,Nlso)             :: Eweiss_,Eweiss_tmp
+    real(8),dimension(Nlso)                  :: dens_,dens_tmp
+    real(8),dimension(Nlso)                  :: weiss_
     !
-    real(8),dimension(Ns)              :: dens
-    real(8),dimension(Ns)              :: lambda0
-    real(8),dimension(Ns)              :: weiss
-    real(8)                            :: mu0,Dmin,Dmax
-    integer                            :: ik,unit,N
-    integer                            :: stride
-    integer                            :: info
-    logical                            :: IOfile
-    integer                            :: Len
-    real(8),dimension(:),allocatable   :: params
+    real(8),dimension(Ns)                    :: dens
+    real(8),dimension(Ns)                    :: lambda0
+    real(8),dimension(Ns)                    :: weiss
+    real(8)                                  :: mu0,Dmin,Dmax
+    integer                                  :: ik,unit,N
+    integer                                  :: stride
+    integer                                  :: info
+    logical                                  :: IOfile
+    integer                                  :: Len
+    real(8),dimension(:),allocatable         :: params
+    real(8),dimension(Nlat,Nspin*Norb,Nspin*Norb) :: fh
 
     !
 #ifdef _MPI
@@ -263,6 +266,8 @@ contains
              enddo
           enddo
        enddo
+
+
        !
        !< Extend to Ns (full spin degeneracy)
        select case(Nspin)
