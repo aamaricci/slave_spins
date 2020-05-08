@@ -28,7 +28,7 @@ MODULE SS_SOLVE_SPIN
   integer                                   :: iorb,jorb,ilat,ispin
   integer                                   :: io,il
 
-  type(sparse_matrix_csr)                      :: spHs
+  type(sparse_matrix_csr)                   :: spHs
 
 
 

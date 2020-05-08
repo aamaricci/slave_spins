@@ -2,6 +2,7 @@ MODULE SS_SOLVE_FERMION
   USE SS_VARS_GLOBAL
   USE SS_SETUP
   !
+  USE SF_LINALG, only: outerprod
   USE SF_OPTIMIZE,only: brentq,fzero
   USE SF_MISC,    only: sort_array
   implicit none
@@ -36,7 +37,6 @@ contains
     real(8),dimension(Ns)                    :: lambda
     real(8),dimension(Ns)                    :: lambda0
     real(8),dimension(Ns)                    :: Op
-    real(8),dimension(Nlat,Nspin*Norb,Nspin*Norb) :: fh
     !
     integer                                  :: ik,i,j,N
 
@@ -66,8 +66,8 @@ contains
     dens_tmp    = 0d0 ;dens_=0d0
     do ik=1+mpi_rank,Nk,mpi_size
        Wtk= ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
-       !       forall(io=1:Nlso,jo=1:Nlso)Hk_f(io,jo) = Op(io)*ss_Hk(io,jo,ik)*Op(jo)
        !
+       Hk_f  = ss_Hk(:,:,ik)*outerprod(Op(:Nlso),Op(:Nlso))
        Uk_f  = Hk_f + diag(ss_Hdiag - lambda(:Nlso) + lambda0(:Nlso))
        call eigh(Uk_f,Ek_f)
        forall(io=1:Nlso,jo=1:Nlso)&
@@ -109,7 +109,7 @@ contains
 
     !
     ! Get C = (n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
-    const_  = 1d0/(sqrt(dens_*(1d0-dens_))+mch) - 1d0
+    const_  = 1d0/(sqrt(dens_/2d0*(1d0-dens_/2d0))+mch) - 1d0
     !
     !< Extend to Ns (full spin degeneracy)
     select case(Nspin)
