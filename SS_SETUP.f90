@@ -61,6 +61,7 @@ MODULE SS_SETUP
 contains
 
 
+
   subroutine ss_setup_structure(ineq_sites)
     integer,dimension(Nlat),optional :: ineq_sites
     !
@@ -73,44 +74,7 @@ contains
          ss_ilat2ineq=ineq_sites                   !if any use user provided list 
     call uniq_array(ss_ilat2ineq,ss_ineq2ilat)     !allocate and build ineq2ilat list\
     !
-    call ss_setup_dimensions()
     !
-
-    allocate(ss_C(Nlat,Nso),ss_C_ineq(Nineq,Nso))
-    allocate(ss_Dens(Nlat,Nso), ss_Dens_ineq(Nineq,Nso))
-    allocate(ss_Lambda0(Nlat,Nso), ss_Lambda0_ineq(Nineq,Nso))
-    allocate(ss_lambda(Nlat,Nso), ss_lambda_ineq(Nineq,Nso) )
-    allocate(ss_Sz(Nlat,Nso), ss_Sz_ineq(Nineq,Nso))
-    allocate(ss_Op(Nlat,Nso), ss_Op_ineq(Nineq,Nso))
-    ss_c      = 0d0; ss_c_ineq      = 0d0
-    ss_dens   = 0d0; ss_dens_ineq   = 0d0
-    ss_lambda0= 0d0; ss_lambda0_ineq= 0d0
-    ss_lambda = 0d0;ss_lambda_ineq = 0d0
-    ss_Sz     = 0d0; ss_Sz_ineq    = 0d0
-    ss_Op     = 1d0 ; ss_Op_ineq    = 1d0
-    !
-    allocate(ss_Weiss(Nlat,Nso), ss_Weiss_ineq(Nineq,Nso))
-    ss_weiss  = 0d0; ss_weiss_ineq  = 0d0
-    !
-    allocate( ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
-    ss_SzSz   = 0d0; ss_SzSz_ineq  = 0d0
-    !
-    allocate(ss_Hk(Nlso,Nlso,Nk))
-    ss_Hk = zero
-    !
-    if(is_dos)then
-       allocate(ss_Wtk(Nlso,Nk))
-    else
-       allocate(ss_Wtk(1,Nk))
-    end if
-    ss_Wtk= 0d0
-    !
-    allocate(ss_Hdiag(Nlso))
-    ss_Hdiag = 0d0
-  end subroutine ss_setup_structure
-
-
-  subroutine ss_setup_dimensions()
     !ordering of the degrees of freedom in H(k).
     !THE SS ORDERING IS ASSUMED TO BE ALWAYS [Norb,Nlat,Nspin]
     DefOrder  = [character(len=5) :: "Norb","Nlat","Nspin"]
@@ -126,10 +90,51 @@ contains
     !
     Ns   = 2*Nlat*Norb          !total number of parameters
     Nss  = 2*Norb
+    !        
     !
-  end subroutine ss_setup_dimensions
+    allocate(ss_C(Nlat,Nso),ss_C_ineq(Nineq,Nso))
+    allocate(ss_Dens(Nlat,Nso), ss_Dens_ineq(Nineq,Nso))
+    allocate(ss_Lambda0(Nlat,Nso), ss_Lambda0_ineq(Nineq,Nso))
+    allocate(ss_lambda(Nlat,Nso), ss_lambda_ineq(Nineq,Nso) )
+    allocate(ss_Sz(Nlat,Nso), ss_Sz_ineq(Nineq,Nso))
+    allocate(ss_Op(Nlat,Nso), ss_Op_ineq(Nineq,Nso))
+    ss_c      = 0d0; ss_c_ineq      = 0d0
+    ss_dens   = 0d0; ss_dens_ineq   = 0d0
+    ss_lambda0= 0d0; ss_lambda0_ineq= 0d0
+    ss_lambda = 0d0; ss_lambda_ineq = 0d0
+    ss_Sz     = 0d0; ss_Sz_ineq     = 0d0
+    ss_Op     = 1d0; ss_Op_ineq     = 1d0
+    !
+    allocate(ss_Weiss(Nlat,Nso), ss_Weiss_ineq(Nineq,Nso))
+    ss_weiss  = 0d0; ss_weiss_ineq  = 0d0
+    !
+    allocate( ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
+    ss_SzSz   = 0d0; ss_SzSz_ineq  = 0d0
+    !
+    allocate(ss_Hk(Nlso,Nlso,Nk))
+    ss_Hk = zero
+    !
+    allocate(ss_Hloc(Nlso,Nlso))
+    ss_Hloc = zero
+    !
+    allocate(ss_Hhyb(Nlso,Nlso))
+    ss_Hhyb = zero
+    !
+    allocate(ss_Hdiag(Nlso))
+    ss_Hdiag = 0d0
+    !
+    !
+    if(is_dos)then
+       allocate(ss_Wtk(Nlso,Nk))
+    else
+       allocate(ss_Wtk(1,Nk))
+    end if
+    ss_Wtk= 0d0
+    !
+  end subroutine ss_setup_structure
 
 
+  
 
 
 

@@ -19,9 +19,12 @@ MODULE SS_VARS_GLOBAL
   integer,dimension(3)                    :: nDefOrder
   character(len=5),dimension(3)           :: DefOrder
   !
-  complex(8),dimension(:,:,:),allocatable :: ss_Hk
+  complex(8),dimension(:,:,:),allocatable :: ss_Hk    !Inter-cell Hamiltionian, k-dependent
+  complex(8),dimension(:,:),allocatable   :: ss_Hloc  !non-local, intra-cell hopping terms 
+  complex(8),dimension(:,:),allocatable   :: ss_Hhyb  !local, intra-cell, hybridazation 
+  real(8),dimension(:),allocatable        :: ss_Hdiag !local, intra-cell, diagonal terms 
   real(8),dimension(:,:),allocatable      :: ss_Wtk
-  real(8),dimension(:),allocatable        :: ss_Hdiag
+
   !
   real(8),dimension(:,:),allocatable      :: ss_c      ,ss_c_ineq
   real(8),dimension(:,:),allocatable      :: ss_dens   ,ss_dens_ineq

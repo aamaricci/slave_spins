@@ -19,10 +19,10 @@ MODULE SS_MAIN
 
   public :: ss_solve
 
-  integer,save                     :: siter=0
-  integer                          :: fiter,info
-  logical                          :: fconverged
-  integer                          :: iorb,ispin,ilat,ineq,io,il
+  integer,save :: siter=0
+  integer      :: fiter,info
+  logical      :: fconverged
+  integer      :: iorb,ispin,ilat,ineq,io,il
 
 
 contains
@@ -35,8 +35,9 @@ contains
     character(len=*),dimension(3),optional                :: UserOrder
     integer,dimension(Nlat),optional                      :: ineq_sites
     !
-    real(8),dimension(Nspin*Nlat*Norb)                    :: Hdiag,Haux
-    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Hk
+    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Htmp
+    integer                                               :: iorb,jorb,ispin,io,jo,ilat,jlat,ineq,ii,jj
+
     integer                                               :: ik
     character(len=5),dimension(3)                         :: UserOrder_
     !
@@ -59,19 +60,43 @@ contains
     !< Init the SS structure + memory allocation
     call assert_shape(hk_user,[Nlso,Nlso,Nk],"ss_init_hk","hk_user")
     !
-    !< Init local non-interacting part and reorder it
-    Haux     = diagonal( sum(Hk_user,dim=3)/Nk )
-    ss_Hdiag = ss_user2ss(Haux,UserOrder_ )
-    where(abs(ss_Hdiag)<1d-6)ss_Hdiag=zero
-    !
-    !< Init the Hk structures, subtract the local, diagonal part, coupled to the density 
+
+    !< Init the Hk structures, subtract the local, diagonal part, coupled to the density
+    !< if order of Hk_user is not correct set the SS_order function to actual reorder
     do ik=1,Nk
-       !< if order of Hk_user is not correct set the SS_order function to actual reorder
-       Hk = ss_user2ss(Hk_user(:,:,ik),UserOrder_)
-       ss_Hk(:,:,ik) = Hk - diag(ss_Hdiag)
+       ss_Hk(:,:,ik) = ss_user2ss(Hk_user(:,:,ik),UserOrder_)
     end do
     where(abs(ss_Hk)<1d-6)ss_Hk=zero
     ss_Wtk(1,:) = 1d0/Nk
+    !
+    Htmp = sum(ss_Hk,dim=3)/Nk
+    !
+    !< get the diagonal part
+    ss_Hdiag = diagonal(Htmp)   
+    !
+    do ispin=1,Nspin
+       do ilat=1,Nlat
+          do iorb=1,Norb
+             io = ss_indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
+             do jlat=1,Nlat
+                do jorb=1,Norb
+                   jo = ss_indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
+                   if(ilat/=jlat)then
+                      !< get non-local part of the intra-cell terms
+                      ss_Hloc(io,jo) = Htmp(io,jo)
+                   else
+                      !< get local off-diagonal part of the intra-cell terms
+                      if(iorb/=jorb)ss_Hhyb(io,jo) = Htmp(io,jo)
+                   endif
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    !
+    !< remove local parts from H(k)
+    forall(ik=1:Nk)ss_Hk(:,:,ik) = ss_Hk(:,:,ik) - diag(ss_Hdiag) - ss_Hloc - ss_Hhyb 
+    !
     !
     !< Init/Read the lambda input
     if(use_lam0)call ss_solve_lambda0()
@@ -103,9 +128,7 @@ contains
     real(8),dimension(:),optional                         :: Hloc
     integer,dimension(Nlat),optional                      :: ineq_sites
     !
-    complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Htmp
-    real(8),dimension(Nspin*Nlat*Norb)                    :: Wtmp
-    real(8),dimension(Nspin*Nlat*Norb)                    :: Eb,Db,Hdiag
+    real(8),dimension(Nspin*Nlat*Norb)                    :: Eb,Db
     integer                                               :: ie,io,ilat,ineq
     character(len=5),dimension(3)                         :: UserOrder_
     !
@@ -132,19 +155,14 @@ contains
     if(present(Hloc))call assert_shape(Hloc,[Nspin*Nlat*Norb],"ss_init_dos","Hloc")
     !
     !< Init local non-interacting part and reorder it
-    ss_Hdiag = 0d0
     if(present(Hloc))ss_Hdiag = ss_user2ss(Hloc,UserOrder_)
     !
-    ss_Hk = zero
-    ss_Wtk= 0d0
     do ie=1,Nk
        Eb = ss_user2ss(Ebands(:,ie),UserOrder_)
        do io=1,Nspin*Nlat*Norb
           ss_Hk(:,:,ie)  = one*Eb(io)
        end do
-       !
        ss_Wtk(:,ie) = ss_user2ss(Dbands(:,ie),UserOrder_)
-       !
     end do
     !
     !

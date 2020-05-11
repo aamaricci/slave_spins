@@ -20,6 +20,8 @@ MODULE SS_SOLVE_FERMION
 contains
 
 
+
+
   subroutine ss_solve_lambda0()
     complex(8),dimension(Nlso,Nlso)          :: Uk_f
     real(8),dimension(Nlso)                  :: Ek_f
@@ -28,17 +30,17 @@ contains
     complex(8),dimension(Nlso,Nlso)          :: Rho
     real(8),dimension(Nlso,Nlso)             :: Wtk
     real(8),dimension(Nlso,Nlso)             :: Eweiss,Eweiss_tmp
+    real(8),dimension(Nlso,Nlso)             :: FdgF,FdgF_tmp
     real(8),dimension(Nlso)                  :: dens,dens_tmp
     real(8),dimension(Nlso)                  :: weiss
     real(8),dimension(Nlso)                  :: lambda0
     real(8)                                  :: mu0,Dmin,Dmax
     integer                                  :: ik,unit,N
-    integer                                  :: stride
     integer                                  :: info
     logical                                  :: IOfile
     integer                                  :: Len
     real(8),dimension(:),allocatable         :: params
-    real(8),dimension(Nlat,Nspin*Norb,Nspin*Norb) :: fh
+    real(8),dimension(Nlat,Nspin*Norb,Nspin*Norb) :: ffh
 
     !
 #ifdef _MPI
@@ -47,8 +49,6 @@ contains
        mpi_size=get_size_MPI()
     endif
 #endif
-
-
 
     inquire(file=trim(Pfile)//"0"//trim(ss_file_suffix)//".restart",exist=IOfile)
     if(IOfile)then
@@ -65,7 +65,7 @@ contains
        ek_tmp=0d0   ;ek=0d0
        rhoK_tmp=zero;rhoK=zero
        do ik=1+mpi_rank,Nk,mpi_size
-          Uk_f = ss_Hk(:,:,ik) + diag(ss_Hdiag)
+          Uk_f = ss_Hk(:,:,ik) + ss_Hloc + ss_Hhyb + diag(ss_Hdiag)
           call eigh(Uk_f,Ek_f)
           eK_tmp(:,ik)     = Ek_f
           rhoK_tmp(:,:,ik) = Uk_f
@@ -91,55 +91,81 @@ contains
              stop
           endif
           if(master.AND.verbose>3)write(*,"(A6,12G18.9)")"mu0  =",mu0
-       else
-          mu0 = xmu
+          xmu = mu0
        endif
        !
 
        !
        Eweiss_tmp  = zero;Eweiss=zero
        dens_tmp    = 0d0 ;dens=0d0
+       FdgF_tmp    = 0d0 ;FdgF=0d0
+
+       ffh=0d0
        do ik=1+mpi_rank,Nk,mpi_size
           Wtk  = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
           Uk_f = rhoK(:,:,ik)
-          Ek_f = step_fermi(eK(:,ik)-mu0)
+          Ek_f = step_fermi(eK(:,ik)-xmu)
           forall(io=1:Nlso,jo=1:Nlso)&
-               Rho(io,jo) = sum(Uk_f(io,:)*conjg(Uk_f(jo,:))*EK_f)
+               Rho(io,jo) = sum(Uk_f(jo,:)*conjg(Uk_f(io,:))*EK_f)
           !
-          Eweiss_tmp = Eweiss_tmp + dreal(ss_Hk(:,:,ik)*Rho)*Wtk
+          FdgF_tmp   = FdgF_tmp + Rho*Wtk
           dens_tmp   = dens_tmp + diagonal(Rho*Wtk)
+          Eweiss_tmp = Eweiss_tmp + dreal((ss_Hk(:,:,ik)+ss_Hloc)*Rho)*Wtk
+
+          do iorb=1,Norb!1:5
+             do jo=1,Nlat*Norb  !1:10
+                jorb=mod(jo-1,Norb)+1
+                ffh(1,iorb,jorb) = ffh(1,iorb,jorb) + ss_Hk(iorb,jo,ik)*Rho(iorb,jo)*ss_Wtk(1,ik)
+                if(jo>Norb)ffH(1,iorb,jorb) = ffH(1,iorb,jorb) + ss_Hloc(iorb,jo)*Rho(iorb,jo)*ss_Wtk(1,ik)
+             enddo
+          enddo
+          ffh(2,:,:) = ffh(1,:,:)
        enddo
        !
-       !
+       do io=1,Norb
+          print*,"W:",sum(ffH(1,io,:)),"fh:",ffh(1,io,:)
+       enddo
+
 #ifdef _MPI
        if(check_MPI())then
+          call AllReduce_MPI(MPI_COMM_WORLD,FdgF_tmp,FdgF)            
           call AllReduce_MPI(MPI_COMM_WORLD,Eweiss_tmp,Eweiss)
           call AllReduce_MPI(MPI_COMM_WORLD,dens_tmp,dens)
        else
+          FdgF   = FdgF_tmp
           Eweiss = Eweiss_tmp
           dens   = dens_tmp
        endif
 #else
+       FdgF   = FdgF_tmp
        Eweiss = Eweiss_tmp
        dens   = dens_tmp
 #endif       
        !
        !< Get H_{a,s} = \sum_{b}sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
-       weiss = 0d0
+       Weiss = 0d0
        do ispin=1,Nspin
           do ilat=1,Nlat
              do iorb=1,Norb
                 io = ss_Indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
+                !
                 do jlat=1,Nlat
                    do jorb=1,Norb
                       jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
                       weiss(io) = weiss(io) + Eweiss(io,jo)
                    enddo
                 enddo
+                !
+                ! do jlat=1,Nlat
+                !    if(ilat==jlat)cycle
+                !    do jorb=1,Norb
+                !       jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
+                !       weiss(io) = weiss(io) + ss_Hloc(io,jo)*FdgF(io,jo)
+                !    enddo
+                ! enddo
              enddo
           enddo
        enddo
-
 
        !
        !< Get Lambda0 = -2* h0_{m,s}*[n0_{m,s}-0.5]/[n0_{m,s}*(1-n0_{m,s})]
@@ -259,11 +285,11 @@ contains
     do ik=1+mpi_rank,Nk,mpi_size
        Wtk= ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
        !
-       Hk_f  = ss_Hk(:,:,ik)*outerprod(Op,Op)
+       Hk_f  = (ss_Hk(:,:,ik)+ss_Hloc)*outerprod(Op,Op) !+ ss_Hhyb*OdgOp 
        Uk_f  = Hk_f + diag(ss_Hdiag - lambda + lambda0)
        call eigh(Uk_f,Ek_f)
        forall(io=1:Nlso,jo=1:Nlso)&
-            rhoK(io,jo) = sum(Uk_f(io,:)*conjg(Uk_f(jo,:))*step_fermi(Ek_f-xmu))
+            rhoK(io,jo) = sum(Uk_f(jo,:)*conjg(Uk_f(io,:))*step_fermi(Ek_f-xmu))
        !
        Eweiss_tmp = Eweiss_tmp + dreal(ss_Hk(:,:,ik)*RhoK*Wtk)
        dens_tmp   = dens_tmp   + diagonal(RhoK*Wtk)

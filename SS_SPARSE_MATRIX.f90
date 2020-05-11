@@ -41,22 +41,12 @@ MODULE SS_SPARSE_MATRIX  !THIS VERSION CONTAINS ONLY DBLE ELEMENT: (SYMMETRIC MA
   end interface sp_insert_element
 
 
-  !LOAD STANDARD MATRIX INTO SPARSE MATRICES
-  interface sp_load_matrix
-     module procedure :: sp_load_matrix_csr
-  end interface sp_load_matrix
-
 
   !DUMP SPARSE MATRIX INTO STANDARD MATRIX
   interface sp_dump_matrix
      module procedure :: sp_dump_matrix_csr
   end interface sp_dump_matrix
 
-
-  !SPY PRINT SPARSE MATRIX
-  interface sp_spy_matrix
-     module procedure :: sp_spy_matrix_csr
-  end interface sp_spy_matrix
 
 
 
@@ -70,9 +60,7 @@ MODULE SS_SPARSE_MATRIX  !THIS VERSION CONTAINS ONLY DBLE ELEMENT: (SYMMETRIC MA
   public :: sp_init_matrix      !init the sparse matrix   !checked
   public :: sp_delete_matrix    !delete the sparse matrix !checked
   public :: sp_insert_element   !insert an element        !checked
-  public :: sp_load_matrix      !create sparse from array !checked
   public :: sp_dump_matrix      !dump sparse into array   !checked
-  public :: sp_spy_matrix       !
 
 
 
@@ -193,61 +181,12 @@ contains
     !
   end subroutine sp_insert_element_csr_d
 
-  ! subroutine sp_insert_element_csr_c(sparse,value,i,j)
-  !   type(sparse_matrix_csr),intent(inout) :: sparse
-  !   complex(8),intent(in)                 :: value
-  !   integer,intent(in)                    :: i,j
-  !   type(sparse_row_csr),pointer          :: row
-  !   integer                               :: column,pos
-  !   logical                               :: iadd
-  !   !
-  !   column = j
-  !   !
-  !   row => sparse%row(i)
-  !   !
-  !   iadd = .false.                          !check if column already exist
-  !   if(any(row%cols == column))then         !
-  !      pos = binary_search(row%cols,column) !find the position  column in %cols        
-  !      iadd=.true.                          !set Iadd to true
-  !   endif
-  !   !
-  !   if(iadd)then                            !this column exists so just sum it up       
-  !      row%vals(pos)=row%vals(pos) + value  !add up value to the current one in %vals
-  !   else                                    !this column is new. increase counter and store it 
-  !      call add_to(row%vals,value)
-  !      call add_to(row%cols,column)
-  !      row%Size = row%Size + 1
-  !   endif
-  !   !
-  !   if(row%Size > sparse%Ncol)stop "sp_insert_element_csr ERROR: row%Size > sparse%Ncol"
-  !   !
-  ! end subroutine sp_insert_element_csr_c
 
 
 
 
 
 
-  !+------------------------------------------------------------------+
-  !PURPOSE: load a regular matrix (2dim array) into a sparse matrix
-  !+------------------------------------------------------------------+
-  subroutine sp_load_matrix_csr(matrix,sparse)
-    real(8),dimension(:,:),intent(in)  :: matrix
-    type(sparse_matrix_csr),intent(inout) :: sparse    
-    integer                               :: i,j,Ndim1,Ndim2
-    !
-    Ndim1=size(matrix,1)
-    Ndim2=size(matrix,2)   
-    !
-    if(sparse%status)call sp_delete_matrix_csr(sparse)
-    call sp_init_matrix_csr(sparse,Ndim1,Ndim2)
-    !
-    do i=1,Ndim1
-       do j=1,Ndim2
-          if(matrix(i,j)/=zero)call sp_insert_element(sparse,matrix(i,j),i,j)
-       enddo
-    enddo
-  end subroutine sp_load_matrix_csr
 
 
 
@@ -280,56 +219,6 @@ contains
 
 
 
-
-  !+------------------------------------------------------------------+
-  !PURPOSE: pretty print a sparse matrix on a given unit using format fmt
-  !+------------------------------------------------------------------+  
-  subroutine sp_spy_matrix_csr(sparse,header)
-    type(sparse_matrix_csr)          :: sparse
-    character ( len = * )           :: header
-    integer                         :: N1,N2
-    character ( len = 255 )         :: command_filename
-    integer                         :: command_unit
-    character ( len = 255 )         :: data_filename
-    integer                         :: data_unit
-    integer                         :: i, j
-    character ( len = 6 )           :: n1_s,n2_s,n1_i,n2_i
-    integer                         :: nz_num
-    character ( len = 255 )         :: png_filename
-    !
-    !  Create data file.
-    !
-    !
-    N1 = sparse%Nrow
-    N2 = sparse%Ncol
-    data_filename = trim ( header ) // '_data.dat'
-    open (unit=free_unit(data_unit), file = data_filename, status = 'replace' )
-    nz_num = 0
-    do i=1,N1
-       do j=1,sparse%row(i)%size
-          write(data_unit,'(2x,i6,2x,i6)') sparse%row(i)%cols(j),i
-          nz_num = nz_num + 1
-       enddo
-    enddo
-    close(data_unit)
-    !
-    !  Create command file.
-    !
-    command_filename = "plot_"//str(header)//'_commands.gp'
-    open(unit = free_unit(command_unit), file = command_filename, status = 'replace' )
-    write(command_unit,'(a)') '#unset key'
-    write(command_unit,'(a)') 'set terminal postscript eps enhanced color font "Times-Roman,16"'
-    write(command_unit,'(a)') 'set output "|ps2pdf -sEPSCrop - '//str(header)//".pdf"//'"'
-    write(command_unit,'(a)') 'set size ratio -1'
-    write(command_unit,'(a)') 'set xlabel "<--- J --->"'
-    write(command_unit,'(a)') 'set ylabel "<--- I --->"'
-    write(command_unit,'(a,i6,a)')'set title "',nz_num,' nonzeros for '//str(header)//'"'
-    write(command_unit,'(a)') 'set timestamp'
-    write(command_unit,'(a)' )'plot [x=1:'//str(N1)//'] [y='//str(N2)//':1] "'//&
-         str(data_filename)//'" w p pt 5 ps 0.4 lc rgb "red"'
-    close ( unit = command_unit )
-    return
-  end subroutine sp_spy_matrix_csr
 
 
 
