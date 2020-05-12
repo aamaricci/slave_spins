@@ -15,10 +15,10 @@ program ss_DFT
   complex(8),dimension(:,:,:),allocatable :: Hk
   complex(8),dimension(:,:),allocatable   :: Hloc
   real(8),allocatable                     :: Dens(:),Zeta(:), Self(:),Tmp(:)
-  character(len=60)                       :: w90file,InputFile,latfile,kpathfile,ineqfile
+  character(len=60)                       :: w90file,InputFile,latfile,kpathfile,ineqfile,hkfile
   character(len=40),allocatable           :: points_name(:)
   real(8)                                 :: ef
-  logical                                 :: FSflag
+  logical                                 :: FSflag,EFflag
   logical                                 :: master=.true.,bool
   integer                                 :: unit
   integer,allocatable,dimension(:)        :: ineq_sites
@@ -31,10 +31,12 @@ program ss_DFT
 
   call parse_cmd_variable(InputFile,"INPUTFILE",default="inputDFT.conf")
   call parse_input_variable(w90file,"w90file",InputFile,default="hij.conf")
+  call parse_input_variable(hkfile,"hkfile",InputFile,default="hk.conf")
   call parse_input_variable(latfile,"latfile",InputFile,default="lat.conf")
   call parse_input_variable(kpathfile,"kpathfile",InputFile,default="kpath.conf")
   call parse_input_variable(ineqfile,"ineqfile",InputFile,default="ineq.conf")
   call parse_input_variable(FSflag,"FSflag",InputFile,default=.false.)
+  call parse_input_variable(EFflag,"EFflag",InputFile,default=.false.)
   call parse_input_variable(Nkvec,"NKVEC",InputFile,default=[10,10,10])
   call parse_input_variable(nkpath,"NKPATH",InputFile,default=500)
   call ss_read_input(reg(InputFile))
@@ -63,19 +65,32 @@ program ss_DFT
   endif
   call TB_set_ei(e1,e2,e3)
   call TB_build_bk(verbose=.true.)
-  call TB_w90_setup(reg(w90file),nlat=Nlat,nspin=Nspin,norb=Norb,verbose=.true.)
-  call TB_w90_FermiLevel(Nkvec,filling,Ef)
-
-
-  !SOLVE AND PLOT THE FULLY HOMOGENOUS PROBLEM:
-  Nktot=product(Nkvec) ;   write(*,*) "Using Nk_total="//txtfy(Nktot)
-  allocate(Hk(Nlso,Nlso,Nktot))
-
-  call TB_set_dos_lreal(256)
   call start_timer
-  call TB_build_model(Hk,Nlso,Nkvec,wdos=.false.)
-  call stop_timer("TB_build_model")
+  call TB_w90_setup(reg(w90file),nlat=Nlat,nspin=Nspin,norb=Norb,verbose=.true.)
+  call stop_timer("TB_w90_setup")
+  !
+  !SOLVE AND PLOT THE FULLY HOMOGENOUS PROBLEM:
+  inquire(file=reg(hkfile),exist=bool)
+  if(bool)then
+     call TB_read_hk(Hk,reg(hkfile),Nkvec)
+     if(size(Hk,1)/=Nlat*Nspin*Norb)stop "ss_DFT error: wrong size in Hk as read from file"
+  else
+     write(*,"(A)")"get Fermi Level"
+     call start_timer  
+     call TB_w90_FermiLevel(Nkvec,filling,Ef)
+     call stop_timer("TB_w90_FermiLevel")
+     !
+     Nktot=product(Nkvec)
+     allocate(Hk(Nlso,Nlso,Nktot))
+     call TB_set_dos_lreal(256)
+     call start_timer
+     call TB_build_model(Hk,Nlso,Nkvec,wdos=.false.)
+     call TB_write_hk(reg(hkfile),Nkvec)
+     call stop_timer("TB_build_model")
+  endif
 
+
+  write(*,*)"Using Nk_total="//str(size(Hk,3))
 
   allocate(Hloc(Nlso,Nlso))
   Hloc= sum(Hk(:,:,:),dim=3)/Nktot
@@ -95,8 +110,9 @@ program ss_DFT
   endif
 
   !SOLVE SS:
+  call start_timer
   call ss_solve(Hk,ineq_sites=ineq_sites,UserOrder=[character(len=5)::"Norb","Nlat","Nspin"])
-
+  call stop_timer("SS SOLUTION")
 
 
 

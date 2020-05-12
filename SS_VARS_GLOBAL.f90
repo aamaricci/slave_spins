@@ -3,6 +3,7 @@ MODULE SS_VARS_GLOBAL
   USE SF_CONSTANTS
   USE SF_IOTOOLS, only: save_array,read_array,free_unit,free_units,file_length
   USE SF_LINALG
+  USE SF_PAULI
   USE SF_SP_LINALG, only: sp_eigh
   USE SF_SPECIAL, only: fermi,heaviside,step
   USE SF_MISC,    only: assert_shape
@@ -26,14 +27,16 @@ MODULE SS_VARS_GLOBAL
   real(8),dimension(:,:),allocatable      :: ss_Wtk
 
   !
-  real(8),dimension(:,:),allocatable      :: ss_c      ,ss_c_ineq
-  real(8),dimension(:,:),allocatable      :: ss_dens   ,ss_dens_ineq
-  real(8),dimension(:,:),allocatable      :: ss_lambda0,ss_lambda0_ineq 
-  real(8),dimension(:,:),allocatable      :: ss_lambda ,ss_lambda_ineq 
-  real(8),dimension(:,:),allocatable      :: ss_Sz     ,ss_Sz_ineq
-  real(8),dimension(:,:,:,:),allocatable  :: ss_SzSz   ,ss_SzSz_ineq
-  real(8),dimension(:,:),allocatable      :: ss_Op     ,ss_Op_ineq  
-  real(8),dimension(:,:),allocatable      :: ss_weiss  ,ss_weiss_ineq   !4<S^x_{m\sigma}><E_el>  
+  real(8),dimension(:,:),allocatable      :: ss_c      ,ss_c_ineq       ![Nlat,Nso]
+  real(8),dimension(:,:),allocatable      :: ss_dens   ,ss_dens_ineq    !..
+  real(8),dimension(:,:),allocatable      :: ss_lambda0,ss_lambda0_ineq !..
+  real(8),dimension(:,:),allocatable      :: ss_lambda ,ss_lambda_ineq  !..
+  real(8),dimension(:,:),allocatable      :: ss_Sz     ,ss_Sz_ineq      !..
+  real(8),dimension(:,:),allocatable      :: ss_Op     ,ss_Op_ineq      !..
+  real(8),dimension(:,:),allocatable      :: ss_Heff   ,ss_Heff_ineq    !..
+  real(8),dimension(:,:,:),allocatable    :: ss_OdgOp  ,ss_OdgOp_ineq   ![Nlat,Nso,Nso]
+  real(8),dimension(:,:,:),allocatable    :: ss_Jhybr  ,ss_Jhybr_ineq   ![Nlat,Nso,Nso]
+  real(8),dimension(:,:,:,:),allocatable  :: ss_SzSz   ,ss_SzSz_ineq    ![Nlat,4,Nso,Nso]
   !
   integer,dimension(:),allocatable        :: ss_ilat2ineq
   integer,dimension(:),allocatable        :: ss_ineq2ilat

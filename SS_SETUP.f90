@@ -37,12 +37,17 @@ MODULE SS_SETUP
   interface ss_pack_array
      module procedure :: ss_pack_array_d
      module procedure :: ss_pack_array_c
+     module procedure :: ss_pack_array2_d
+     module procedure :: ss_pack_array2_c
   end interface ss_pack_array
 
   interface ss_unpack_array
      module procedure :: ss_unpack_array_d
      module procedure :: ss_unpack_array_c
+     module procedure :: ss_unpack_array2_d
+     module procedure :: ss_unpack_array2_c
   end interface ss_unpack_array
+
 
   public :: ss_setup_structure
   !
@@ -57,6 +62,8 @@ MODULE SS_SETUP
   public :: ss_unpack_array
   public :: ss_spin_symmetry
 
+
+  integer :: ispin,isite,jsite,iorb,jorb,io,jo,ii,jj
 
 contains
 
@@ -97,30 +104,36 @@ contains
     allocate(ss_Lambda0(Nlat,Nso), ss_Lambda0_ineq(Nineq,Nso))
     allocate(ss_lambda(Nlat,Nso), ss_lambda_ineq(Nineq,Nso) )
     allocate(ss_Sz(Nlat,Nso), ss_Sz_ineq(Nineq,Nso))
+    !
     allocate(ss_Op(Nlat,Nso), ss_Op_ineq(Nineq,Nso))
+    allocate(ss_OdgOp(Nlat,Nso,Nso), ss_OdgOp_ineq(Nineq,Nso,Nso))
+    !
+    allocate(ss_Heff(Nlat,Nso), ss_Heff_ineq(Nineq,Nso))
+    allocate(ss_Jhybr(Nlat,Nso,Nso), ss_Jhybr_ineq(Nineq,Nso,Nso))
+    !
+    allocate( ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
     ss_c      = 0d0; ss_c_ineq      = 0d0
     ss_dens   = 0d0; ss_dens_ineq   = 0d0
     ss_lambda0= 0d0; ss_lambda0_ineq= 0d0
     ss_lambda = 0d0; ss_lambda_ineq = 0d0
     ss_Sz     = 0d0; ss_Sz_ineq     = 0d0
+    !
     ss_Op     = 1d0; ss_Op_ineq     = 1d0
+    ss_OdgOp  = 0d0; ss_OdgOp_ineq  = 0d0
     !
-    allocate(ss_Weiss(Nlat,Nso), ss_Weiss_ineq(Nineq,Nso))
-    ss_weiss  = 0d0; ss_weiss_ineq  = 0d0
+    ss_Heff   = 0d0; ss_Heff_ineq   = 0d0
+    ss_Jhybr  = 0d0; ss_Jhybr_ineq  = 0d0
     !
-    allocate( ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
-    ss_SzSz   = 0d0; ss_SzSz_ineq  = 0d0
+    ss_SzSz   = 0d0; ss_SzSz_ineq   = 0d0
+    !
     !
     allocate(ss_Hk(Nlso,Nlso,Nk))
-    ss_Hk = zero
-    !
     allocate(ss_Hloc(Nlso,Nlso))
-    ss_Hloc = zero
-    !
     allocate(ss_Hhyb(Nlso,Nlso))
-    ss_Hhyb = zero
-    !
     allocate(ss_Hdiag(Nlso))
+    ss_Hk    = zero
+    ss_Hloc  = zero
+    ss_Hhyb  = zero
     ss_Hdiag = 0d0
     !
     !
@@ -134,7 +147,163 @@ contains
   end subroutine ss_setup_structure
 
 
-  
+
+
+
+
+  function ss_pack_array_d(Ain,Nsite) result(Aout)
+    integer                             :: Nsite
+    real(8),dimension(Nsite,Nso)        :: Ain
+    real(8),dimension(Nspin*Nsite*Norb) :: Aout
+    do ispin=1,Nspin
+       do isite=1,Nsite
+          do iorb=1,Norb
+             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
+             io = Indices2i([iorb,ispin],[Norb,Nspin])
+             !
+             Aout(ii) = Ain(isite,io)
+             !
+          enddo
+       enddo
+    enddo
+  end function ss_pack_array_d
+  function ss_pack_array_c(Ain,Nsite) result(Aout)
+    integer                                :: Nsite
+    complex(8),dimension(Nsite,Nso)        :: Ain
+    complex(8),dimension(Nspin*Nsite*Norb) :: Aout
+    do ispin=1,Nspin
+       do isite=1,Nsite
+          do iorb=1,Norb
+             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin])
+             io = Indices2i([iorb,ispin],[Norb,Nspin])
+             !
+             Aout(ii) = Ain(isite,io)
+             !
+          enddo
+       enddo
+    enddo
+  end function ss_pack_array_c
+  function ss_pack_array2_d(Ain,Nsite) result(Aout)
+    integer                                              :: Nsite
+    real(8),dimension(Nsite,Nso,Nso)                     :: Ain
+    real(8),dimension(Nspin*Nsite*Norb,Nspin*Nsite*Norb) :: Aout
+    do ispin=1,Nspin
+       do isite=1,Nsite
+          do iorb=1,Norb
+             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin])
+             io = Indices2i([iorb,ispin],[Norb,Nspin])
+             do jorb=1,Norb
+                jj = Indices2i([jorb,isite,ispin],[Norb,Nsite,Nspin])
+                jo = Indices2i([jorb,ispin],[Norb,Nspin])
+                !
+                Aout(ii,jj) = Ain(isite,io,jo)
+                !
+             enddo
+          enddo
+       enddo
+    enddo
+  end function ss_pack_array2_d
+  function ss_pack_array2_c(Ain,Nsite) result(Aout)
+    integer                                                 :: Nsite
+    complex(8),dimension(Nsite,Nso,Nso)                     :: Ain
+    complex(8),dimension(Nspin*Nsite*Norb,Nspin*Nsite*Norb) :: Aout
+    do ispin=1,Nspin
+       do isite=1,Nsite
+          do iorb=1,Norb
+             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin])
+             io = Indices2i([iorb,ispin],[Norb,Nspin])
+             do jorb=1,Norb
+                jj = Indices2i([jorb,isite,ispin],[Norb,Nsite,Nspin])
+                jo = Indices2i([jorb,ispin],[Norb,Nspin])
+                !
+                Aout(ii,jj) = Ain(isite,io,jo)
+                !
+             enddo
+          enddo
+       enddo
+    enddo
+  end function ss_pack_array2_c
+
+
+
+  function ss_unpack_array_d(Ain,Nsite) result(Aout)
+    integer                                :: Nsite
+    real(8),dimension(Nspin*Nsite*Norb)    :: Ain
+    real(8),dimension(Nsite,Nspin*Norb)    :: Aout
+    do ispin=1,Nspin
+       do isite=1,Nsite
+          do iorb=1,Norb
+             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin])
+             io = Indices2i([iorb,ispin],[Norb,Nspin])
+             !
+             Aout(isite,io) = Ain(ii)
+             !
+          enddo
+       enddo
+    enddo
+  end function ss_unpack_array_d
+  function ss_unpack_array_c(Ain,Nsite) result(Aout)
+    integer                                :: Nsite
+    complex(8),dimension(Nspin*Nsite*Norb) :: Ain
+    complex(8),dimension(Nsite,Nspin*Norb) :: Aout
+    do ispin=1,Nspin
+       do isite=1,Nsite
+          do iorb=1,Norb
+             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin])
+             io = Indices2i([iorb,ispin],[Norb,Nspin])
+             !
+             Aout(isite,io) = Ain(ii)
+             !
+          enddo
+       enddo
+    enddo
+  end function ss_unpack_array_c
+  function ss_unpack_array2_d(Ain,Nsite) result(Aout)
+    integer                                              :: Nsite
+    real(8),dimension(Nspin*Nsite*Norb,Nspin*Nsite*Norb) :: Ain
+    real(8),dimension(Nsite,Nspin*Norb,Nspin*Norb)       :: Aout
+    do ispin=1,Nspin            !always diagonal in the spin:
+       do isite=1,Nsite         !loop over block diagonal: 1-site index only
+          do iorb=1,Norb
+             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin])
+             io = Indices2i([iorb,ispin],[Norb,Nspin])
+             do jorb=1,Norb
+                jj = Indices2i([jorb,isite,ispin],[Norb,Nsite,Nspin])
+                jo = Indices2i([jorb,ispin],[Norb,Nspin])
+                !
+                Aout(isite,io,jo) = Ain(ii,jj)
+                !
+             enddo
+          enddo
+       enddo
+    enddo
+  end function ss_unpack_array2_d
+  function ss_unpack_array2_c(Ain,Nsite) result(Aout)
+    integer                                                 :: Nsite
+    complex(8),dimension(Nspin*Nsite*Norb,Nspin*Nsite*Norb) :: Ain
+    complex(8),dimension(Nsite,Nspin*Norb,Nspin*Norb)       :: Aout
+    do ispin=1,Nspin            !always diagonal in the spin:
+       do isite=1,Nsite         !loop over block diagonal: 1-site index only
+          do iorb=1,Norb
+             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin])
+             io = Indices2i([iorb,ispin],[Norb,Nspin])
+             do jorb=1,Norb
+                jj = Indices2i([jorb,isite,ispin],[Norb,Nsite,Nspin])
+                jo = Indices2i([jorb,ispin],[Norb,Nspin])
+                !
+                Aout(isite,io,jo) = Ain(ii,jj)
+                !
+             enddo
+          enddo
+       enddo
+    enddo
+  end function ss_unpack_array2_c
+
+
+
+
+
+
 
 
 
@@ -334,76 +503,6 @@ contains
 
 
 
-  function ss_pack_array_d(Ain,Nsite) result(Aout)
-    integer                             :: Nsite
-    real(8),dimension(Nsite,Nso)        :: Ain
-    real(8),dimension(Nspin*Nsite*Norb) :: Aout
-    integer                             :: ispin,isite,iorb,io,ii
-    do ispin=1,Nspin
-       do isite=1,Nsite
-          do iorb=1,Norb
-             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
-             io = Indices2i([iorb,ispin],[Norb,Nspin])
-             !
-             Aout(ii) = Ain(isite,io)
-             !
-          enddo
-       enddo
-    enddo
-  end function ss_pack_array_d
-  function ss_pack_array_c(Ain,Nsite) result(Aout)
-    integer                                :: Nsite
-    complex(8),dimension(Nsite,Nso)        :: Ain
-    complex(8),dimension(Nspin*Nsite*Norb) :: Aout
-    integer                                :: ispin,isite,iorb,io,ii
-    do ispin=1,Nspin
-       do isite=1,Nsite
-          do iorb=1,Norb
-             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
-             io = Indices2i([iorb,ispin],[Norb,Nspin])
-             !
-             Aout(ii) = Ain(isite,io)
-             !
-          enddo
-       enddo
-    enddo
-  end function ss_pack_array_c
-
-
-  function ss_unpack_array_d(Ain,Nsite) result(Aout)
-    integer                                :: Nsite
-    real(8),dimension(Nspin*Nsite*Norb)    :: Ain
-    real(8),dimension(Nsite,Nspin*Norb)    :: Aout
-    integer                                :: ispin,isite,iorb,io,ii
-    do ispin=1,Nspin
-       do isite=1,Nsite
-          do iorb=1,Norb
-             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
-             io = Indices2i([iorb,ispin],[Norb,Nspin])
-             !
-             Aout(isite,io) = Ain(ii)
-             !
-          enddo
-       enddo
-    enddo
-  end function ss_unpack_array_d
-  function ss_unpack_array_c(Ain,Nsite) result(Aout)
-    integer                                :: Nsite
-    complex(8),dimension(Nspin*Nsite*Norb) :: Ain
-    complex(8),dimension(Nsite,Nspin*Norb) :: Aout
-    integer                                :: ispin,isite,iorb,io,ii
-    do ispin=1,Nspin
-       do isite=1,Nsite
-          do iorb=1,Norb
-             ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin]) !io = iorb + (ispin-1)*Norb
-             io = Indices2i([iorb,ispin],[Norb,Nspin])
-             !
-             Aout(isite,io) = Ain(ii)
-             !
-          enddo
-       enddo
-    enddo
-  end function ss_unpack_array_c
 
 
 

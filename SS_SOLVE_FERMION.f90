@@ -23,28 +23,29 @@ contains
 
 
   subroutine ss_solve_lambda0()
-    complex(8),dimension(Nlso,Nlso)          :: Uk_f
-    real(8),dimension(Nlso)                  :: Ek_f
-    real(8),dimension(Nlso,Nk)               :: eK,eK_tmp
-    complex(8),dimension(Nlso,Nlso,Nk)       :: rhoK,rhoK_tmp
-    complex(8),dimension(Nlso,Nlso)          :: Rho
-    real(8),dimension(Nlso,Nlso)             :: Wtk
-    real(8),dimension(Nlso,Nlso)             :: FdgF,FdgF_tmp
-    real(8),dimension(Nlso,Nlso)             :: Hfk,Hfk_tmp
-    real(8),dimension(Nlso,Nlso)             :: Hfloc
+    complex(8),dimension(Nlso,Nlso)    :: Uk_f
+    real(8),dimension(Nlso)            :: Ek_f
+    complex(8),dimension(Nlso,Nlso)    :: Rho
+    real(8),dimension(Nlso,Nlso)       :: Wtk
     !
-    real(8),dimension(Nlso)                  :: dens
-    real(8),dimension(Nlso)                  :: weiss
-    real(8),dimension(Nlso)                  :: lambda0
+    real(8),dimension(Nlso,Nk)         :: eK,eK_tmp
+    complex(8),dimension(Nlso,Nlso,Nk) :: rhoK,rhoK_tmp
     !
-    real(8)                                  :: mu0,Dmin,Dmax
-    integer                                  :: ik,unit,N
-    integer                                  :: info
-    logical                                  :: IOfile
-    integer                                  :: Len
-    real(8),dimension(:),allocatable         :: params
-    real(8),dimension(Nlat,Nspin*Norb,Nspin*Norb) :: ffh
-
+    real(8),dimension(Nlso,Nlso)       :: FdgF,FdgF_tmp
+    real(8),dimension(Nlso,Nlso)       :: Hfk,Hfk_tmp
+    real(8),dimension(Nlso,Nlso)       :: Hfloc
+    !
+    real(8),dimension(Nlso)            :: dens
+    real(8),dimension(Nlso)            :: lambda0
+    real(8),dimension(Nlso)            :: heff
+    real(8),dimension(Nlso,Nlso)       :: jhybr    
+    !
+    real(8)                            :: mu0,Dmin,Dmax
+    integer                            :: ik,unit,N
+    integer                            :: info
+    logical                            :: IOfile
+    integer                            :: Len
+    real(8),dimension(:),allocatable   :: params
     !
 #ifdef _MPI
     if(check_MPI())then
@@ -52,9 +53,9 @@ contains
        mpi_size=get_size_MPI()
     endif
 #endif
-
+    !
     inquire(file=trim(Pfile)//"0"//trim(ss_file_suffix)//".restart",exist=IOfile)
-    if(IOfile)then
+    FILE_READ: if(IOfile)then
        len = file_length(trim(Pfile)//"0"//trim(ss_file_suffix)//".restart")
        if( (len/=2*Nlso+1) )stop "SS_SOLVE_LAMBDA0 ERROR: len!=2*Ns OR 2*Ns+1"
        allocate(params(len))
@@ -63,8 +64,13 @@ contains
        dens    = params(Nlso+1:2*Nlso)
        xmu     = params(2*Nlso+1)
        !
+       ss_Dens    = ss_unpack_array(Dens,Nlat)
+       ss_Lambda0 = ss_unpack_array(lambda0,Nlat)
+       !
     else
        !
+       !
+       !< Solve non-interacting problem and store solution
        ek_tmp=0d0   ;ek=0d0
        rhoK_tmp=zero;rhoK=zero
        do ik=1+mpi_rank,Nk,mpi_size
@@ -73,6 +79,7 @@ contains
           eK_tmp(:,ik)     = Ek_f
           rhoK_tmp(:,:,ik) = Uk_f
        enddo
+       !< MPI dispatch 
 #ifdef _MPI
        if(check_MPI())then
           call AllReduce_MPI(MPI_COMM_WORLD,eK_tmp,eK)
@@ -86,6 +93,8 @@ contains
        rhoK = rhoK_tmp
 #endif
        !
+       !< Solve non-linear problem to find correct chemical potential for
+       !< given filling, if any.  
        if(filling/=0d0)then
           Dmin = minval(Ek); Dmax = maxval(Ek); mu0 = Dmin
           call fzero(get_dens,mu0,Dmax,info,rguess=Dmin+0.5d0*(Dmax-Dmin))
@@ -98,17 +107,23 @@ contains
        endif
        !
        !
+       !< Get Rho^{ab} = sum_k \rho^{ab}_k = sum_k <fdg^a_k f^b_k>
+       !< Get h^{ab} = sum_k H^{ab}_k*\rho^{ab}_k
        Hfk_tmp  = 0d0 ; Hfk = 0d0
-       FdgF_tmp = 0d0 ; FdgF= 0d0
+       FdgF_tmp = 0d0 ; FdgF= 0d0       
        do ik=1+mpi_rank,Nk,mpi_size
           Wtk  = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
-          Uk_f = rhoK(:,:,ik)
-          Ek_f = step_fermi(eK(:,ik)-xmu)
-          forall(io=1:Nlso,jo=1:Nlso)&
+          !< Retrieve diagonalization results:
+          Uk_f = rhoK(:,:,ik)             !Rotation matrix
+          Ek_f = step_fermi(eK(:,ik)-xmu) !bands> Fermi function
+          forall(io=1:Nlso,jo=1:Nlso)&    !build up <f^+f>
                Rho(io,jo) = sum(Uk_f(jo,:)*conjg(Uk_f(io,:))*EK_f)
+          !< Get Rho
           FdgF_tmp = FdgF_tmp + Rho*Wtk
+          !< Get inter-cell contribution to effective/Weiss field
           Hfk_tmp  = Hfk_tmp + dreal(ss_Hk(:,:,ik)*Rho)*Wtk
        enddo
+       !< MPI reduction where applicable
 #ifdef _MPI
        if(check_MPI())then
           call AllReduce_MPI(MPI_COMM_WORLD,FdgF_tmp,FdgF)            
@@ -122,13 +137,17 @@ contains
        Hfk  = Hfk_tmp
 #endif
        !
+       !< Get occupation n^a = Rho^{aa}
        dens = diagonal(FdgF)
        !
+       !< Get intra-cell, non-local contribution to Weiss field h'
+       !< h'^{ab} = sum_k H^{ab}_{loc,\mu_i!=\nu_i} \rho^{ab}_k
+       !          = H^{ab}_{loc,\mu!=\nu} Rho^{ab}
        Hfloc= ss_Hloc*FdgF
        !
-       !
-       !< Get H_{a,s} = \sum_{b}sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
-       Weiss = 0d0
+       !< sum up Weiss field contributions. 
+       !< H^a = \sum_{b} [h^{ab} + h'^{ab}]
+       Heff = 0d0
        do ispin=1,Nspin
           do ilat=1,Nlat
              do iorb=1,Norb
@@ -136,32 +155,40 @@ contains
                 do jlat=1,Nlat
                    do jorb=1,Norb
                       jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
-                      weiss(io) = weiss(io) + Hfk(io,jo) + Hfloc(io,jo)
+                      Heff(io) = Heff(io) + Hfk(io,jo) + Hfloc(io,jo)
                    enddo
                 enddo
              enddo
           enddo
        enddo
        !
-       !< Get Lambda0 = -2* h0_{m,s}*[n0_{m,s}-0.5]/[n0_{m,s}*(1-n0_{m,s})]
-       lambda0 = -2d0*abs(Weiss)*(Dens-0.5d0)/(Dens*(1d0-Dens)+mch)
+       !< Get intra-cell, local off-diagonal contribution to Weiss field
+       !< J^ab = sum_k H^{a!=b}_{loc} \rho^{ab}_k
+       !       = H^{a!=b}_{loc} Rho^{ab}
+       Jhybr = ss_Hhyb*FdgF
+       !
+       !< Get Lambda0 = -2*|h0|*[n0-0.5]/[n0*(1-n0)]
+       lambda0 = -2d0*abs(heff)*(Dens-0.5d0)/(Dens*(1d0-Dens)+mch)
        !
        !
+       !< Dump to SS global parameters
+       ss_Dens    = ss_unpack_array(Dens,Nlat)
+       ss_Lambda0 = ss_unpack_array(lambda0,Nlat)
+       ss_Heff    = ss_unpack_array(heff,Nlat)
+       ss_Jhybr   = ss_unpack_array(jhybr,Nlat)
+    endif FILE_READ
+    !
+
+    if(master.AND.verbose>2)then
+       do ineq=1,Nineq
+          ilat = ss_ineq2ilat(ineq)
+          write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0(ilat,:)
+          write(*,"(A6,12G18.9)")"N0    =",ss_Dens(ilat,:)
+          if(verbose>3)write(*,"(A6,12G18.9)")"Weiss =",ss_Heff(ilat,:)
+       enddo
     endif
     !
-    ss_Dens    = ss_unpack_array(Dens,Nlat)
-    ss_Lambda0 = ss_unpack_array(lambda0,Nlat)
-    ss_Weiss   = ss_unpack_array(weiss,Nlat)
-    !
     if(master)then
-       if(verbose>2)then
-          do ineq=1,Nineq
-             ilat = ss_ineq2ilat(ineq)
-             write(*,"(A7,12G18.9)")"Lam0  =",ss_lambda0(ilat,:)
-             write(*,"(A6,12G18.9)")"N0    =",ss_Dens(ilat,:)
-             write(*,"(A6,12G18.9)")"Weiss =",ss_Weiss(ilat,:)
-          enddo
-       endif
        do ilat=1,Nlat
           open(free_unit(unit),file="lambda0_site"//str(ilat,4)//".ss")
           write(unit,*)ss_lambda0(ilat,:)
@@ -174,8 +201,9 @@ contains
        call save_array(trim(Pfile)//"0"//trim(ss_file_suffix)//".ss",[lambda0,dens,xmu])
     endif
     !
-
+    !
   contains
+    !
     !
     function get_dens(mu) result(dens)
       real(8),intent(in)      :: mu
@@ -215,30 +243,27 @@ contains
 
 
 
-
-
-
-
   subroutine ss_solve_fermions()
     complex(8),dimension(Nlso,Nlso) :: Hk_f
     complex(8),dimension(Nlso,Nlso) :: Uk_f
     real(8),dimension(Nlso)         :: Ek_f
-    real(8),dimension(Nlso,Nlso)    :: Wtk
     complex(8),dimension(Nlso,Nlso) :: Rho
+    real(8),dimension(Nlso,Nlso)    :: Wtk
+    !
     real(8),dimension(Nlso,Nlso)    :: FdgF,FdgF_tmp
     real(8),dimension(Nlso,Nlso)    :: Hfk,Hfk_tmp
     real(8),dimension(Nlso,Nlso)    :: Hfloc
-
+    !
     real(8),dimension(Nlso)         :: dens
-    real(8),dimension(Nlso)         :: weiss
-    real(8),dimension(Nlso)         :: const      
     real(8),dimension(Nlso)         :: lambda
     real(8),dimension(Nlso)         :: lambda0
+    real(8),dimension(Nlso)         :: const      
     real(8),dimension(Nlso)         :: Op
+    real(8),dimension(Nlso)         :: heff
+    real(8),dimension(Nlso,Nlso)    :: jhybr    
     real(8),dimension(Nlso,Nlso)    :: OdgOp
     !
     integer                         :: ik,i,j,N
-
 #ifdef _MPI
     if(check_MPI())then
        mpi_rank=get_rank_MPI()
@@ -248,28 +273,37 @@ contains
        mpi_size=1
     endif
 #endif
-
     !
     lambda  = ss_pack_array(ss_Lambda,Nlat)
     lambda0 = ss_pack_array(ss_Lambda0,Nlat)
     Op      = ss_pack_array(ss_Op,Nlat)
-    ! OdgOp   = ss_pack_array(ss_OdgOp,Nlat)
+    OdgOp   = ss_pack_array(ss_OdgOp,Nlat)
     !
     !
+    !< Get Rho^{ab} = sum_k \rho^{ab}_k = sum_k <fdg^a_k f^b_k>
+    !< Get h^{ab} = sum_k H^{ab}_k*\rho^{ab}_k
     Hfk_tmp  = 0d0 ;Hfk =0d0
     FdgF_tmp = 0d0 ;FdgF=0d0
     do ik=1+mpi_rank,Nk,mpi_size
        Wtk= ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
        !
-       Hk_f  = ( ss_Hk(:,:,ik) + ss_Hloc )*outerprod(Op,Op) !+ ss_Hhyb*OdgOp 
+       !< Construct the renormalized Hamiltonian:
+       !< H(k):non-local,inter-cell and *Hloc:non-local intra-cell as
+       !< <O_a>.[H_{ab}(k)+Hloc_{ab}].<O_b>
+       !< Hhyb:local,intra-cell, off-diagonal as
+       !< <O^+_a O_b>.Hhyb_{ab}
+       !< Hdiag:local,intra-cell, diagonal remains identical (couples to density).
+       Hk_f  = ( ss_Hk(:,:,ik) + ss_Hloc )*outerprod(Op,Op) + ss_Hhyb*OdgOp 
        Uk_f  = Hk_f + diag(ss_Hdiag - lambda + lambda0)
        call eigh(Uk_f,Ek_f)
-       forall(io=1:Nlso,jo=1:Nlso)&
+       forall(io=1:Nlso,jo=1:Nlso)& !build up <f^+f>
             Rho(io,jo) = sum(Uk_f(jo,:)*conjg(Uk_f(io,:))*step_fermi(Ek_f-xmu))
-       !
-       Hfk_tmp  = Hfk_tmp   + dreal(ss_Hk(:,:,ik)*Rho*Wtk)
+       !< Get Rho
        FdgF_tmp = FdgF_tmp  + Rho*Wtk
+       !< Get inter-cell contribution to effective field
+       Hfk_tmp  = Hfk_tmp   + dreal(ss_Hk(:,:,ik)*Rho*Wtk)
     enddo
+    !< MPI reduction where applicable
 #ifdef _MPI
     if(check_MPI())then
        call AllReduce_MPI(MPI_COMM_WORLD,Hfk_tmp,Hfk)
@@ -283,14 +317,18 @@ contains
     FdgF = FdgF_tmp
 #endif
     !
+    !< Get occupation n^a = Rho^{aa}
     dens = diagonal(FdgF)
     !
+    !< BUILD UP EFFECTIVE FIELDS FOR THE SPIN PROBLEM:
+    !< Get intra-cell, non-local contribution to Weiss field h'
+    !< h'^{ab} = sum_k H^{ab}_{loc,\mu_i!=\nu_i} \rho^{ab}_k
+    !          = H^{ab}_{loc,\mu!=\nu} Rho^{ab}
     Hfloc= ss_Hloc*FdgF
     !
-    !
-    ! Get H_{a,s} = \sum_{b} sqrt(Z_{b,s})* sum_k H_{a,s, b,s}*\rho_{a,s, b,s}
-    !             = \sum_{b} sqrt(Z_{b,s})* Eweiss_{a,s,b,s}
-    Weiss = 0d0
+    !< sum up Weiss field contributions. 
+    !< H^a = \sum_{b} [h^{ab} + h'^{ab}]
+    Heff = 0d0
     do ispin=1,Nspin
        do ilat=1,Nlat
           do iorb=1,Norb
@@ -298,25 +336,33 @@ contains
              do jlat=1,Nlat
                 do jorb=1,Norb
                    jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
-                   Weiss(io) = Weiss(io) + Op(jo)*Hfk(io,jo) + Op(jo)*Hfloc(io,jo)
+                   Heff(io) = Heff(io) + Op(jo)*Hfk(io,jo) + Op(jo)*Hfloc(io,jo)
                 enddo
              enddo
           enddo
        enddo
     enddo
     !
-    ! Get C = (n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
+    !< Get intra-cell, local off-diagonal contribution to Weiss field
+    !< J^ab = sum_k H^{a!=b}_{loc} \rho^{ab}_k
+    !       = H^{a!=b}_{loc} Rho^{ab}
+    Jhybr = ss_Hhyb*FdgF
+    !
+    !
+    !< Get C = (n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
     Const  = 1d0/(sqrt(Dens*(1d0-Dens))+mch) - 1d0
     !
+    !< Dump to SS global parameters
     ss_Dens = ss_unpack_array(dens,Nlat)
     ss_C    = ss_unpack_array(const,Nlat)
-    ss_Weiss= ss_unpack_array(weiss,Nlat)
-    !
+    ss_Heff = ss_unpack_array(Heff,Nlat)
+    ss_Jhybr= ss_unpack_array(Jhybr,Nlat)
     do ineq=1,Nineq
        ilat = ss_ineq2ilat(ineq)
-       ss_Dens_ineq(ineq,:)  = ss_Dens(ilat,:)
-       ss_C_ineq(ineq,:)     = ss_C(ilat,:)
-       ss_Weiss_ineq(ineq,:) = ss_Weiss(ilat,:)
+       ss_Dens_ineq(ineq,:)    = ss_Dens(ilat,:)
+       ss_C_ineq(ineq,:)       = ss_C(ilat,:)
+       ss_Heff_ineq(ineq,:)    = ss_Heff(ilat,:)
+       ss_Jhybr_ineq(ineq,:,:) = ss_Jhybr(ilat,:,:)
     enddo
     !
     !

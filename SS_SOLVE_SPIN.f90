@@ -19,14 +19,16 @@ MODULE SS_SOLVE_SPIN
   real(8),dimension(:),allocatable          :: ii_lambda
   real(8),dimension(:),allocatable          :: ii_c
   real(8),dimension(:),allocatable          :: ii_Sz
-  real(8),dimension(:,:,:),allocatable      :: ii_SzSz
   real(8),dimension(:),allocatable          :: ii_Op
-  real(8),dimension(:),allocatable          :: ii_Weiss
+  real(8),dimension(:),allocatable          :: ii_Heff
+  real(8),dimension(:,:),allocatable        :: ii_Jhybr
+  real(8),dimension(:,:),allocatable        :: ii_OdgOp
+  real(8),dimension(:,:,:),allocatable      :: ii_SzSz  
   !
   integer                                   :: Ndim
-  integer                                   :: istate,jstate
+  integer                                   :: istate,jstate,kstate
   integer                                   :: iorb,jorb,ilat,ispin
-  integer                                   :: io,il
+  integer                                   :: io,il,jo,jl
 
   type(sparse_matrix_csr)                   :: spHs
 
@@ -37,9 +39,10 @@ contains
 
 
   subroutine ss_solve_spins(ineq)
-    integer                :: ineq,ilat
-    integer                :: Nstate
-    real(8),dimension(Nso) :: Lambda,Weiss,Const
+    integer                    :: ineq,ilat
+    integer                    :: Nstate
+    real(8),dimension(Nso)     :: Lambda,Heff,Const
+    real(8),dimension(Nso,Nso) :: Jhybr
     !
     Ndim = 2**Nss
     !
@@ -57,42 +60,49 @@ contains
     !< get the ilat-th index corresponding to this ineq-site
     ilat = ss_ineq2ilat(ineq)
     !
-    !< extract the ilat-th component of ss_lambda, ss_Weiss, ss_c
-    !...[1...Norb]_ilat-th_up ...[1...Norb]_ilat-th_dw
+    !< extract the ilat-th component of ss_lambda, ss_Heff, ss_c, ...
     allocate(ii_lambda(Nss))
     allocate(ii_c(Nss))
     allocate(ii_Sz(Nss))
-    allocate(ii_SzSz(4,Norb,Norb))
     allocate(ii_Op(Nss))
-    allocate(ii_Weiss(Nss))
+    allocate(ii_Heff(Nss))
+    allocate(ii_Jhybr(Nss,Nss))
+    allocate(ii_OdgOp(Nss,Nss))
+    allocate(ii_SzSz(4,Norb,Norb))
     !
     Lambda = ss_Lambda(ilat,:)
-    Weiss  = ss_Weiss(ilat,:)
+    Heff   = ss_Heff(ilat,:)
     Const  = ss_C(ilat,:)
+    Jhybr  = ss_Jhybr(ilat,:,:)
     if(Nspin==1)then
        ii_Lambda = [Lambda,Lambda]
-       ii_Weiss  = [Weiss,Weiss]
+       ii_Heff   = [Heff,Heff]
        ii_C      = [Const,Const]
+       ii_Jhybr  = kron(pauli_0,one*Jhybr)
     else
        ii_Lambda = Lambda
-       ii_Weiss  = Weiss
+       ii_Heff   = Heff
        ii_C      = Const
+       ii_Jhybr  = Jhybr
     endif
     !
+    !< Init the sparse matrix spHs (SParse Hamiltonian Spins)
     call sp_init_matrix(spHs,Ndim)
     !
     !
-    !Build spin Hamiltonian and write it onto ss_Evecs
+    !< Build the spin Hamiltonian
     if(master.AND.verbose>3)call start_timer
     call ss_build_Hs()
     if(master.AND.verbose>3)call stop_timer("build_Hs")
     !
     if(lanc_solve)then
+       !< Solve with ARPACK Lanczos
        if(master.AND.verbose>3)call start_timer
        call sp_eigh(spMatVec_p,ss_Evals,ss_Evecs,Nitermax=1000,iverbose=(verbose>5))
        if(master.AND.verbose>3)call stop_timer("sp_eigh")
        Nstate = lanc_Neigen
     else
+       !< Solve with Lapack exact diagonalization
        if(master.AND.verbose>3)call start_timer
        call sp_dump_matrix(spHs,ss_Evecs) !dimensions check is done internally
        call eigh(Ss_Evecs,Ss_Evals)
@@ -100,17 +110,18 @@ contains
        Nstate=Ndim
     endif
     !
+    !< Get degeneracy of the groundstate (we are doing T=0)
     ss_Ndegen=1
     do istate=2,Nstate
        if(abs(Ss_Evals(istate)-Ss_Evals(1))<= 1d-10)ss_Ndegen=ss_Ndegen+1
     end do
     zeta_function = dble(ss_Ndegen)
     !
+    !< Delete matrix, no more used
     call sp_delete_matrix(spHs)
     !
     !
-    !
-    !< Get <Sz> and <O>, <O+>
+    !< Get <Sz> and <O>, <O^+>, <O^+O>, ...
     call ss_Spin_observables()
     !
     !< Get Sz-Sz correlations:
@@ -119,10 +130,11 @@ contains
     !< Copy back into main arrays ss_XYZ at proper position
     ss_Sz_ineq(ineq,:) = ii_Sz(:Nso)
     ss_Op_ineq(ineq,:) = ii_Op(:Nso)
+    ss_OdgOp_ineq(ineq,:,:)  = ii_OdgOp(:Nso,:Nso)
     ss_SzSz_ineq(ineq,:,:,:) = ii_SzSz
     !
-    deallocate(ii_lambda,ii_Weiss,ii_c)
-    deallocate(ii_Sz,ii_Op,ii_SzSz)
+    deallocate(ii_lambda,ii_Heff,ii_c,ii_Jhybr)
+    deallocate(ii_Sz,ii_Op,ii_OdgOp,ii_SzSz)
     deallocate(ss_Evecs,ss_Evals)
     !
   end subroutine ss_solve_spins
@@ -167,28 +179,28 @@ contains
        !Non-diagonal elements:
        !< sum_{m,s} h_{m,s} * [c S^+_{m,s} + S^-_{m,s}] + H.c.
        do io=1,Nss
-          if(Sz(io)/=-0.5d0)cycle
+          if(.not.test_Splus(io,Istate))cycle
           call Splus(io,Istate,Jstate)
-          htmp = ii_c(io)*ii_Weiss(io)
+          htmp = ii_c(io)*ii_Heff(io)
           call sp_insert_element(spHs,htmp,Istate,Jstate)
        enddo
        do io=1,Nss
-          if(Sz(io)/=0.5d0)cycle
+          if(.not.test_Sminus(io,Istate))cycle
           call Sminus(io,Istate,Jstate)
-          htmp = ii_Weiss(io)
+          htmp = ii_Heff(io)
           call sp_insert_element(spHs,htmp,Istate,Jstate)
        enddo
        !
        do io=1,Nss
-          if(Sz(io)/=0.5d0)cycle
+          if(.not.test_Sminus(io,Istate))cycle
           call Sminus(io,Istate,Jstate)
-          htmp = ii_c(io)*ii_Weiss(io)
+          htmp = ii_c(io)*ii_Heff(io)
           call sp_insert_element(spHs,htmp,Istate,Jstate)
        enddo
        do io=1,Nss
-          if(Sz(io)/=-0.5d0)cycle
+          if(.not.test_Splus(io,Istate))cycle
           call Splus(io,Istate,Jstate)
-          htmp = ii_Weiss(io)
+          htmp = ii_Heff(io)
           call sp_insert_element(spHs,htmp,Istate,Jstate)
        enddo
     enddo
@@ -205,26 +217,93 @@ contains
     !
     ii_Sz=0d0
     ii_Op=0d0
+    ii_OdgOp=0d0
     do Idegen=1,ss_Ndegen
        gs_vec => Ss_Evecs(:,Idegen)
        !
        do istate=1,Ndim
           Sz = Bdecomp(Istate,Nss) - 0.5d0
           !
+          !<Sz>
           ii_Sz = ii_Sz + Sz*gs_vec(istate)**2/zeta_function
           !
+          !<O_m> =  c_m <S^+_m> + <S^-_m>
+          !c_m <S^+_m>
           do io=1,Nss
-             if(Sz(io)/=0.5d0)cycle
+             if(.not.test_Sminus(io,Istate))cycle
              call Sminus(io,Istate,Jstate)
              htmp = 1d0
              ii_Op(io) = ii_Op(io) + htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
           enddo
+          !<S^-_m>
           do io=1,Nss
-             if(Sz(io)/=-0.5d0)cycle
+             if(.not.test_Splus(io,Istate))cycle
              call Splus(io,Istate,Jstate)
              htmp = ii_c(io)
              ii_Op(io) = ii_Op(io) + htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
           enddo
+          !
+          !
+          if(product(ii_Jhybr)==0d0)then
+             !<O^+ O> = J_ij <[c*_i S^-_i + S^+_i] [c_j S^+_j + S^-_j]>
+             !        = J_ij [c*_i.c_j <S^-_i.S^+_j>  + &
+             !                 c*_i    <S^-_i.S^-_j>  + &
+             !                 c_j     <S^+_i.S^+_j>  + &
+             !                 1       <S^+_i.S^-_j>  ]
+             !
+             !"c*_i.c_j <S^-_i S^+_j>"
+             do io=1,Nss
+                do jo=1,Nss
+                   if(.not.test_Sminus(io,Istate))cycle
+                   call Sminus(io,Istate,Kstate)
+                   if(.not.test_Splus(jo,Kstate))cycle
+                   call Splus(jo,Kstate,Jstate)
+                   htmp = ii_c(io)*ii_c(jo)*ii_Jhybr(io,jo)
+                   ii_OdgOp(io,jo) = ii_OdgOp(io,jo) + &
+                        htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
+                enddo
+             enddo
+             !
+             !"c*_i <S^-_i S^-_j>"             
+             do io=1,Nss
+                do jo=1,Nss
+                   if(.not.test_Sminus(io,Istate))cycle
+                   call Sminus(io,Istate,Kstate)
+                   if(.not.test_Sminus(jo,Kstate))cycle
+                   call Sminus(jo,Kstate,Jstate)
+                   htmp = ii_c(io)*ii_Jhybr(io,jo)
+                   ii_OdgOp(io,jo) = ii_OdgOp(io,jo) + &
+                        htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
+                enddo
+             enddo
+             !
+             !"c_j <S^+_i S^+_j>"
+             do io=1,Nss
+                do jo=1,Nss
+                   if(.not.test_Splus(io,Istate))cycle
+                   call Splus(io,Istate,Kstate)
+                   if(.not.test_Splus(jo,Kstate))cycle
+                   call Splus(jo,Kstate,Jstate)
+                   htmp = ii_c(jo)*ii_Jhybr(io,jo)
+                   ii_OdgOp(io,jo) = ii_OdgOp(io,jo) + &
+                        htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
+                enddo
+             enddo
+             !
+             !"<S^+_i S^-_j>"
+             do io=1,Nss
+                do jo=1,Nss
+                   if(.not.test_Splus(io,Istate))cycle
+                   call Splus(io,Istate,Kstate)
+                   if(.not.test_Sminus(jo,Kstate))cycle
+                   call Sminus(jo,Kstate,Jstate)
+                   htmp = ii_Jhybr(io,jo)
+                   ii_OdgOp(io,jo) = ii_OdgOp(io,jo) + &
+                        htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
+                enddo
+             enddo
+          endif
+          !
           !
        enddo
     enddo
@@ -305,6 +384,21 @@ contains
   !   |out>=S^-_pos|in>  OR  |out>=S^+_pos|in> ; 
   !   pos labels the sites
   !+-------------------------------------------------------------------+
+  function test_Sminus(pos,in) result(bool)
+    integer,intent(in) :: pos
+    integer,intent(in) :: in
+    logical            :: bool
+    bool = btest(in-1,pos-1)
+  end function test_Sminus
+
+  function test_Splus(pos,in) result(bool)
+    integer,intent(in)    :: pos
+    integer,intent(in)    :: in
+    logical            :: bool
+    bool = .not.btest(in-1,pos-1)
+  end function test_Splus
+
+
   subroutine Sminus(pos,in,out)
     integer,intent(in)    :: pos
     integer,intent(in)    :: in
