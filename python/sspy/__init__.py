@@ -18,23 +18,20 @@ global Lmats        #Number of Matsuabra Freq.
 global Lreal        #Number of real-axis freq.
 
 
-#FROM ED_INPUT_VARS
-Nlat       = ss2py.ed_input_vars.nlat
-Norb       = ss2py.ed_input_vars.norb
-Nspin      = ss2py.ed_input_vars.nspin
-filling    = ss2py.ed_input_vars.filling
-Nloop      = ss2py.ed_input_vars.nloop
-xmu        = ss2py.ed_input_vars.xmu
-beta       = ss2py.ed_input_vars.beta
-eps        = ss2py.ed_input_vars.eps
-wini       = ss2py.ed_input_vars.wini
-wfin       = ss2py.ed_input_vars.wfin
-Nsuccess   = ss2py.ed_input_vars.nsuccess
-Lmats      = ss2py.ed_input_vars.lmats
-Lreal      = ss2py.ed_input_vars.lreal
-
-
-
+#FROM SS_INPUT_VARS
+Nlat       = ss2py.ss_input_vars.nlat
+Norb       = ss2py.ss_input_vars.norb
+Nspin      = ss2py.ss_input_vars.nspin
+filling    = ss2py.ss_input_vars.filling
+Nloop      = ss2py.ss_input_vars.nloop
+xmu        = ss2py.ss_input_vars.xmu
+beta       = ss2py.ss_input_vars.beta
+eps        = ss2py.ss_input_vars.eps
+wini       = ss2py.ss_input_vars.wini
+wfin       = ss2py.ss_input_vars.wfin
+Nsuccess   = ss2py.ss_input_vars.nsuccess
+Lmats      = ss2py.ss_input_vars.lmats
+Lreal      = ss2py.ss_input_vars.lreal
 
 
 #FROM SS_MAIN:

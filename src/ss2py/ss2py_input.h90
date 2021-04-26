@@ -1,6 +1,6 @@
 !SS_INPUT_VARS:
 subroutine read_input(INPUTunit)
-  USE SLAVE_SPIN, only: ss_read_input
+  USE SLAVE_SPINS, only: ss_read_input
   USE SF_MPI
   USE MPI
   implicit none
