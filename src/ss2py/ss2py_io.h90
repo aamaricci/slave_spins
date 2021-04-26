@@ -1,0 +1,54 @@
+!SS_IO:
+subroutine get_dens(arg)
+  USE SLAVE_SPINS, only: ss_get_dens,Nspin,Nlat,Norb
+  implicit none
+  real(8),dimension(:),intent(out) :: arg
+  if(size(arg)/=Nlat*Nspin*Norb)stop "get_dens error: size(arg)!=Nlat*Nspin*Norb"
+  call ss_get_dens(arg)
+end subroutine get_dens
+
+
+subroutine get_zeta(arg)
+  USE SLAVE_SPINS, only: ss_get_zeta,Nspin,Nlat,Norb
+  implicit none
+  real(8),dimension(:),intent(out) :: arg
+  if(size(arg)/=Nlat*Nspin*Norb)stop "get_zeta error: size(arg)!=Nlat*Nspin*Norb"
+  call ss_get_zeta(arg)
+end subroutine get_zeta
+
+
+subroutine get_sz(arg)
+  USE SLAVE_SPINS, only: ss_get_sz,Nspin,Nlat,Norb
+  implicit none
+  real(8),dimension(:),intent(out) :: arg
+  if(size(arg)/=Nlat*Nspin*Norb)stop "get_sz error: size(arg)!=Nlat*Nspin*Norb"
+  call ss_get_sz(arg)
+end subroutine get_sz
+
+
+subroutine get_lambda(arg)
+  USE SLAVE_SPINS, only: ss_get_lambda,Nspin,Nlat,Norb
+  implicit none
+  real(8),dimension(:),intent(out) :: arg
+  if(size(arg)/=Nlat*Nspin*Norb)stop "get_lambda error: size(arg)!=Nlat*Nspin*Norb"
+  call ss_get_lambda(arg)
+end subroutine get_lambda
+
+
+subroutine get_lambda0(arg)
+  USE SLAVE_SPINS, only: ss_get_lambda0,Nspin,Nlat,Norb
+  implicit none
+  real(8),dimension(:),intent(out) :: arg
+  if(size(arg)/=Nlat*Nspin*Norb)stop "get_lambda0 error: size(arg)!=Nlat*Nspin*Norb"
+  call ss_get_lambda0(arg)
+end subroutine get_lambda0
+
+
+
+subroutine get_self(arg)
+  USE SLAVE_SPINS, only: ss_get_self,Nspin,Nlat,Norb
+  implicit none
+  real(8),dimension(:),intent(out) :: arg
+  if(size(arg)/=Nlat*Nspin*Norb)stop "get_self error: size(arg)!=Nlat*Nspin*Norb"
+  call ss_get_self(arg)
+end subroutine get_self

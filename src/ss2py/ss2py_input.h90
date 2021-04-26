@@ -1,0 +1,9 @@
+!SS_INPUT_VARS:
+subroutine read_input(INPUTunit)
+  USE SLAVE_SPIN, only: ss_read_input
+  USE SF_MPI
+  USE MPI
+  implicit none
+  character(len=*),intent(in) :: INPUTunit
+  call ss_read_input(trim(INPUTunit))
+end subroutine read_input

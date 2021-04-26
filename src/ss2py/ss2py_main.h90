@@ -1,0 +1,34 @@
+!SS_MAIN:
+subroutine solve_hk(hk_user,ineq_sites)
+  USE SLAVE_SPINS, only: ss_solve,Nlat,Nspin,Norb
+  USE SCIFOR, only: assert_shape
+  USE SF_MPI
+  USE MPI
+  implicit none
+  complex(8),dimension(:,:,:),intent(in) :: hk_user  ![Nlso,Nlso,Nk]
+  integer,dimension(Nlat),intent(in)     :: ineq_sites
+  integer                                :: Nk
+  Nk = size(hk_user,3)
+  call assert_shape(hk_user,[Nlat*Nspin*Norb,Nlat*Nspin*Norb,Nk],"solve_hk","hk")
+  if(size(ineq_sites)/=Nlat)stop "solve_hk error: size(ineq_sites)!=Nlat"
+  call ss_solve(Hk,ineq_sites=ineq_sites)
+end subroutine solve_hk
+!
+subroutine solve_dos(Ebands,Dbands,Hloc,ineq_sites)
+  USE SLAVE_SPINS, only: ss_solve,Nlat,Nspin,Norb
+  USE SCIFOR, only: assert_shape
+  USE SF_MPI
+  USE MPI
+  implicit none
+  real(8),dimension(:,:),intent(in)  :: Ebands  ![Nlso,Ne]
+  real(8),dimension(:,:),intent(in)  :: Dbands ![Nlso,Ne]
+  real(8),dimension(:),intent(in)    :: Hloc
+  integer,dimension(Nlat),intent(in) :: ineq_sites
+  integer                            :: Ne
+  Ne = size(Ebands,2)
+  call assert_shape(Ebands,[Nlat*Nspin*Norb,Ne],"solve_dos","Ebands")
+  call assert_shape(Dbands,[Nlat*Nspin*Norb,Ne],"solve_dos","Dbands")
+  if(size(hloc)/=Nlat*Nspin*Norb)stop "solve_dos error: size(Hloc)!=Nlat*Nspin*Norb"
+  if(size(ineq_sites)/=Nlat)stop "solve_dos error: size(ineq_sites)!=Nlat"
+  call ss_solve(Ebands,Dbands,Hloc=Hloc,ineq_sites=ineq_sites)
+end subroutine solve_dos

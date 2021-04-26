@@ -1,0 +1,26 @@
+#%Module	
+set project @PROJECT_NAME@
+set root @PREFIX@
+set plat @FC_ID@
+set version "(@FULL_VER@)"
+set compiler @CMAKE_Fortran_COMPILER@
+  
+proc ModulesHelp { } {
+        puts stderr "\tThis module provides access to SLAVE_SPINS library\n";
+	puts stderr "\tVersion $version\n"
+	puts stderr "\t compiled with $compiler\n"	
+}
+
+module-whatis "SLAVE_SPINS library in Fortran"
+
+
+setenv       SLAVE_SPINS_ROOT	 $root
+setenv	     FC			 $compiler
+setenv	     F90		 $compiler
+prepend-path LD_LIBRARY_PATH    "$root/lib"
+prepend-path LIBRARY_PATH       "$root/lib"
+prepend-path PATH		"$root/bin"
+prepend-path PKG_CONFIG_PATH	"$root/etc"
+
+puts stderr " > (un)load SLAVE_SPINS $version"
+#EOF

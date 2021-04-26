@@ -2,10 +2,8 @@ MODULE SS_INPUT_VARS
   USE SF_VERSION
   USE SF_PARSE_INPUT
   USE SF_IOTOOLS, only:str
+  USE SS_VERSION
   implicit none
-
-  !GIT VERSION
-  include "revision.inc"  !this file is generated at compilation time in the Makefile
 
 
   !input variables
@@ -105,7 +103,7 @@ contains
        call print_input()
        call save_input(INPUTunit)
        call scifor_version()
-       call code_version(revision)
+       call code_version(version)
     endif
     !Act on the input variable only after printing.
     !In the new parser variables are hard-linked into the list:

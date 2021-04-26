@@ -1,0 +1,5 @@
+MODULE SS_VERSION
+  implicit none
+  !GIT VERSION
+  character(len=41),parameter,public :: version = "@GIT_SHA1@"
+END MODULE SS_VERSION

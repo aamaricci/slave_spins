@@ -1,10 +1,17 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 2.8.8)
-PROJECT(SlaveSpins Fortran)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.0.0)
+PROJECT(slave_spins Fortran)
 SET(VERSION 0.0.2)
 
+# Define the library name
+SET(SLAVESPINSLIB slave_spins)
+
+
+MESSAGE(STATUS "OS: ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_VERSION}")
 SET(BUILD_TYPE "RELEASE" CACHE STRING "Build type")
+STRING(TOUPPER "${BUILD_TYPE}" BUILD_TYPE)
 MESSAGE(STATUS "BUILD_TYPE=${BUILD_TYPE}")
 SET(CMAKE_BUILD_TYPE ${BUILD_TYPE} CACHE INTERNAL "Build type" FORCE)
+
 
 # Add our local CMAKE modules to the module path
 SET(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/Modules")
@@ -15,16 +22,24 @@ IF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
    MESSAGE(FATAL_ERROR "Fortran compiler does not support F90")
 ENDIF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
 
-# Set some options the user may choose
-OPTION(USE_MPI "Use the MPI library for parallelization" ON)
-OPTION(VERBOSE "Build a verbose Makefile" OFF)
+IF( (${CMAKE_Fortran_COMPILER_ID} MATCHES Intel) OR (${CMAKE_Fortran_COMPILER_ID} MATCHES GNU))
+  MESSAGE(STATUS "Fortran Compiler id = ${CMAKE_Fortran_COMPILER_ID}")
+ELSEIF()
+  MESSAGE(FATAL_ERROR "Unsupported Fortran compiler (use Intel or GNU). Try export FC=<your FC compiler> ")
+ENDIF()
 
-# Set verbosity of the Makefile according to option
+# Set some options the user may choose
+OPTION(USE_MPI "Set MPI pre-compilation flag" ON)
+OPTION(VERBOSE "Build a verbose Makefile" OFF)
+OPTION(WITH_BLAS_LAPACK "Use internal Blas/Lapack" OFF)
 IF(VERBOSE)
   SET(CMAKE_VERBOSE_MAKEFILE ON)
 ELSE(VERBOSE)
   SET(CMAKE_VERBOSE_MAKEFILE OFF)
 ENDIF(VERBOSE)
+
+
+
 
 ############################################################
 # Look for MPI if needed
@@ -44,10 +59,16 @@ ELSE(USE_MPI)
 ENDIF(USE_MPI)
 
 
+
+
 ############################################################
 # Check for .git and extract the current SHA1 revision.
 ############################################################
+SET(GIT_SHA1 0)
+SET(GIT_BRANCH "master")
+SET(GIT_TAG ${VERSION})
 IF(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/.git)
+  SET(GIT_REPO TRUE)
   FIND_PACKAGE(Git)
   IF(GIT_FOUND)
     EXECUTE_PROCESS(
@@ -56,31 +77,34 @@ IF(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/.git)
       OUTPUT_VARIABLE GIT_SHA1
       ERROR_QUIET
       OUTPUT_STRIP_TRAILING_WHITESPACE)
-    MESSAGE( STATUS "Git version: ${GIT_SHA1}" )
+    MESSAGE( STATUS "${Yellow}Git SHA1: ${ColourReset}${GIT_SHA1}" )
+    #
     EXECUTE_PROCESS(
       COMMAND ${GIT_EXECUTABLE} rev-parse --abbrev-ref HEAD
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
       OUTPUT_VARIABLE GIT_BRANCH
       ERROR_QUIET
       OUTPUT_STRIP_TRAILING_WHITESPACE)
-    SET(GIT_BRANCH_ "_${GIT_BRANCH}")
-    MESSAGE( STATUS "Git branch: ${GIT_BRANCH}" )
-    IF( "${GIT_BRANCH}" MATCHES "master")
-      UNSET(GIT_BRANCH)
-      UNSET(GIT_BRANCH_)
-    ENDIF()
-  ELSE(GIT_FOUND)
-    SET(GIT_SHA1 0)
-  ENDIF(GIT_FOUND)
+    MESSAGE( STATUS "${Yellow}Git branch: ${ColourReset}${GIT_BRANCH}" )
+    #
+    EXECUTE_PROCESS(
+      COMMAND ${GIT_EXECUTABLE} describe --tags
+      WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+      OUTPUT_VARIABLE GIT_TAG
+      ERROR_QUIET
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    MESSAGE(STATUS "${Yellow}Git tag: ${ColourReset}${GIT_TAG}")
+  ENDIF()
+ELSE()
+  SET(GIT_REPO FALSE)
 ENDIF(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/.git)
-SET(REVISION_FILE ${CMAKE_CURRENT_SOURCE_DIR}/revision.inc)
-FILE(WRITE  ${REVISION_FILE} "character(len=41),parameter,public :: revision = \"${GIT_SHA1}\"\n")
-
+SET(VERSION ${GIT_TAG})    	#Update version
 
 
 
 ############################################################
-# Look for required libraries: blas,lapack,scifor,dmft_tools
+# Look for required libraries: scifor
+# (includes Blas/Lapack/Scalapack/Quadpack/Minpack/FFTpack/Arpack/...) 
 ############################################################
 # Find Scifor
 FIND_PACKAGE(PkgConfig)
@@ -100,22 +124,6 @@ ELSEIF("${SCIFOR_LDFLAGS}" MATCHES "mkl")
 ENDIF()
 INCLUDE_DIRECTORIES(BEFORE ${SCIFOR_INCLUDE_DIRS})
 
-IF("${SCIFOR_LDFLAGS}" MATCHES "scalapack")
-  FIND_PACKAGE(SCALAPACK REQUIRED)
-ENDIF()
-
-# Find Dmft_tools
-PKG_SEARCH_MODULE(DMFT_TOOLS REQUIRED dmft_tools)
-IF(${DMFT_TOOLS_FOUND})
-  MESSAGE(STATUS "DMFT_TOOLS found at: ${DMFT_TOOLS_PREFIX}")
-ELSE()
-  MESSAGE( FATAL_ERROR "
-Can not find DMFT_TOOLS in this system. Check DMFT_TOOLS installation. Try adding the provided PKG-CONFIG file to the environment:
-$ export PKG_CONFIG_PATH=<path_to_dmft_tools_dir>/etc:$PKG_CONFIG_PATH")
-ENDIF()
-INCLUDE_DIRECTORIES(BEFORE ${DMFT_TOOLS_INCLUDE_DIRS})
-
-
 
 
 
@@ -124,7 +132,7 @@ INCLUDE_DIRECTORIES(BEFORE ${DMFT_TOOLS_INCLUDE_DIRS})
 ############################################################
 if(CMAKE_Fortran_COMPILER_ID MATCHES GNU) # this is gfortran
   SET(CMAKE_Fortran_MODDIR_FLAG   "-J")
-  SET(CMAKE_Fortran_FLAGS         "-cpp -ffree-line-length-none ") # -mcmodel=large  this is to remove the 2Gb limit of virtual memory allocation
+  SET(CMAKE_Fortran_FLAGS         "-cpp -ffree-line-length-none -w ") #  -fallow-argument-mismatch -mcmodel=large  this is to remove the 2Gb limit of virtual memory allocation
   SET(CMAKE_Fortran_FLAGS_TESTING "-O2 -funroll-loops")
   SET(CMAKE_Fortran_FLAGS_DEBUG   "-O0 -p -g -Wsurprising -Waliasing -fwhole-file -fcheck=all -pedantic -fbacktrace -fbounds-check")
   SET(CMAKE_Fortran_FLAGS_RELEASE "-O3  -funroll-loops")  ##-fno-protect-parens -flto -ffast-math -march=native
@@ -135,20 +143,19 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
   SET(CMAKE_Fortran_FLAGS_TESTING "-O2 -ftz")
   SET(CMAKE_Fortran_FLAGS_DEBUG   "-p -O0 -g -fpe1 -warn -debug extended -traceback -nocheck")# all,noarg_temp_created") these options break the parallel vector transposition because some node has no columns of data to send but still need to participate into the communication. we support democratic inclusion of everyone. no one is left behind even if it is just a bunch of data!  
   SET(CMAKE_Fortran_FLAGS_RELEASE "-O3 -ftz")
-
-elseif(CMAKE_Fortran_COMPILER_ID MATCHES G95)
-  SET(CMAKE_Fortran_MODDIR_FLAG   "-fmod=")
-  SET(CMAKE_Fortran_FLAGS         "-cpp")
-  SET(CMAKE_Fortran_FLAGS_TESTING "-O1  -fsloppy-char")
-  SET(CMAKE_Fortran_FLAGS_DEBUG   "-O0 -g -ftrace=full")
-  SET(CMAKE_Fortran_FLAGS_RELEASE "-O3")
+# elseif(CMAKE_Fortran_COMPILER_ID MATCHES G95)
+#   SET(CMAKE_Fortran_MODDIR_FLAG   "-fmod=")
+#   SET(CMAKE_Fortran_FLAGS         "-cpp")
+#   SET(CMAKE_Fortran_FLAGS_TESTING "-O1  -fsloppy-char")
+#   SET(CMAKE_Fortran_FLAGS_DEBUG   "-O0 -g -ftrace=full")
+#   SET(CMAKE_Fortran_FLAGS_RELEASE "-O3")
   
-elseif(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
-  SET(CMAKE_Fortran_MODDIR_FLAG   "-module ")
-  SET(CMAKE_Fortran_FLAGS         "-")
-  SET(CMAKE_Fortran_FLAGS         "")
-  SET(CMAKE_Fortran_FLAGS_DEBUG   "-g -O0 -Mframe")
-  SET(CMAKE_Fortran_FLAGS_RELEASE "-O3 -mcmodel=medium -fast -Munroll")
+# elseif(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
+#   SET(CMAKE_Fortran_MODDIR_FLAG   "-module ")
+#   SET(CMAKE_Fortran_FLAGS         "-")
+#   SET(CMAKE_Fortran_FLAGS         "")
+#   SET(CMAKE_Fortran_FLAGS_DEBUG   "-g -O0 -Mframe")
+#   SET(CMAKE_Fortran_FLAGS_RELEASE "-O3 -mcmodel=medium -fast -Munroll")
 endif()
 
 
@@ -174,51 +181,140 @@ ENDIF()
 SET(USER_HOME $ENV{HOME})
 SET(USER $ENV{USER})
 
-# Define some directories
-SET(DRIVERS ${CMAKE_SOURCE_DIR}/drivers)
+STRING(TOLOWER "${CMAKE_Fortran_COMPILER_ID}" FC_ID)
 
-#define PREFIX
-SET(PREFIX  "$ENV{HOME}/.bin" CACHE PATH "Prefix prepended to install directories")
+SET(LIB_PATH  "$ENV{HOME}/opt/${PROJECT_NAME}/${FC_ID}")
+SET(FULL_VER "${FC_ID}")
+IF("${CMAKE_BUILD_TYPE}" MATCHES "DEBUG")
+  STRING(TOLOWER "${CMAKE_BUILD_TYPE}" BUILD_TYPE)
+  SET(LIB_PATH  "${LIB_PATH}/${BUILD_TYPE}")
+  SET(FULL_VER  "${FULL_VER}/${BUILD_TYPE}")
+ENDIF()
+
+IF(GIT_REPO)
+  IF(NOT GIT_BRANCH MATCHES "master")
+    SET(LIB_PATH  "${LIB_PATH}/${GIT_BRANCH}")
+    SET(FULL_VER  "${FULL_VER}/${GIT_BRANCH}")
+  ENDIF()
+ENDIF()
+
+SET(FULL_VER  "${FULL_VER}/${VERSION}")
+SET(PREFIX  "${LIB_PATH}/${VERSION}" CACHE PATH "Prefix prepended to install directories")
 SET(CMAKE_INSTALL_PREFIX "${PREFIX}" CACHE INTERNAL "Prefix prepended to install directories" FORCE)
 
-# define the executable to compiler
-SET(EXE ss_DFT CACHE STRING "Driver code to compile")
-# SET(CMAKE_INSTALL_EXE "${EXE}" CACHE INTERNAL "Driver code to compile" FORCE)
 
 
+# Define some directories
+SET(LIB_SRC ${CMAKE_SOURCE_DIR}/src)
+SET(LIB_ETC ${CMAKE_SOURCE_DIR}/etc)
+SET(LIB_ENV ${CMAKE_SOURCE_DIR}/etc/environment_modules)
+SET(LIB_TMP_INC ${CMAKE_BINARY_DIR}/include)
+SET(LIB_TMP_ETC ${CMAKE_BINARY_DIR}/etc)
+SET(LIB_TMP_VER ${CMAKE_BINARY_DIR}/version)
+SET(LIB_TARGET_LIB ${CMAKE_INSTALL_PREFIX}/lib)
+SET(LIB_TARGET_INC ${CMAKE_INSTALL_PREFIX}/include)
+SET(LIB_TARGET_ETC ${CMAKE_INSTALL_PREFIX}/etc)
+SET(LIB_TARGET_DIR ${CMAKE_INSTALL_PREFIX})
 
-FILE(GLOB SLAVE_SPINS_LOCAL_SRC
-  SS_SPARSE_MATRIX.f90
-  SS_INPUT_VARS.f90
-  SS_VARS_GLOBAL.f90
-  SS_SETUP.f90
-  SS_IO.f90
-  SS_SOLVE_FERMION.f90
-  SS_SOLVE_SPIN.f90
-  SS_SOLVE_MAIN.f90
-  SS_MAIN.f90 
-  SLAVE_SPINS.f90
+# Have the .mod files placed in the INC folder
+SET(CMAKE_Fortran_MODULE_DIRECTORY ${LIB_TMP_INC})
+INCLUDE_DIRECTORIES(BEFORE ${CMAKE_Fortran_MODULE_DIRECTORY})
+
+
+ADD_SUBDIRECTORY(${LIB_SRC})
+ADD_LIBRARY(slave_spins STATIC
+  $<TARGET_OBJECTS:SS_GLOB_LIB>
   )
 
 
-SET(SLAVE_SPINS_OBJS ${SLAVE_SPINS_LOCAL_SRC})
-
-ADD_EXECUTABLE(slave_spins ${DRIVERS}/${EXE}.f90 ${SLAVE_SPINS_OBJS})
 
 
+SET(PERMISSION_777
+  OWNER_WRITE OWNER_READ OWNER_EXECUTE
+  GROUP_WRITE GROUP_READ GROUP_EXECUTE
+  WORLD_WRITE WORLD_READ WORLD_EXECUTE)
 
-target_LINK_LIBRARIES(slave_spins ${DMFT_TOOLS_LDFLAGS} ${SCIFOR_LDFLAGS})
-SET_TARGET_PROPERTIES(slave_spins PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_INSTALL_PREFIX}" OUTPUT_NAME "${EXE}${GIT_BRANCH_}")
-MESSAGE(STATUS "Executable created at: ${Yellow}${CMAKE_INSTALL_PREFIX}/${EXE}${GIT_BRANCH_}${ColourReset}")
 
-ADD_CUSTOM_TARGET(
-  completion
-  COMMAND scifor_completion.sh ${DRIVERS}/${EXE}.f90
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  )
+
+#Build the slave_spins module for environment modules
+FILE(REMOVE_RECURSE ${LIB_TMP_ETC}/modules/)
+SET(TMP_MODULE_NAME "${FULL_VER}" CACHE PATH "Prefix prepended to install directories")
+SET(TMP_ENV_MODULE_FILE ${LIB_TMP_ETC}/modules/${PROJECT_NAME}/${TMP_MODULE_NAME})
+SET(TMP_VER_MODULE_FILE ${LIB_TMP_ETC}/modules/${PROJECT_NAME}/${FC_ID}/.version)
+CONFIGURE_FILE(${LIB_ENV}/module.in ${TMP_ENV_MODULE_FILE} @ONLY)
+CONFIGURE_FILE(${LIB_ENV}/version.in ${TMP_VER_MODULE_FILE} @ONLY)
+
+#Build the PKG-CONFIG file
+SET(TMP_PKCONFIG_FILE ${LIB_TMP_ETC}/${PROJECT_NAME}.pc)
+CONFIGURE_FILE( ${LIB_ETC}/${PROJECT_NAME}.pc.in ${TMP_PKCONFIG_FILE} @ONLY)
+
+#Build the user config script (sourced in user shell config file, i.e. .bashrc)
+SET(CONFIG_SCRIPT slave_spins_config.sh)
+SET(TMP_CONFIGVARS_FILE ${LIB_TMP_ETC}/${CONFIG_SCRIPT})
+CONFIGURE_FILE(${LIB_ETC}/config_slave_spins.sh.in ${TMP_CONFIGVARS_FILE} @ONLY)
+
+
+FILE(WRITE  ${LIB_TMP_VER}  "${VERSION}\n")
+
+INSTALL(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/ DESTINATION ${LIB_TARGET_INC})
+
+INSTALL(TARGETS slave_spins DESTINATION ${LIB_TARGET_LIB})
+
+INSTALL(DIRECTORY ${LIB_TMP_ETC}/ DESTINATION ${LIB_TARGET_ETC})
+
+INSTALL(FILES ${TMP_CONFIGVARS_FILE} DESTINATION ${LIB_TARGET_ETC}/
+  PERMISSIONS ${PERMISSION_777} SETUID)
+
+INSTALL(FILES ${TMP_VER_FILE} DESTINATION ${LIB_TARGET_DIR} 
+  PERMISSIONS ${PERMISSION_777} SETUID)
+
+INSTALL(FILES ${LIB_TARGET_ETC}/${PROJECT_NAME}.pc DESTINATION $ENV{HOME}/.pkgconfig.d/
+  PERMISSIONS ${PERMISSION_777} SETUID)
+
+INSTALL(DIRECTORY ${LIB_TARGET_ETC}/modules/ DESTINATION $ENV{HOME}/.modules.d)
+
+
+MESSAGE( STATUS "${Red}Library version:${ColourReset} ${VERSION}")
+MESSAGE( STATUS "${Red}Library will be installed in:${ColourReset} ${CMAKE_INSTALL_PREFIX}")
+MESSAGE( STATUS "
+>> ${Red}TO CONCLUDE INSTALLATION${ColourReset} <<
+Compile with:
+$ make
+Install with:
+$ make install
+
+Uninstall with:
+$ make uninstall
+
+Add library to your OS: 
+pick ONE method below  [add it in your bash profile to make it permanent (e.g. ~/.bashrc)]:
+${Yellow}Method 1: use the provided ${PROJECT_NAME} environment module${ColourReset}:
+   $ module use $HOME/.modules.d
+   $ module load ${PROJECT_NAME}/${FC_PLAT}
+
+${Yellow}Method 2: source the config script${ColourReset}:
+   $ source ${LIB_TARGET_ETC}/${CONFIG_SCRIPT}
+
+${Yellow}Method 3: use pkg-config with the provided ${PROJECT_NAME}.pc${ColourReset}:
+   $ export PKG_CONFIG_PATH=${LIB_TARGET_ETC}/:$PKG_CONFIG_PATH
+   $ pkg-config --cflags --libs ${PROJECT_NAME} (to get lib info)
+")
 
 
 # Add a distclean target to the Makefile
 ADD_CUSTOM_TARGET(distclean 
     COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/distclean.cmake
 )
+
+# Uninstall target
+if(NOT TARGET uninstall)
+  CONFIGURE_FILE(
+    "${CMAKE_MODULE_PATH}/ConfigUninstall.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
+    IMMEDIATE @ONLY)
+
+  ADD_CUSTOM_TARGET(uninstall
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
+    "${PROJECT_NAME}/${TMP_MODULE_NAME}" "${PROJECT_NAME}.pc" )
+  
+ENDIF()
