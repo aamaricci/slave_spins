@@ -30,10 +30,10 @@ contains
 
 
   !< Init SS calculation by passing the Hamiltonian H(k)
-  subroutine ss_solve_hk(hk_user,UserOrder,ineq_sites)
+  subroutine ss_solve_hk(hk_user,ineq_sites,UserOrder)
     complex(8),dimension(:,:,:)                           :: hk_user  ![Nlso,Nlso,Nk]
-    character(len=*),dimension(3),optional                :: UserOrder
     integer,dimension(Nlat),optional                      :: ineq_sites
+    character(len=5),dimension(3),optional                :: UserOrder
     !
     complex(8),dimension(Nspin*Nlat*Norb,Nspin*Nlat*Norb) :: Htmp
     integer                                               :: iorb,jorb,ispin,io,jo,ilat,jlat,ineq,ii,jj
@@ -121,12 +121,12 @@ contains
 
   !< Init SS calculation by passing the Density of states D(e), the dispersions E(e) and the local
   !  part of the Hamiltonian H_loc = sum_k H(k)
-  subroutine ss_solve_dos(Ebands,Dbands,UserOrder,Hloc,ineq_sites)
+  subroutine ss_solve_dos(Ebands,Dbands,Hloc,ineq_sites,UserOrder)
     real(8),dimension(:,:)                                :: Ebands  ![Nlso,Ne]
     real(8),dimension(:,:)                                :: Dbands ![Nlso,Ne]
-    character(len=*),dimension(3),optional                :: UserOrder
-    real(8),dimension(:),optional                         :: Hloc
+    real(8),dimension(Nspin*Nlat*Norb),optional           :: Hloc
     integer,dimension(Nlat),optional                      :: ineq_sites
+    character(len=5),dimension(3),optional                :: UserOrder
     !
     real(8),dimension(Nspin*Nlat*Norb)                    :: Eb,Db
     integer                                               :: ie,io,ilat,ineq
@@ -136,6 +136,8 @@ contains
     if(check_MPI())master = get_master_MPI()
 #endif
     !
+
+    ! if(.not.present(UserOrder))then
     UserOrder_ = [character(len=5) :: "Norb","Nspin","Nlat"];
     if(present(UserOrder))UserOrder_ = UserOrder
     !
@@ -152,7 +154,7 @@ contains
     !< Init the SS structure + memory allocation
     call assert_shape(Ebands,[Nspin*Nlat*Norb,Nk],"ss_init_dos","Ebands")
     call assert_shape(Dbands,[Nspin*Nlat*Norb,Nk],"ss_init_dos","Dbands")
-    if(present(Hloc))call assert_shape(Hloc,[Nspin*Nlat*Norb],"ss_init_dos","Hloc")
+    ! if(present(Hloc))call assert_shape(Hloc,[Nspin*Nlat*Norb],"ss_init_dos","Hloc")
     !
     !< Init local non-interacting part and reorder it
     if(present(Hloc))ss_Hdiag = ss_user2ss(Hloc,UserOrder_)

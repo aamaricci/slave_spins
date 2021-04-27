@@ -1,5 +1,5 @@
 MODULE SS_VERSION
   implicit none
   !GIT VERSION
-  character(len=41),parameter,public :: version = "96cb53a4ba388b9e067a6456e26d5549611288ea"
+  character(len=41),parameter,public :: version = "b846acbcb9c575fadd3b1db89f06785d778931ac"
 END MODULE SS_VERSION
