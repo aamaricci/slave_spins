@@ -50,4 +50,41 @@ MODULE SS_VARS_GLOBAL
   integer                                 :: mpi_rank=0
   integer                                 :: mpi_size=1
 
+
+  interface ss_findloc
+     module procedure :: ss_findloc_char
+     module procedure :: ss_findloc_int
+  end interface ss_findloc
+
+contains
+
+
+  function ss_findloc_char(array,val) result(pos)
+    character(len=*),dimension(:) :: array
+    character(len=*)              :: val
+    integer                       :: pos,i
+    pos=0
+    do i=1,size(array)
+       if(array(i)==val)then
+          pos = i
+          exit
+       endif
+    enddo
+    return
+  end function ss_findloc_char
+
+  function ss_findloc_int(array,val) result(pos)
+    integer,dimension(:) :: array
+    integer              :: val
+    integer              :: pos,i
+    pos=0
+    do i=1,size(array)
+       if(array(i)==val)then
+          pos = i
+          exit
+       endif
+    enddo
+    return
+  end function ss_findloc_int
+
 END MODULE SS_VARS_GLOBAL

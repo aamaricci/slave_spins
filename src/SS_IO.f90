@@ -345,10 +345,10 @@ contains
     integer,dimension(3)                                  :: nOrder
     integer                                               :: i
     do i=1,3                                                                                                               
-       Index(i:i)=findloc(Order,DefOrder(i))
+       Index(i:i)=ss_findloc(Order,DefOrder(i))
     enddo
     if(any(Index==0))then
-       print*,"SS_Norder ERROR: wrong entry in Index at: ",findloc(Index,0)
+       print*,"SS_Norder ERROR: wrong entry in Index at: ",ss_findloc(Index,0)
        stop              
     endif
     nOrder = ss_indx_reorder(nDefOrder,Index)                         

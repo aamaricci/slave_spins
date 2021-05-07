@@ -320,13 +320,13 @@ contains
     !Construct an index array corresponding to the User ordering.
     !This is a permutation of the default ordering [1,2,3].
     !For each entry in Default Order we look for the position of the
-    !corresponding entry in User Order using Fortran findloc.
+    !corresponding entry in User Order using  ss_findloc in VARS_GLOBAL.
     !If 0 entries exist, corresponding components are not found. stop. 
     do i=1,3     
-       UserIndex(i:i)=findloc(UserOrder,DefOrder(i))
+       UserIndex(i:i)=ss_findloc(UserOrder,DefOrder(i))
     enddo
     if(any(UserIndex==0))then
-       print*,"SS_REORDER_HK ERROR: wrong entry in UserIndex at: ",findloc(UserIndex,0)
+       print*,"SS_REORDER_HK ERROR: wrong entry in UserIndex at: ",ss_findloc(UserIndex,0)
        stop
     endif
     !
@@ -357,10 +357,10 @@ contains
     integer                                               :: iss,jss,iuser,juser,i
     !
     do i=1,3     
-       UserIndex(i:i)=findloc(UserOrder,DefOrder(i))
+       UserIndex(i:i)=ss_findloc(UserOrder,DefOrder(i))
     enddo
     if(any(UserIndex==0))then
-       print*,"SS_REORDER_HK ERROR: wrong entry in UserIndex at: ",findloc(UserIndex,0)
+       print*,"SS_REORDER_HK ERROR: wrong entry in UserIndex at: ",ss_findloc(UserIndex,0)
        stop
     endif
     !
@@ -396,10 +396,10 @@ contains
     integer                            :: iss,iuser,i
     !
     do i=1,3     
-       UserIndex(i:i)=findloc(UserOrder,DefOrder(i))
+       UserIndex(i:i)=ss_findloc(UserOrder,DefOrder(i))
     enddo
     if(any(UserIndex==0))then
-       print*,"SS_REORDER_HK ERROR: wrong entry in UserIndex at: ",findloc(UserIndex,0)
+       print*,"SS_REORDER_HK ERROR: wrong entry in UserIndex at: ",ss_findloc(UserIndex,0)
        stop
     endif
     !
@@ -428,10 +428,10 @@ contains
     integer                                               :: iss,jss,iuser,juser,i
     !
     do i=1,3     
-       UserIndex(i:i)=findloc(UserOrder,DefOrder(i))
+       UserIndex(i:i)=ss_findloc(UserOrder,DefOrder(i))
     enddo
     if(any(UserIndex==0))then
-       print*,"SS_REORDER_HK ERROR: wrong entry in UserIndex at: ",findloc(UserIndex,0)
+       print*,"SS_REORDER_HK ERROR: wrong entry in UserIndex at: ",ss_findloc(UserIndex,0)
        stop
     endif
     !
