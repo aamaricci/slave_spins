@@ -162,7 +162,8 @@ contains
     do ie=1,Nk
        Eb = ss_user2ss(Ebands(:,ie),UserOrder_)
        do io=1,Nspin*Nlat*Norb
-          ss_Hk(:,:,ie)  = one*Eb(io)
+          !ss_Hk(:,:,ie)  = one*Eb(io)
+          ss_Hk(io,io,ie)  = one*Eb(io)
        end do
        ss_Wtk(:,ie) = ss_user2ss(Dbands(:,ie),UserOrder_)
     end do
