@@ -10,6 +10,7 @@ MODULE SS_SOLVE_FERMION
   private
 
   public :: ss_solve_lambda0
+  public :: ss_update_lambda0
   public :: ss_solve_fermions
 
 
@@ -241,7 +242,20 @@ contains
 
 
 
-
+  subroutine ss_update_lambda0()
+    real(8),dimension(Nlso)         :: dens
+    real(8),dimension(Nlso)         :: lambda0
+    real(8),dimension(Nlso)         :: Op
+    real(8),dimension(Nlso)         :: Heff
+    !< Get Lambda0 = -2*|h0|*[n0-0.5]/[n0*(1-n0)]
+    Dens    = ss_pack_array(ss_Dens,Nlat)
+    Op      = ss_pack_array(ss_Op,Nlat)
+    Heff    = ss_pack_array(ss_Heff,Nlat)
+    !
+    lambda0 = -2d0*Op*abs(heff)*(Dens-0.5d0)/(Dens*(1d0-Dens)+mch)
+    !
+    ss_lambda0 = ss_unpack_array(lambda0,Nlat)
+  end subroutine ss_update_lambda0
 
 
 

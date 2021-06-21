@@ -13,6 +13,7 @@ MODULE SS_INPUT_VARS
   integer              :: Nspin               !Nspin=# spin degeneracy (max 2)
   integer              :: Nporb               !Nporb=# of non-correlated orbitals UNUSED
   real(8)              :: filling             !Total filling of the local problem: 0:(Norb+Nporb)
+  logical              :: self_lam0           !Self consisent lambda0 calculation
   logical              :: use_lam0            !Use lambda0 
   real(8),dimension(5) :: Uloc                !local interactions
   real(8)              :: Ust                 !intra-orbitals interactions
@@ -75,6 +76,7 @@ contains
     call parse_input_variable(Nspin,"NSPIN",INPUTunit,default=1,comment="Number of spin degeneracy (max 2)")
     call parse_input_variable(Nporb,"NPORB",INPUTunit,default=0,comment="Number of non-correlated impurity orbitals. UNUSED.")
     call parse_input_variable(Filling,"FILLING",INPUTunit,default=0d0,comment="Total filling of the local problem: 0:Norb")
+    call parse_input_variable(self_lam0,"self_lam0",INPUTunit,default=.false.,comment="Evaluate lambda0 self-consistenly using sqrt(Z), PRB 86, 085104 2012")
     call parse_input_variable(use_lam0,"use_lam0",INPUTunit,default=.true.,comment="Use lambda0 (T) or not (F)")
     call parse_input_variable(uloc,"ULOC",INPUTunit,default=[0d0,0d0,0d0,0d0,0d0],comment="Values of the local interaction per orbital (max 5)")
     call parse_input_variable(ust,"UST",INPUTunit,default=0.d0,comment="Value of the inter-orbital interaction term")

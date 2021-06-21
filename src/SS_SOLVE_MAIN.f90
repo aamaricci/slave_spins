@@ -179,6 +179,9 @@ contains
        ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
     enddo
     !
+    !add here the formula updating lambda0
+    if(self_lam0)call ss_update_lambda0()
+    !
     ! < Constraint:
     Dens  = ss_pack_array(ss_Dens_ineq,Nineq)
     Sz    = ss_pack_array(ss_Sz_ineq,Nineq)
@@ -268,6 +271,9 @@ contains
        ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
        ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
     enddo
+    !
+    !add here the formula updating lambda0
+    if(self_lam0)call ss_update_lambda0()
     !
     ! < Constraint:
     do ineq=1,Nineq
@@ -364,11 +370,15 @@ contains
        ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
     enddo
     !
+    !add here the formula updating lambda0
+    if(self_lam0)call ss_update_lambda0()
+    !
     ! < Constraint:
     do ineq=1,Nineq
        ilat = ss_ineq2ilat(ineq)
        ss_Dens_ineq(ineq,:) = ss_Dens(ilat,:)
     enddo
+    !
     Dens    = ss_pack_array(ss_Dens_ineq,Nineq)
     Sz      = ss_pack_array(ss_Sz_ineq,Nineq)
     Op      = ss_pack_array(ss_Op_ineq,Nineq)
@@ -462,6 +472,9 @@ contains
           ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
           ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
        enddo
+       !
+       !add here the formula updating lambda0
+       if(self_lam0)call ss_update_lambda0()
        !
        do ineq=1,Nineq
           ilat = ss_ineq2ilat(ineq)
