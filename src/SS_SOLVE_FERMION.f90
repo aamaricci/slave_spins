@@ -14,7 +14,7 @@ MODULE SS_SOLVE_FERMION
 
 
   real(8),parameter                  :: mch=1d-6
-  integer                            :: iorb,jorb,ispin,io,jo,ilat,jlat,ineq,ii,jj
+  integer                            :: iorb,jorb,ispin,jspin,io,jo,ilat,jlat,ineq,ii,jj
 
 
 contains
@@ -152,10 +152,12 @@ contains
           do ilat=1,Nlat
              do iorb=1,Norb
                 io = ss_Indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
-                do jlat=1,Nlat
-                   do jorb=1,Norb
-                      jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
-                      Heff(io) = Heff(io) + Hfk(io,jo) + Hfloc(io,jo)
+                do jspin=1,Nspin
+                   do jlat=1,Nlat
+                      do jorb=1,Norb
+                         jo = ss_Indices2i([jorb,jlat,jspin],[Norb,Nlat,Nspin])
+                         Heff(io) = Heff(io) + Hfk(io,jo) + Hfloc(io,jo)
+                      enddo
                    enddo
                 enddo
              enddo
@@ -333,10 +335,12 @@ contains
        do ilat=1,Nlat
           do iorb=1,Norb
              io = ss_Indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
-             do jlat=1,Nlat
-                do jorb=1,Norb
-                   jo = ss_Indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
-                   Heff(io) = Heff(io) + Op(jo)*Hfk(io,jo) + Op(jo)*Hfloc(io,jo)
+             do jspin=1,Nspin
+                do jlat=1,Nlat
+                   do jorb=1,Norb
+                      jo = ss_Indices2i([jorb,jlat,jspin],[Norb,Nlat,Nspin])
+                      Heff(io) = Heff(io) + Op(jo)*Hfk(io,jo) + Op(jo)*Hfloc(io,jo)
+                   enddo
                 enddo
              enddo
           enddo

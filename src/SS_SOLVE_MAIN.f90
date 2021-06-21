@@ -279,11 +279,11 @@ contains
     Op      = ss_pack_array(ss_Op_ineq,Nineq)
     Zeta    = Op**2
     !
-    fss(1:Niso)           = Dens - (Sz + 0.5d0)
-    fss(Niso+1:2*Niso)    = Zeta - Zeta_prev
+    Fss(1:Niso)           = Dens - (Sz + 0.5d0)
+    Fss(Niso+1:2*Niso)    = Zeta - Zeta_prev
     if(bool)fss(2*Niso+1) = sum(ss_dens) - filling
     !
-    chi2 = dot_product(fss,fss)/size(Fss)
+    chi2 = dot_product(Fss,Fss)/size(Fss)
     !
     call ss_print_screen(TmpZ)
     if(master.AND.verbose>1)then

@@ -63,7 +63,7 @@ MODULE SS_SETUP
   public :: ss_spin_symmetry
 
 
-  integer :: ispin,isite,jsite,iorb,jorb,io,jo,ii,jj
+  integer :: ispin,jspin,isite,jsite,iorb,jorb,io,jo,ii,jj
 
 contains
 
@@ -187,17 +187,19 @@ contains
     integer                                              :: Nsite
     real(8),dimension(Nsite,Nso,Nso)                     :: Ain
     real(8),dimension(Nspin*Nsite*Norb,Nspin*Nsite*Norb) :: Aout
-    do ispin=1,Nspin
-       do isite=1,Nsite
+    do isite=1,Nsite
+       do ispin=1,Nspin
           do iorb=1,Norb
              ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin])
              io = Indices2i([iorb,ispin],[Norb,Nspin])
-             do jorb=1,Norb
-                jj = Indices2i([jorb,isite,ispin],[Norb,Nsite,Nspin])
-                jo = Indices2i([jorb,ispin],[Norb,Nspin])
-                !
-                Aout(ii,jj) = Ain(isite,io,jo)
-                !
+             do jspin=1,Nspin
+                do jorb=1,Norb
+                   jj = Indices2i([jorb,isite,jspin],[Norb,Nsite,Nspin])
+                   jo = Indices2i([jorb,jspin],[Norb,Nspin])
+                   !
+                   Aout(ii,jj) = Ain(isite,io,jo)
+                   !
+                enddo
              enddo
           enddo
        enddo
@@ -207,17 +209,19 @@ contains
     integer                                                 :: Nsite
     complex(8),dimension(Nsite,Nso,Nso)                     :: Ain
     complex(8),dimension(Nspin*Nsite*Norb,Nspin*Nsite*Norb) :: Aout
-    do ispin=1,Nspin
-       do isite=1,Nsite
+    do isite=1,Nsite
+       do ispin=1,Nspin
           do iorb=1,Norb
              ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin])
              io = Indices2i([iorb,ispin],[Norb,Nspin])
-             do jorb=1,Norb
-                jj = Indices2i([jorb,isite,ispin],[Norb,Nsite,Nspin])
-                jo = Indices2i([jorb,ispin],[Norb,Nspin])
-                !
-                Aout(ii,jj) = Ain(isite,io,jo)
-                !
+             do jspin=1,Nspin
+                do jorb=1,Norb
+                   jj = Indices2i([jorb,isite,jspin],[Norb,Nsite,Nspin])
+                   jo = Indices2i([jorb,jspin],[Norb,Nspin])
+                   !
+                   Aout(ii,jj) = Ain(isite,io,jo)
+                   !
+                enddo
              enddo
           enddo
        enddo
@@ -262,17 +266,19 @@ contains
     integer                                              :: Nsite
     real(8),dimension(Nspin*Nsite*Norb,Nspin*Nsite*Norb) :: Ain
     real(8),dimension(Nsite,Nspin*Norb,Nspin*Norb)       :: Aout
-    do ispin=1,Nspin            !always diagonal in the spin:
-       do isite=1,Nsite         !loop over block diagonal: 1-site index only
+    do isite=1,Nsite         !loop over block diagonal: 1-site index only
+       do ispin=1,Nspin
           do iorb=1,Norb
              ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin])
              io = Indices2i([iorb,ispin],[Norb,Nspin])
-             do jorb=1,Norb
-                jj = Indices2i([jorb,isite,ispin],[Norb,Nsite,Nspin])
-                jo = Indices2i([jorb,ispin],[Norb,Nspin])
-                !
-                Aout(isite,io,jo) = Ain(ii,jj)
-                !
+             do jspin=1,Nspin
+                do jorb=1,Norb
+                   jj = Indices2i([jorb,isite,jspin],[Norb,Nsite,Nspin])
+                   jo = Indices2i([jorb,jspin],[Norb,Nspin])
+                   !
+                   Aout(isite,io,jo) = Ain(ii,jj)
+                   !
+                enddo
              enddo
           enddo
        enddo
@@ -282,17 +288,19 @@ contains
     integer                                                 :: Nsite
     complex(8),dimension(Nspin*Nsite*Norb,Nspin*Nsite*Norb) :: Ain
     complex(8),dimension(Nsite,Nspin*Norb,Nspin*Norb)       :: Aout
-    do ispin=1,Nspin            !always diagonal in the spin:
-       do isite=1,Nsite         !loop over block diagonal: 1-site index only
+    do isite=1,Nsite         !loop over block diagonal: 1-site index only
+       do ispin=1,Nspin
           do iorb=1,Norb
              ii = Indices2i([iorb,isite,ispin],[Norb,Nsite,Nspin])
              io = Indices2i([iorb,ispin],[Norb,Nspin])
-             do jorb=1,Norb
-                jj = Indices2i([jorb,isite,ispin],[Norb,Nsite,Nspin])
-                jo = Indices2i([jorb,ispin],[Norb,Nspin])
-                !
-                Aout(isite,io,jo) = Ain(ii,jj)
-                !
+             do jspin=1,Nspin
+                do jorb=1,Norb
+                   jj = Indices2i([jorb,isite,jspin],[Norb,Nsite,Nspin])
+                   jo = Indices2i([jorb,jspin],[Norb,Nspin])
+                   !
+                   Aout(isite,io,jo) = Ain(ii,jj)
+                   !
+                enddo
              enddo
           enddo
        enddo

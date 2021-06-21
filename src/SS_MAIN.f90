@@ -22,7 +22,7 @@ MODULE SS_MAIN
   integer,save :: siter=0
   integer      :: fiter,info
   logical      :: fconverged
-  integer      :: iorb,ispin,ilat,ineq,io,il
+  integer      :: iorb,jorb,ispin,jspin,ilat,ineq,io,il
 
 
 contains
@@ -78,18 +78,24 @@ contains
        do ilat=1,Nlat
           do iorb=1,Norb
              io = ss_indices2i([iorb,ilat,ispin],[Norb,Nlat,Nspin])
-             do jlat=1,Nlat
-                do jorb=1,Norb
-                   jo = ss_indices2i([jorb,jlat,ispin],[Norb,Nlat,Nspin])
-                   if(ilat/=jlat)then
-                      !< get non-local part of the intra-cell terms
-                      ss_Hloc(io,jo) = Htmp(io,jo)
-                   else
-                      !< get local off-diagonal part of the intra-cell terms
-                      if(iorb/=jorb)ss_Hhyb(io,jo) = Htmp(io,jo)
-                   endif
+             !
+             do jspin=1,Nspin
+                do jlat=1,Nlat
+                   do jorb=1,Norb
+                      jo = ss_indices2i([jorb,jlat,jspin],[Norb,Nlat,Nspin])
+                      !
+                      if(ilat/=jlat)then
+                         !< get non-local part of the intra-cell terms
+                         ss_Hloc(io,jo) = Htmp(io,jo)
+                      else
+                         !< get local off-diagonal part of the intra-cell terms
+                         if(io/=jo)ss_Hhyb(io,jo) = Htmp(io,jo)
+                      endif
+                      !
+                   enddo
                 enddo
              enddo
+             !
           enddo
        enddo
     enddo
@@ -136,7 +142,11 @@ contains
     if(check_MPI())master = get_master_MPI()
 #endif
     !
-
+    if(Nspin==2)then
+       write(*,*)"WARNING: Nspin=2 with DOS interface. SOC is not allowed here yet. Ask Developers."
+       call sleep(2)
+    endif
+    !
     ! if(.not.present(UserOrder))then
     UserOrder_ = [character(len=5) :: "Norb","Nspin","Nlat"];
     if(present(UserOrder))UserOrder_ = UserOrder
@@ -162,7 +172,6 @@ contains
     do ie=1,Nk
        Eb = ss_user2ss(Ebands(:,ie),UserOrder_)
        do io=1,Nspin*Nlat*Norb
-          !ss_Hk(:,:,ie)  = one*Eb(io)
           ss_Hk(io,io,ie)  = one*Eb(io)
        end do
        ss_Wtk(:,ie) = ss_user2ss(Dbands(:,ie),UserOrder_)
