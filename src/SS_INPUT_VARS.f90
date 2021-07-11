@@ -132,7 +132,7 @@ contains
     integer          :: irep
     integer          :: loc
     integer          :: nsub
-    character(len=*) ::  s
+    character(len=*) :: s
     integer          :: s_length
     character(len=*) :: sub
     s_length = len ( s )

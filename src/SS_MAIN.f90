@@ -45,7 +45,6 @@ contains
     if(check_MPI())master = get_master_MPI()
 #endif
     !
-    UserOrder_ = [character(len=5) :: "Norb","Nspin","Nlat"];
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Nk = size(hk_user,3)
@@ -62,10 +61,13 @@ contains
     !
 
     !< Init the Hk structures, subtract the local, diagonal part, coupled to the density
-    !< if order of Hk_user is not correct set the SS_order function to actual reorder
-    do ik=1,Nk
-       ss_Hk(:,:,ik) = ss_user2ss(Hk_user(:,:,ik),UserOrder_)
-    end do
+    !< First: if order of Hk_user is not correct set the SS_order function to actual reorder
+    if(present(UserOrder))then
+       write(*,"(A)")"SS Reordering according to provided: UserOrder"
+       do ik=1,Nk
+          ss_Hk(:,:,ik) = ss_user2ss(Hk_user(:,:,ik),UserOrder_)
+       end do
+    endif
     where(abs(ss_Hk)<1d-6)ss_Hk=zero
     ss_Wtk(1,:) = 1d0/Nk
     !
@@ -85,10 +87,12 @@ contains
                       jo = ss_indices2i([jorb,jlat,jspin],[Norb,Nlat,Nspin])
                       !
                       if(ilat/=jlat)then
-                         !< get non-local part of the intra-cell terms
+                         !< get the inter-site part of the local Hamiltonian
                          ss_Hloc(io,jo) = Htmp(io,jo)
                       else
-                         !< get local off-diagonal part of the intra-cell terms
+                         !< get the off-diagonal part local Hamiltonian
+                         !io/=jo:
+                         ![iorb/=jorb,ispin==jspin], [iorb==jorb,ispin/=jspin], [iorb/=jorb,ispin/=jspin]
                          if(io/=jo)ss_Hhyb(io,jo) = Htmp(io,jo)
                       endif
                       !
@@ -147,8 +151,6 @@ contains
        call sleep(2)
     endif
     !
-    ! if(.not.present(UserOrder))then
-    UserOrder_ = [character(len=5) :: "Norb","Nspin","Nlat"];
     if(present(UserOrder))UserOrder_ = UserOrder
     !
     Nk = size(Ebands,2)
@@ -169,12 +171,22 @@ contains
     !< Init local non-interacting part and reorder it
     if(present(Hloc))ss_Hdiag = ss_user2ss(Hloc,UserOrder_)
     !
+    !if required re-order the bands:
+    if(present(UserOrder))write(*,"(A)")"SS warning: reordering according to provided: UserOrder"
     do ie=1,Nk
-       Eb = ss_user2ss(Ebands(:,ie),UserOrder_)
+       if(present(UserOrder))then
+          Eb = ss_user2ss(Ebands(:,ie),UserOrder_)
+       else
+          Eb = Ebands(:,ie)
+       endif
        do io=1,Nspin*Nlat*Norb
           ss_Hk(io,io,ie)  = one*Eb(io)
        end do
-       ss_Wtk(:,ie) = ss_user2ss(Dbands(:,ie),UserOrder_)
+       if(present(UserOrder))then
+          ss_Wtk(:,ie) = ss_user2ss(Dbands(:,ie),UserOrder_)
+       else
+          ss_Wtk(:,ie) = Dbands(:,ie)
+       endif
     end do
     !
     !
