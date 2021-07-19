@@ -134,7 +134,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES GNU) # this is gfortran
   SET(CMAKE_Fortran_MODDIR_FLAG   "-J")
   SET(CMAKE_Fortran_FLAGS         "-cpp -ffree-line-length-none -w ") #  -fallow-argument-mismatch -mcmodel=large  this is to remove the 2Gb limit of virtual memory allocation
   SET(CMAKE_Fortran_FLAGS_TESTING "-O2 -funroll-loops")
-  SET(CMAKE_Fortran_FLAGS_DEBUG   "-O0 -p -g -Wsurprising -Waliasing -fwhole-file -fcheck=all -pedantic -fbacktrace -fbounds-check")
+  SET(CMAKE_Fortran_FLAGS_DEBUG   "-O0 -p -g -Wsurprising -Waliasing -fwhole-file -fcheck=all  -fbacktrace -fbounds-check")
   SET(CMAKE_Fortran_FLAGS_RELEASE "-O3  -funroll-loops")  ##-fno-protect-parens -flto -ffast-math -march=native
   
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
@@ -182,26 +182,36 @@ SET(USER_HOME $ENV{HOME})
 SET(USER $ENV{USER})
 
 STRING(TOLOWER "${CMAKE_Fortran_COMPILER_ID}" FC_ID)
+STRING(TOLOWER "${CMAKE_BUILD_TYPE}" BUILD_TYPE)
 
+#SET PREFIX:
 SET(LIB_PATH  "$ENV{HOME}/opt/${PROJECT_NAME}/${FC_ID}")
-SET(FULL_VER "${FC_ID}")
 IF("${CMAKE_BUILD_TYPE}" MATCHES "DEBUG")
-  STRING(TOLOWER "${CMAKE_BUILD_TYPE}" BUILD_TYPE)
   SET(LIB_PATH  "${LIB_PATH}/${BUILD_TYPE}")
-  SET(FULL_VER  "${FULL_VER}/${BUILD_TYPE}")
 ENDIF()
-
 IF(GIT_REPO)
   IF(NOT GIT_BRANCH MATCHES "master")
     SET(LIB_PATH  "${LIB_PATH}/${GIT_BRANCH}")
+  ENDIF()
+ENDIF()
+SET(FULL_VER  "${FULL_VER}/${VERSION}")
+SET(PREFIX  "${LIB_PATH}/${VERSION}" CACHE PATH "Prefix prepended to install directories")
+SET(CMAKE_INSTALL_PREFIX "${PREFIX}" CACHE INTERNAL "Prefix prepended to install directories")
+
+
+SET(FULL_VER "${FC_ID}")
+IF(NOT PREFIX STREQUAL "${LIB_PATH}/${VERSION}")
+  STRING(REPLACE "/" "_" USER_PREFIX ${PREFIX})
+  SET(FULL_VER  "${FULL_VER}/prefix_${USER_PREFIX}")
+ENDIF()
+IF("${CMAKE_BUILD_TYPE}" MATCHES "DEBUG")
+  SET(FULL_VER  "${FULL_VER}/${BUILD_TYPE}")
+ENDIF()
+IF(GIT_REPO)
+  IF(NOT GIT_BRANCH MATCHES "master")
     SET(FULL_VER  "${FULL_VER}/${GIT_BRANCH}")
   ENDIF()
 ENDIF()
-
-SET(FULL_VER  "${FULL_VER}/${VERSION}")
-SET(PREFIX  "${LIB_PATH}/${VERSION}" CACHE PATH "Prefix prepended to install directories")
-SET(CMAKE_INSTALL_PREFIX "${PREFIX}" CACHE INTERNAL "Prefix prepended to install directories" FORCE)
-
 
 
 # Define some directories
@@ -240,9 +250,12 @@ SET(PERMISSION_777
 FILE(REMOVE_RECURSE ${LIB_TMP_ETC}/modules/)
 SET(TMP_MODULE_NAME "${FULL_VER}" CACHE PATH "Prefix prepended to install directories")
 SET(TMP_ENV_MODULE_FILE ${LIB_TMP_ETC}/modules/${PROJECT_NAME}/${TMP_MODULE_NAME})
-SET(TMP_VER_MODULE_FILE ${LIB_TMP_ETC}/modules/${PROJECT_NAME}/${FC_ID}/.version)
 CONFIGURE_FILE(${LIB_ENV}/module.in ${TMP_ENV_MODULE_FILE} @ONLY)
-CONFIGURE_FILE(${LIB_ENV}/version.in ${TMP_VER_MODULE_FILE} @ONLY)
+
+IF((NOT "${CMAKE_BUILD_TYPE}" MATCHES "DEBUG") AND (NOT GIT_BRANCH MATCHES "master"))
+  SET(TMP_VER_MODULE_FILE ${LIB_TMP_ETC}/modules/${PROJECT_NAME}/${FULL_VER}/.version)
+  CONFIGURE_FILE(${LIB_ENV}/version.in ${TMP_VER_MODULE_FILE} @ONLY)
+ENDIF()
 
 #Build the PKG-CONFIG file
 SET(TMP_PKCONFIG_FILE ${LIB_TMP_ETC}/${PROJECT_NAME}.pc)

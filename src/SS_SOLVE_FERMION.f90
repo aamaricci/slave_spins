@@ -64,6 +64,7 @@ contains
        lambda0 = params(1:Nlso)
        dens    = params(Nlso+1:2*Nlso)
        xmu     = params(2*Nlso+1)
+       deallocate(params)
        !
        ss_Dens    = ss_unpack_array(Dens,Nlat)
        ss_Lambda0 = ss_unpack_array(lambda0,Nlat)
@@ -201,9 +202,8 @@ contains
           write(unit,*)ss_dens(ilat,:)
           close(unit)
        enddo
-       call save_array(trim(Pfile)//"0"//trim(ss_file_suffix)//".ss",[lambda0,dens,xmu])
+       call save_array(trim(Pfile)//"0"//trim(ss_file_suffix)//".ss",[lambda0,Dens,xmu])
     endif
-    !
     !
   contains
     !
@@ -276,10 +276,10 @@ contains
     real(8),dimension(Nlso)         :: const      
     real(8),dimension(Nlso)         :: Op
     real(8),dimension(Nlso)         :: heff
-    real(8),dimension(Nlso,Nlso)    :: jhybr    
+    real(8),dimension(Nlso,Nlso)    :: jhybr
     real(8),dimension(Nlso,Nlso)    :: OdgOp
     !
-    integer                         :: ik,i,j,N
+    integer                         :: ik,i,j,N,io,jo
 #ifdef _MPI
     if(check_MPI())then
        mpi_rank=get_rank_MPI()
@@ -290,11 +290,20 @@ contains
     endif
 #endif
     !
+    ! OdgOp   = 0d0
+    !
     lambda  = ss_pack_array(ss_Lambda,Nlat)
     lambda0 = ss_pack_array(ss_Lambda0,Nlat)
     Op      = ss_pack_array(ss_Op,Nlat)
     OdgOp   = ss_pack_array(ss_OdgOp,Nlat)
     !
+    if(master.AND.verbose>4)then
+       write(*,"(A,100G18.9)")"Op   =",Op
+       write(*,"(A)")"OdgOp="
+       do io=1,Nlso
+          write(*,"(100G15.6)")( OdgOp(io,jo),jo=1,Nlso )
+       enddo
+    endif
     !
     !< Get Rho^{ab} = sum_k \rho^{ab}_k = sum_k <fdg^a_k f^b_k>
     !< Get h^{ab} = sum_k H^{ab}_k*\rho^{ab}_k
@@ -383,6 +392,13 @@ contains
        ss_Jhybr_ineq(ineq,:,:) = ss_Jhybr(ilat,:,:)
     enddo
     !
+    if(master.AND.verbose>3)then
+       do ineq=1,Nineq
+          write(*,"(A,12G18.9)")"C    =",ss_C_ineq(ineq,:)
+          write(*,"(A,12G18.9)")"N    =",ss_Dens_ineq(ineq,:)
+          write(*,"(A,12G18.9)")"Heff =",ss_Heff_ineq(ineq,:)
+       enddo
+    endif
     !
   end subroutine ss_solve_fermions
 

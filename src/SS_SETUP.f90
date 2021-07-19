@@ -63,7 +63,7 @@ MODULE SS_SETUP
   public :: ss_spin_symmetry
 
 
-  integer :: ispin,jspin,isite,jsite,iorb,jorb,io,jo,ii,jj
+  integer :: ispin,jspin,isite,jsite,iorb,jorb,io,jo,ii,jj,ilat,ineq
 
 contains
 
@@ -118,8 +118,8 @@ contains
     ss_lambda = 0d0; ss_lambda_ineq = 0d0
     ss_Sz     = 0d0; ss_Sz_ineq     = 0d0
     !
-    ss_Op     = 1d0; ss_Op_ineq     = 1d0
-    ss_OdgOp  = 0d0; ss_OdgOp_ineq  = 0d0
+    ss_Op     = 1d0; ss_Op_ineq     = 1d0    
+    ss_OdgOp  = 1d0; ss_OdgOp_ineq  = 1d0 !diagonal must be zero
     !
     ss_Heff   = 0d0; ss_Heff_ineq   = 0d0
     ss_Jhybr  = 0d0; ss_Jhybr_ineq  = 0d0
@@ -187,6 +187,7 @@ contains
     integer                                              :: Nsite
     real(8),dimension(Nsite,Nso,Nso)                     :: Ain
     real(8),dimension(Nspin*Nsite*Norb,Nspin*Nsite*Norb) :: Aout
+    Aout=0d0
     do isite=1,Nsite
        do ispin=1,Nspin
           do iorb=1,Norb
@@ -209,6 +210,7 @@ contains
     integer                                                 :: Nsite
     complex(8),dimension(Nsite,Nso,Nso)                     :: Ain
     complex(8),dimension(Nspin*Nsite*Norb,Nspin*Nsite*Norb) :: Aout
+    Aout=zero
     do isite=1,Nsite
        do ispin=1,Nspin
           do iorb=1,Norb

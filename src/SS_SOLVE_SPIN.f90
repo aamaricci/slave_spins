@@ -25,7 +25,7 @@ MODULE SS_SOLVE_SPIN
   real(8),dimension(:,:),allocatable        :: ii_OdgOp
   real(8),dimension(:,:,:),allocatable      :: ii_SzSz  
   !
-  integer                                   :: Ndim
+  integer                                   :: Ndim,Nblock
   integer                                   :: istate,jstate,kstate
   integer                                   :: iorb,jorb,ilat,ispin
   integer                                   :: io,il,jo,jl
@@ -98,7 +98,8 @@ contains
     if(lanc_solve)then
        !< Solve with ARPACK Lanczos
        if(master.AND.verbose>3)call start_timer
-       call sp_eigh(spMatVec_p,ss_Evals,ss_Evecs,Nitermax=1000,iverbose=(verbose>5))
+       Nblock   = min(Ndim,10*lanc_Neigen)
+       call sp_eigh(spMatVec_p,ss_Evals,ss_Evecs,Nblock,Nitermax=1000,iverbose=(verbose>5))
        if(master.AND.verbose>3)call stop_timer("sp_eigh")
        Nstate = lanc_Neigen
     else
@@ -132,6 +133,17 @@ contains
     ss_Op_ineq(ineq,:) = ii_Op(:Nso)
     ss_OdgOp_ineq(ineq,:,:)  = ii_OdgOp(:Nso,:Nso)
     ss_SzSz_ineq(ineq,:,:,:) = ii_SzSz
+    !
+    if(master.AND.verbose>4)then
+       write(*,"(A,12G18.9)")"Sz   =",ss_Sz_ineq(ineq,:)
+       write(*,"(A,12G18.9)")"Op   =",ss_Op_ineq(ineq,:)
+       if(verbose>5)then
+          write(*,"(A)")"OdgOp="
+          do io=1,Nso
+             write(*,"(100G18.9)")(ss_OdgOp_ineq(ineq,io,jo),jo=1,Nso)
+          enddo
+       endif
+    endif
     !
     deallocate(ii_lambda,ii_Heff,ii_c,ii_Jhybr)
     deallocate(ii_Sz,ii_Op,ii_OdgOp,ii_SzSz)

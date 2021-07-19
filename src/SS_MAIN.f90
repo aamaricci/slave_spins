@@ -218,6 +218,7 @@ contains
     logical                          :: IOfile
     real(8),dimension(:),allocatable :: params
     integer                          :: Len
+    print*,"ss_init_params"
     inquire(file=trim(Pfile)//trim(ss_file_suffix)//".restart",exist=IOfile)
     if(IOfile)then
        len = file_length(trim(Pfile)//trim(ss_file_suffix)//".restart")

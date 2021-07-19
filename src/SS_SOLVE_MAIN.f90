@@ -176,7 +176,8 @@ contains
        ineq = ss_ilat2ineq(ilat)
        ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
        ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
-       ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
+       ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)
+       ss_OdgOp(ilat,:,:)  = ss_OdgOp_ineq(ineq,:,:)
     enddo
     !
     !add here the formula updating lambda0
@@ -269,7 +270,8 @@ contains
        ineq = ss_ilat2ineq(ilat)
        ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
        ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
-       ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
+       ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)
+       ss_OdgOp(ilat,:,:)  = ss_OdgOp_ineq(ineq,:,:)
     enddo
     !
     !add here the formula updating lambda0
@@ -367,7 +369,8 @@ contains
        ineq = ss_ilat2ineq(ilat)
        ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
        ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
-       ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
+       ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)
+       ss_OdgOp(ilat,:,:)  = ss_OdgOp_ineq(ineq,:,:)
     enddo
     !
     !add here the formula updating lambda0
@@ -470,7 +473,8 @@ contains
           ineq = ss_ilat2ineq(ilat)
           ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
           ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
-          ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)       
+          ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)
+          ss_OdgOp(ilat,:,:)  = ss_OdgOp_ineq(ineq,:,:)
        enddo
        !
        !add here the formula updating lambda0
