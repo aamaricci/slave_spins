@@ -112,17 +112,17 @@ contains
     allocate(ss_Jhybr(Nlat,Nso,Nso), ss_Jhybr_ineq(Nineq,Nso,Nso))
     !
     allocate( ss_SzSz(Nlat,4,Norb,Norb), ss_SzSz_ineq(Nineq,4,Norb,Norb))
-    ss_c      = 0d0; ss_c_ineq      = 0d0
-    ss_dens   = 0d0; ss_dens_ineq   = 0d0
-    ss_lambda0= 0d0; ss_lambda0_ineq= 0d0
-    ss_lambda = 0d0; ss_lambda_ineq = 0d0
-    ss_Sz     = 0d0; ss_Sz_ineq     = 0d0
+    ss_c      = 0d0 ; ss_c_ineq      = 0d0
+    ss_dens   = 0d0 ; ss_dens_ineq   = 0d0
+    ss_lambda0= 0d0 ; ss_lambda0_ineq= 0d0
+    ss_lambda = 0d0 ; ss_lambda_ineq = 0d0
+    ss_Sz     = 0d0 ; ss_Sz_ineq     = 0d0
     !
-    ss_Op     = 1d0; ss_Op_ineq     = 1d0 
-    ss_OdgOp  = 1d0; ss_OdgOp_ineq  = 1d0 !diagonal must be zero
+    ss_Op     = 1d0 ; ss_Op_ineq     = 1d0 
+    ss_OdgOp  = 1d0 ; ss_OdgOp_ineq  = 1d0 !diagonal must be zero
     !
-    ss_Heff   = 0d0; ss_Heff_ineq   = 0d0
-    ss_Jhybr  = 0d0; ss_Jhybr_ineq  = 0d0
+    ss_Heff   = zero; ss_Heff_ineq  = zero
+    ss_Jhybr  = zero; ss_Jhybr_ineq = zero
     !
     ss_SzSz   = 0d0; ss_SzSz_ineq   = 0d0
     !

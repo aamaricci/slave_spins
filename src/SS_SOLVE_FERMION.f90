@@ -32,14 +32,14 @@ contains
     real(8),dimension(Nlso,Nk)         :: eK,eK_tmp
     complex(8),dimension(Nlso,Nlso,Nk) :: rhoK,rhoK_tmp
     !
-    real(8),dimension(Nlso,Nlso)       :: FdgF,FdgF_tmp
-    real(8),dimension(Nlso,Nlso)       :: Hfk,Hfk_tmp
-    real(8),dimension(Nlso,Nlso)       :: Hfloc
+    complex(8),dimension(Nlso,Nlso)    :: FdgF,FdgF_tmp
+    complex(8),dimension(Nlso,Nlso)    :: Hfk,Hfk_tmp
+    complex(8),dimension(Nlso,Nlso)    :: Hfloc
     !
     real(8),dimension(Nlso)            :: dens
     real(8),dimension(Nlso)            :: lambda0
-    real(8),dimension(Nlso)            :: heff
-    real(8),dimension(Nlso,Nlso)       :: jhybr    
+    complex(8),dimension(Nlso)         :: heff
+    complex(8),dimension(Nlso,Nlso)    :: jhybr    
     !
     real(8)                            :: mu0,Dmin,Dmax
     integer                            :: ik,unit,N
@@ -115,7 +115,6 @@ contains
        FdgF_tmp = 0d0 ; FdgF= 0d0       
        do ik=1+mpi_rank,Nk,mpi_size
           Wtk  = ss_Wtk(1,ik) ; if(is_dos)Wtk = diag(ss_Wtk(:,ik))
-          !< Retrieve diagonalization results:
           Uk_f = rhoK(:,:,ik)             !Rotation matrix
           Ek_f = step_fermi(eK(:,ik)-xmu) !bands> Fermi function
           forall(io=1:Nlso,jo=1:Nlso)&    !build up <f^+f>
@@ -123,7 +122,7 @@ contains
           !< Get Rho
           FdgF_tmp = FdgF_tmp + Rho*Wtk
           !< Get inter-cell contribution to effective/Weiss field
-          Hfk_tmp  = Hfk_tmp + dreal(ss_Hk(:,:,ik)*Rho)*Wtk
+          Hfk_tmp  = Hfk_tmp + (ss_Hk(:,:,ik)*Rho)*Wtk !dreal(ss_Hk(:,:,ik)*Rho)*Wtk
        enddo
        !< MPI reduction where applicable
 #ifdef _MPI
@@ -140,7 +139,7 @@ contains
 #endif
        !
        !< Get occupation n^a = Rho^{aa}
-       dens = diagonal(FdgF)
+       dens = dreal(diagonal(FdgF))
        !
        !< Get intra-cell, non-local contribution to Weiss field h'
        !< h'^{ab} = sum_k H^{ab}_{loc,\mu_i!=\nu_i} \rho^{ab}_k
@@ -149,7 +148,7 @@ contains
        !
        !< sum up Weiss field contributions. 
        !< H^a = \sum_{b} [h^{ab} + h'^{ab}]
-       Heff = 0d0
+       Heff = zero
        do ispin=1,Nspin
           do ilat=1,Nlat
              do iorb=1,Norb
@@ -266,18 +265,18 @@ contains
     complex(8),dimension(Nlso,Nlso) :: Rho
     real(8),dimension(Nlso,Nlso)    :: Wtk
     !
-    real(8),dimension(Nlso,Nlso)    :: FdgF,FdgF_tmp
-    real(8),dimension(Nlso,Nlso)    :: Hfk,Hfk_tmp
-    real(8),dimension(Nlso,Nlso)    :: Hfloc
+    complex(8),dimension(Nlso,Nlso) :: FdgF,FdgF_tmp
+    complex(8),dimension(Nlso,Nlso) :: Hfk,Hfk_tmp
+    complex(8),dimension(Nlso,Nlso) :: Hfloc
     !
     real(8),dimension(Nlso)         :: dens
     real(8),dimension(Nlso)         :: lambda
     real(8),dimension(Nlso)         :: lambda0
     real(8),dimension(Nlso)         :: const      
     real(8),dimension(Nlso)         :: Op
-    real(8),dimension(Nlso)         :: heff
-    real(8),dimension(Nlso,Nlso)    :: jhybr
-    real(8),dimension(Nlso,Nlso)    :: OdgOp
+    complex(8),dimension(Nlso)      :: heff
+    complex(8),dimension(Nlso,Nlso) :: jhybr
+    complex(8),dimension(Nlso,Nlso) :: OdgOp
     !
     integer                         :: ik,i,j,N,io,jo
 #ifdef _MPI
@@ -324,7 +323,7 @@ contains
        !< Get Rho
        FdgF_tmp = FdgF_tmp  + Rho*Wtk
        !< Get inter-cell contribution to effective field
-       Hfk_tmp  = Hfk_tmp   + dreal(ss_Hk(:,:,ik)*Rho*Wtk)
+       Hfk_tmp  = Hfk_tmp   + (ss_Hk(:,:,ik)*Rho*Wtk) !dreal(ss_Hk(:,:,ik)*Rho*Wtk)
     enddo
     !< MPI reduction where applicable
 #ifdef _MPI
@@ -372,16 +371,16 @@ contains
     !< J^ab = sum_k H^{a!=b}_{loc} \rho^{ab}_k
     !       = H^{a!=b}_{loc} Rho^{ab}
     Jhybr = ss_Hhyb*FdgF
-    !>>DEBUG
-    print*,"Hhyb:"
-    do io=1,Nlso
-       write(*,"(100G10.2)")( ss_Hhyb(io,jo),jo=1,Nlso )
-    enddo
-    print*,"FdgF:"
-    do io=1,Nlso
-       write(*,"(100G10.2)")( FdgF(io,jo),jo=1,Nlso )
-    enddo
-    !<<DEBUG
+    ! !>>DEBUG
+    ! print*,"Hhyb:"
+    ! do io=1,Nlso
+    !    write(*,"(100G11.2)")( ss_Hhyb(io,jo),jo=1,Nlso )
+    ! enddo
+    ! print*,"FdgF:"
+    ! do io=1,Nlso
+    !    write(*,"(100G11.2)")( FdgF(io,jo),jo=1,Nlso )
+    ! enddo
+    ! !<<DEBUG
     !
     !
     !< Get C = (n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
@@ -405,11 +404,12 @@ contains
           write(*,"(A,12G18.9)")"C    =",ss_C_ineq(ineq,:)
           write(*,"(A,12G18.9)")"N    =",ss_Dens_ineq(ineq,:)
           write(*,"(A,12G18.9)")"Heff =",ss_Heff_ineq(ineq,:)
-          write(*,"(A)")"Jhyb ="
-          do io=1,Nso
-             write(*,"(100G11.4)")( ss_Jhybr_ineq(ineq,io,jo),jo=1,Nso )
-          enddo
-
+          if(verbose>4)then
+             write(*,"(A)")"Jhyb ="
+             do io=1,Nso
+                write(*,"(100G11.2)")( ss_Jhybr_ineq(ineq,io,jo),jo=1,Nso )
+             enddo
+          endif
        enddo
     endif
     !

@@ -7,9 +7,9 @@ MODULE SS_SPARSE_MATRIX  !THIS VERSION CONTAINS ONLY DBLE ELEMENT: (SYMMETRIC MA
 
 
   type sparse_row_csr
-     integer                                   :: size !actual 
-     real(8),dimension(:),allocatable          :: vals
-     integer,dimension(:),allocatable          :: cols
+     integer                             :: size !actual 
+     complex(8),dimension(:),allocatable :: vals
+     integer,dimension(:),allocatable    :: cols
   end type sparse_row_csr
 
   type sparse_matrix_csr
@@ -37,14 +37,15 @@ MODULE SS_SPARSE_MATRIX  !THIS VERSION CONTAINS ONLY DBLE ELEMENT: (SYMMETRIC MA
   !INSERT ELEMENTS
   interface sp_insert_element
      module procedure :: sp_insert_element_csr_d
-     ! module procedure :: sp_insert_element_csr_c
+     module procedure :: sp_insert_element_csr_z
   end interface sp_insert_element
 
 
 
   !DUMP SPARSE MATRIX INTO STANDARD MATRIX
   interface sp_dump_matrix
-     module procedure :: sp_dump_matrix_csr
+     module procedure :: sp_dump_matrix_csr_d
+     module procedure :: sp_dump_matrix_csr_z
   end interface sp_dump_matrix
 
 
@@ -70,7 +71,7 @@ MODULE SS_SPARSE_MATRIX  !THIS VERSION CONTAINS ONLY DBLE ELEMENT: (SYMMETRIC MA
 
   interface add_to
      module procedure :: add_to_I
-     module procedure :: add_to_D
+     module procedure :: add_to_D,add_to_DZ
      module procedure :: add_to_Z
   end interface add_to
 
@@ -180,7 +181,36 @@ contains
     if(row%Size > sparse%Ncol)stop "sp_insert_element_csr ERROR: row%Size > sparse%Ncol"
     !
   end subroutine sp_insert_element_csr_d
-
+  !
+  subroutine sp_insert_element_csr_z(sparse,value,i,j)
+    type(sparse_matrix_csr),intent(inout) :: sparse
+    complex(8),intent(in)                 :: value
+    integer,intent(in)                    :: i,j
+    type(sparse_row_csr),pointer          :: row
+    integer                               :: column,pos
+    logical                               :: iadd
+    !
+    column = j
+    !
+    row => sparse%row(i)
+    !
+    iadd = .false.                          !check if column already exist
+    if(any(row%cols == column))then         !
+       pos = binary_search(row%cols,column) !find the position  column in %cols        
+       iadd=.true.                          !set Iadd to true
+    endif
+    !
+    if(iadd)then                            !this column exists so just sum it up       
+       row%vals(pos)=row%vals(pos) + value  !add up value to the current one in %vals
+    else                                    !this column is new. increase counter and store it 
+       call add_to(row%vals,value)
+       call add_to(row%cols,column)
+       row%Size = row%Size + 1
+    endif
+    !
+    if(row%Size > sparse%Ncol)stop "sp_insert_element_csr ERROR: row%Size > sparse%Ncol"
+    !
+  end subroutine sp_insert_element_csr_z
 
 
 
@@ -196,9 +226,27 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE: dump a sparse matrix into a regular 2dim array
   !+------------------------------------------------------------------+
-  subroutine sp_dump_matrix_csr(sparse,matrix)
-    type(sparse_matrix_csr),intent(in)      :: sparse
+  subroutine sp_dump_matrix_csr_d(sparse,matrix)
+    type(sparse_matrix_csr),intent(in)   :: sparse
     real(8),dimension(:,:),intent(inout) :: matrix
+    integer                              :: i,j,Ndim1,Ndim2
+    !
+    Ndim1=size(matrix,1)
+    Ndim2=size(matrix,2)
+    !
+    if(sparse%Nrow/=Ndim1 .OR. sparse%Ncol/=Ndim2)stop "Warning SPARSE/dump_matrix: dimensions error"
+    !
+    do i=1,Ndim1
+       do j=1,sparse%row(i)%Size
+          matrix(i,sparse%row(i)%cols(j)) = &
+               matrix(i,sparse%row(i)%cols(j)) + sparse%row(i)%vals(j)
+       enddo
+    enddo
+  end subroutine sp_dump_matrix_csr_d
+  !
+  subroutine sp_dump_matrix_csr_z(sparse,matrix)
+    type(sparse_matrix_csr),intent(in)      :: sparse
+    complex(8),dimension(:,:),intent(inout) :: matrix
     integer                                 :: i,j,Ndim1,Ndim2
     !
     Ndim1=size(matrix,1)
@@ -212,8 +260,7 @@ contains
                matrix(i,sparse%row(i)%cols(j)) + sparse%row(i)%vals(j)
        enddo
     enddo
-  end subroutine sp_dump_matrix_csr
-
+  end subroutine sp_dump_matrix_csr_z
 
 
 
@@ -312,6 +359,29 @@ contains
     !
     if(allocated(tmp))deallocate(tmp)
   end subroutine add_to_D
+
+  subroutine add_to_DZ(vec,val)
+    complex(8),dimension(:),allocatable,intent(inout) :: vec
+    real(8),intent(in)                                :: val  
+    complex(8),dimension(:),allocatable               :: tmp
+    integer                                           :: n
+    !
+    if (allocated(vec)) then
+       n = size(vec)
+       allocate(tmp(n+1))
+       tmp(:n) = vec
+       call move_alloc(tmp,vec)
+       n = n + 1
+    else
+       n = 1
+       allocate(vec(n))
+    end if
+    !
+    !Put val as last entry:
+    vec(n) = dcmplx(val,0d0)
+    !
+    if(allocated(tmp))deallocate(tmp)
+  end subroutine add_to_DZ
 
   subroutine add_to_Z(vec,val)
     complex(8),dimension(:),allocatable,intent(inout) :: vec

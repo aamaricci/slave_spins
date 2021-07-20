@@ -33,9 +33,9 @@ MODULE SS_VARS_GLOBAL
   real(8),dimension(:,:),allocatable      :: ss_lambda ,ss_lambda_ineq  !..
   real(8),dimension(:,:),allocatable      :: ss_Sz     ,ss_Sz_ineq      !..
   real(8),dimension(:,:),allocatable      :: ss_Op     ,ss_Op_ineq      !..
-  real(8),dimension(:,:),allocatable      :: ss_Heff   ,ss_Heff_ineq    !..
+  complex(8),dimension(:,:),allocatable   :: ss_Heff   ,ss_Heff_ineq    !..
   real(8),dimension(:,:,:),allocatable    :: ss_OdgOp  ,ss_OdgOp_ineq   ![Nlat,Nso,Nso]
-  real(8),dimension(:,:,:),allocatable    :: ss_Jhybr  ,ss_Jhybr_ineq   ![Nlat,Nso,Nso]
+  complex(8),dimension(:,:,:),allocatable :: ss_Jhybr  ,ss_Jhybr_ineq   ![Nlat,Nso,Nso]
   real(8),dimension(:,:,:,:),allocatable  :: ss_SzSz   ,ss_SzSz_ineq    ![Nlat,4,Nso,Nso]
   !
   integer,dimension(:),allocatable        :: ss_ilat2ineq

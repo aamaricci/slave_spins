@@ -11,26 +11,26 @@ MODULE SS_SOLVE_SPIN
   public :: ss_solve_spins
 
 
-  real(8),allocatable,dimension(:,:),target :: ss_Evecs
-  real(8),allocatable,dimension(:)          :: ss_Evals
-  integer                                   :: ss_Ndegen
+  complex(8),allocatable,dimension(:,:),target :: ss_Evecs
+  real(8),allocatable,dimension(:)             :: ss_Evals
+  integer                                      :: ss_Ndegen
   !
   !< site-resolved quantities, local to this module
-  real(8),dimension(:),allocatable          :: ii_lambda
-  real(8),dimension(:),allocatable          :: ii_c
-  real(8),dimension(:),allocatable          :: ii_Sz
-  real(8),dimension(:),allocatable          :: ii_Op
-  real(8),dimension(:),allocatable          :: ii_Heff
-  real(8),dimension(:,:),allocatable        :: ii_Jhybr
-  real(8),dimension(:,:),allocatable        :: ii_OdgOp
-  real(8),dimension(:,:,:),allocatable      :: ii_SzSz  
+  real(8),dimension(:),allocatable             :: ii_lambda
+  real(8),dimension(:),allocatable             :: ii_c
+  real(8),dimension(:),allocatable             :: ii_Sz
+  real(8),dimension(:),allocatable             :: ii_Op
+  complex(8),dimension(:),allocatable          :: ii_Heff
+  complex(8),dimension(:,:),allocatable        :: ii_Jhybr
+  complex(8),dimension(:,:),allocatable        :: ii_OdgOp
+  real(8),dimension(:,:,:),allocatable         :: ii_SzSz  
   !
-  integer                                   :: Ndim,Nblock
-  integer                                   :: istate,jstate,kstate
-  integer                                   :: iorb,jorb,ilat,ispin
-  integer                                   :: io,il,jo,jl
+  integer                                      :: Ndim,Nblock
+  integer                                      :: istate,jstate,kstate
+  integer                                      :: iorb,jorb,ilat,ispin
+  integer                                      :: io,il,jo,jl
 
-  type(sparse_matrix_csr)                   :: spHs
+  type(sparse_matrix_csr)                      :: spHs
 
 
 
@@ -39,10 +39,11 @@ contains
 
 
   subroutine ss_solve_spins(ineq)
-    integer                    :: ineq,ilat
-    integer                    :: Nstate
-    real(8),dimension(Nso)     :: Lambda,Heff,Const
-    real(8),dimension(Nso,Nso) :: Jhybr
+    integer                       :: ineq,ilat
+    integer                       :: Nstate
+    real(8),dimension(Nso)        :: Lambda,Const
+    complex(8),dimension(Nso)     :: Heff
+    complex(8),dimension(Nso,Nso) :: Jhybr
     !
     Ndim = 2**Nss
     !
@@ -54,7 +55,7 @@ contains
        allocate(Ss_Evecs(Ndim,Ndim))
     endif
     !
-    ss_Evecs=0d0
+    ss_Evecs=zero
     ss_Evals=0d0
     !
     !< get the ilat-th index corresponding to this ineq-site
@@ -71,18 +72,18 @@ contains
     allocate(ii_SzSz(4,Norb,Norb))
     !
     Lambda = ss_Lambda(ilat,:)
-    Heff   = ss_Heff(ilat,:)
     Const  = ss_C(ilat,:)
+    Heff   = ss_Heff(ilat,:)
     Jhybr  = ss_Jhybr(ilat,:,:)
     if(Nspin==1)then
        ii_Lambda = [Lambda,Lambda]
-       ii_Heff   = [Heff,Heff]
        ii_C      = [Const,Const]
-       ii_Jhybr  = kron(pauli_0,one*Jhybr)
+       ii_Heff   = [Heff,Heff]
+       ii_Jhybr  = kron(pauli_0,Jhybr)
     else
        ii_Lambda = Lambda
-       ii_Heff   = Heff
        ii_C      = Const
+       ii_Heff   = Heff
        ii_Jhybr  = Jhybr
     endif
     !
@@ -140,7 +141,7 @@ contains
        if(verbose>5)then
           write(*,"(A)")"OdgOp="
           do io=1,Nso
-             write(*,"(100G18.9)")(ss_OdgOp_ineq(ineq,io,jo),jo=1,Nso)
+             write(*,"(100G11.2)")(ss_OdgOp_ineq(ineq,io,jo),jo=1,Nso)
           enddo
        endif
     endif
@@ -157,7 +158,7 @@ contains
   subroutine ss_build_Hs()
     real(8),dimension(Nss)    :: Sz
     real(8),dimension(2,Norb) :: tSz
-    real(8)                   :: htmp
+    complex(8)                :: htmp
     !
     do istate=1,Ndim
        Sz = Bdecomp(istate,Nss) - 0.5d0
@@ -168,7 +169,7 @@ contains
        enddo
        !
        !Diagonal elements
-       htmp = 0d0
+       htmp = zero
        !
        !< sum_{m,s}lambda_{m,s}*(Sz_{m,s}+1/2)
        htmp = htmp + sum(ii_lambda*(Sz+0.5d0))
@@ -222,10 +223,10 @@ contains
 
 
   subroutine ss_Spin_observables()
-    integer                      :: Idegen
-    real(8),dimension(Nss)       :: Sz
-    real(8)                      :: htmp
-    real(8),dimension(:),pointer :: gs_vec
+    integer                         :: Idegen
+    real(8),dimension(Nss)          :: Sz
+    real(8)                         :: htmp
+    complex(8),dimension(:),pointer :: gs_vec
     !
     ii_Sz=0d0
     ii_Op=0d0
@@ -237,7 +238,7 @@ contains
           Sz = Bdecomp(Istate,Nss) - 0.5d0
           !
           !<Sz>
-          ii_Sz = ii_Sz + Sz*gs_vec(istate)**2/zeta_function
+          ii_Sz = ii_Sz + Sz*abs(gs_vec(istate))**2/zeta_function
           !
           !<O_m> =  c_m <S^+_m> + <S^-_m>
           !c_m <S^+_m>
@@ -245,14 +246,14 @@ contains
              if(.not.test_Sminus(io,Istate))cycle
              call Sminus(io,Istate,Jstate)
              htmp = 1d0
-             ii_Op(io) = ii_Op(io) + htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
+             ii_Op(io) = ii_Op(io) + htmp*conjg(gs_vec(Jstate))*gs_vec(Istate)/zeta_function
           enddo
           !<S^-_m>
           do io=1,Nss
              if(.not.test_Splus(io,Istate))cycle
              call Splus(io,Istate,Jstate)
              htmp = ii_c(io)
-             ii_Op(io) = ii_Op(io) + htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
+             ii_Op(io) = ii_Op(io) + htmp*conjg(gs_vec(Jstate))*gs_vec(Istate)/zeta_function
           enddo
           !
           !
@@ -272,7 +273,7 @@ contains
                    call Splus(jo,Kstate,Jstate)
                    htmp = ii_c(io)*ii_c(jo)*ii_Jhybr(io,jo)
                    ii_OdgOp(io,jo) = ii_OdgOp(io,jo) + &
-                        htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
+                        htmp*conjg(gs_vec(Jstate))*gs_vec(Istate)/zeta_function
                 enddo
              enddo
              !
@@ -285,7 +286,7 @@ contains
                    call Sminus(jo,Kstate,Jstate)
                    htmp = ii_c(io)*ii_Jhybr(io,jo)
                    ii_OdgOp(io,jo) = ii_OdgOp(io,jo) + &
-                        htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
+                        htmp*conjg(gs_vec(Jstate))*gs_vec(Istate)/zeta_function
                 enddo
              enddo
              !
@@ -298,7 +299,7 @@ contains
                    call Splus(jo,Kstate,Jstate)
                    htmp = ii_c(jo)*ii_Jhybr(io,jo)
                    ii_OdgOp(io,jo) = ii_OdgOp(io,jo) + &
-                        htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
+                        htmp*conjg(gs_vec(Jstate))*gs_vec(Istate)/zeta_function
                 enddo
              enddo
              !
@@ -311,7 +312,7 @@ contains
                    call Sminus(jo,Kstate,Jstate)
                    htmp = ii_Jhybr(io,jo)
                    ii_OdgOp(io,jo) = ii_OdgOp(io,jo) + &
-                        htmp*gs_vec(Istate)*gs_vec(Jstate)/zeta_function
+                        htmp*conjg(gs_vec(Jstate))*gs_vec(Istate)/zeta_function
                 enddo
              enddo
           endif
@@ -324,10 +325,10 @@ contains
 
 
   subroutine ss_SpinSpin_Correlations()
-    integer                      :: Idegen
-    real(8),dimension(Nss)       :: Sz
-    real(8),dimension(:),pointer :: gs_vec
-    real(8),dimension(Nss,Nss)   :: avSzSz
+    integer                         :: Idegen
+    real(8),dimension(Nss)          :: Sz
+    complex(8),dimension(:),pointer :: gs_vec
+    real(8),dimension(Nss,Nss)      :: avSzSz
     !
     if(.not.allocated(ss_Evecs))stop "SS_SPIN_CORR Error: ss_Evecs not allocated"
     !
@@ -336,7 +337,7 @@ contains
        gs_vec => Ss_Evecs(:,Idegen)
        do istate=1,Ndim
           Sz = Bdecomp(Istate,Nss) - 0.5d0
-          avSzSz = avSzSz + outerprod(Sz,Sz)*gs_vec(istate)**2/zeta_function
+          avSzSz = avSzSz + outerprod(Sz,Sz)*abs(gs_vec(istate))**2/zeta_function
        enddo
     enddo
     !
@@ -369,10 +370,10 @@ contains
   !##################################################################
   !##################################################################
   subroutine spMatVec_p(Nloc,v,Hv)
-    integer                         :: Nloc
-    real(8),dimension(Nloc)      :: v
-    real(8),dimension(Nloc)      :: Hv
-    integer                         :: i,j
+    integer                    :: Nloc
+    complex(8),dimension(Nloc) :: v
+    complex(8),dimension(Nloc) :: Hv
+    integer                    :: i,j
     Hv=zero
     do i=1,Nloc
        matmul: do j=1,spHs%row(i)%Size
