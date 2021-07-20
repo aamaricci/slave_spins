@@ -59,9 +59,9 @@ contains
     select case(solve_method)
     case ("fsolve")
        if(filling==0d0)then
-          call fsolve(ss_solve_full,params,tol=solve_tolerance)
+          call fsolve(ss_solve_full,params,tol=solve_tolerance,check=(verbose>3))
        else
-          call fsolve(ss_solve_full,params1,tol=solve_tolerance)
+          call fsolve(ss_solve_full,params1,tol=solve_tolerance,check=(verbose>3))
        end if
        !
     case ("broyden")
@@ -95,9 +95,9 @@ contains
        !
     case ("gg_fsolve")
        if(filling==0d0)then
-          call fsolve(ss_solve_gg,apar,tol=solve_tolerance)
+          call fsolve(ss_solve_gg,apar,tol=solve_tolerance,check=(verbose>3))
        else
-          call fsolve(ss_solve_gg,apar1,tol=solve_tolerance)
+          call fsolve(ss_solve_gg,apar1,tol=solve_tolerance,check=(verbose>3))
        endif
        !
     case default
@@ -109,7 +109,11 @@ contains
     !
     !< store parameters:
     if(master)call save_array(trim(Pfile)//trim(ss_file_suffix)//".restart",&
-         [ss_pack_array(ss_lambda,Nlat), ss_pack_array(ss_Op,Nlat), xmu])
+         [&
+         ss_pack_array(ss_lambda,Nlat), &
+         ss_pack_array(ss_Op,Nlat),     &
+         pack(ss_pack_array(ss_OdgOp,Nlat),.true.),& !this creates a 2d array, packed into a 1d
+         xmu])
     !
     call ss_write_last()
     !
@@ -177,7 +181,7 @@ contains
        ss_Sz(ilat,:)       = ss_Sz_ineq(ineq,:)
        ss_Op(ilat,:)       = ss_Op_ineq(ineq,:)
        ss_SzSz(ilat,:,:,:) = ss_SzSz_ineq(ineq,:,:,:)
-       ss_OdgOp(ilat,:,:)  = ss_OdgOp_ineq(ineq,:,:)
+       ss_OdgOp(ilat,:,:)  = 1d0!ss_OdgOp_ineq(ineq,:,:)
     enddo
     !
     !add here the formula updating lambda0

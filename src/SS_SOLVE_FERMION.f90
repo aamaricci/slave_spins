@@ -290,18 +290,16 @@ contains
     endif
 #endif
     !
-    ! OdgOp   = 0d0
-    !
     lambda  = ss_pack_array(ss_Lambda,Nlat)
     lambda0 = ss_pack_array(ss_Lambda0,Nlat)
     Op      = ss_pack_array(ss_Op,Nlat)
     OdgOp   = ss_pack_array(ss_OdgOp,Nlat)
     !
-    if(master.AND.verbose>4)then
+    if(master.AND.verbose>5)then
        write(*,"(A,100G18.9)")"Op   =",Op
        write(*,"(A)")"OdgOp="
        do io=1,Nlso
-          write(*,"(100G15.6)")( OdgOp(io,jo),jo=1,Nlso )
+          write(*,"(100G11.4)")( OdgOp(io,jo),jo=1,Nlso )
        enddo
     endif
     !
@@ -374,6 +372,16 @@ contains
     !< J^ab = sum_k H^{a!=b}_{loc} \rho^{ab}_k
     !       = H^{a!=b}_{loc} Rho^{ab}
     Jhybr = ss_Hhyb*FdgF
+    !>>DEBUG
+    print*,"Hhyb:"
+    do io=1,Nlso
+       write(*,"(100G10.2)")( ss_Hhyb(io,jo),jo=1,Nlso )
+    enddo
+    print*,"FdgF:"
+    do io=1,Nlso
+       write(*,"(100G10.2)")( FdgF(io,jo),jo=1,Nlso )
+    enddo
+    !<<DEBUG
     !
     !
     !< Get C = (n_{l,s}*(1-n_{l,s}))**{-1/2} - 1, at half-filling C=1
@@ -397,6 +405,11 @@ contains
           write(*,"(A,12G18.9)")"C    =",ss_C_ineq(ineq,:)
           write(*,"(A,12G18.9)")"N    =",ss_Dens_ineq(ineq,:)
           write(*,"(A,12G18.9)")"Heff =",ss_Heff_ineq(ineq,:)
+          write(*,"(A)")"Jhyb ="
+          do io=1,Nso
+             write(*,"(100G11.4)")( ss_Jhybr_ineq(ineq,io,jo),jo=1,Nso )
+          enddo
+
        enddo
     endif
     !

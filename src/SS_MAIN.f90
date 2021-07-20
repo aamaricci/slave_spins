@@ -115,8 +115,15 @@ contains
     if(master.AND.verbose>2)then
        do ineq=1,Nineq
           ilat = ss_ineq2ilat(ineq)
+          write(*,"(A7)")"Site: "//str(ilat)
           write(*,"(A7,12G18.9)")"Lam   =",ss_lambda(ilat,:)
           write(*,"(A7,12G18.9)")"Op    =",ss_Op(ilat,:)
+          if(verbose>3)then
+             write(*,"(A7)")"OdgOp ="
+             do io=1,Nso
+                write(*,"(200G12.5)")(ss_OdgOp(ilat,io,jo),jo=1,Nso)
+             enddo
+          endif
        enddo
        write(*,"(A7,12G18.9)")"mu    =",xmu
        write(*,*)" "
@@ -215,22 +222,34 @@ contains
 
 
   subroutine ss_init_params()
-    logical                          :: IOfile
-    real(8),dimension(:),allocatable :: params
-    integer                          :: Len
-    print*,"ss_init_params"
+    logical                                            :: IOfile
+    real(8),dimension(:),allocatable                   :: params
+    integer                                            :: len,len_params
+    real(8),dimension(Nspin*Norb*Nlat)                 :: Lambda,Op
+    real(8),dimension(Nspin*Norb*Nlat,Nspin*Norb*Nlat) :: OdgOp
     inquire(file=trim(Pfile)//trim(ss_file_suffix)//".restart",exist=IOfile)
     if(IOfile)then
+       len_params = Nlso*(Nlso+2)
        len = file_length(trim(Pfile)//trim(ss_file_suffix)//".restart")
-       if( (len/=2*Nlso) .AND. (len/=2*Nlso+1) )stop "SS_INIT_PARAMS ERROR: len!=2*Nso OR 2*Nso+1"
+       if( (len/=1+len_params) )stop "SS_INIT_PARAMS ERROR: len!=1+Nlso*(Nlso+2)"
        allocate(params(len))
+       !
        call read_array(trim(Pfile)//trim(ss_file_suffix)//".restart",params)
-       ss_lambda = ss_unpack_array(params(1:Nlso),Nlat)
-       ss_op     = ss_unpack_array(params(Nlso+1:2*Nlso),Nlat)
-       if(size(params)==2*Nlso+1)xmu=params(2*Nlso+1)
+       Lambda = params(1:Nlso)
+       Op     = params(Nlso+1:2*Nlso)
+       OdgOp  = unpack(params(2*Nlso+1:len-1),&
+            reshape(spread(.true.,1,size(OdgOp)),shape(OdgOp)),& !creates an mask of T with shape OdgOp
+            OdgOp)
+       !
+       ss_lambda = ss_unpack_array(Lambda,Nlat)
+       ss_Op     = ss_unpack_array(Op,Nlat)
+       ss_OdgOp  = ss_unpack_array(OdgOp,Nlat)
+       if(filling/=0d0)&
+            xmu  = params(len)  !set mu only if filling!=0, ignore it otherwise
     else
        ss_lambda =  ss_lambda0
        ss_Op     =  1d0
+       ss_OdgOp  =  1d0
     endif
   end subroutine ss_init_params
 

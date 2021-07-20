@@ -118,7 +118,7 @@ contains
     ss_lambda = 0d0; ss_lambda_ineq = 0d0
     ss_Sz     = 0d0; ss_Sz_ineq     = 0d0
     !
-    ss_Op     = 1d0; ss_Op_ineq     = 1d0    
+    ss_Op     = 1d0; ss_Op_ineq     = 1d0 
     ss_OdgOp  = 1d0; ss_OdgOp_ineq  = 1d0 !diagonal must be zero
     !
     ss_Heff   = 0d0; ss_Heff_ineq   = 0d0

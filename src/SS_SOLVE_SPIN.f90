@@ -256,7 +256,7 @@ contains
           enddo
           !
           !
-          if(product(ii_Jhybr)==0d0)then
+          if(any(ii_Jhybr/=0d0))then
              !<O^+ O> = J_ij <[c*_i S^-_i + S^+_i] [c_j S^+_j + S^-_j]>
              !        = J_ij [c*_i.c_j <S^-_i.S^+_j>  + &
              !                 c*_i    <S^-_i.S^-_j>  + &
